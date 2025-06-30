@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2015",
+    "outDir": "./dist/preview",
+    "lib": ["ES2015", "DOM"],
+    "jsx": "react",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": false,
+    "sourceMap": false,
+    "removeComments": true
+  },
+  "include": [
+    "./src/CSSGrid.editorPreview.tsx",
+    "./src/CSSGrid.editorConfig.ts",
+    "./src/utils/**/*",
+    "./src/components/GridPreviewItem.tsx"
+  ],
+  "exclude": [
+    "./src/CSSGrid.tsx",
+    "./src/CSSGrid.preview.tsx"
+  ]
+}

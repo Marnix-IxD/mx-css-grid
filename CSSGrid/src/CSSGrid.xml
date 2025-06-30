@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget id="theorangeforce.cssgrid.CSSGrid" pluginWidget="true" needsEntityContext="true" offlineCapable="true"
+        supportedPlatform="Web"
+        xmlns="http://www.mendix.com/widget/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.mendix.com/widget/1.0/ ../node_modules/mendix/custom_widget.xsd">
+    <name>CSS Grid</name>
+    <description>A powerful CSS Grid implementation for creating complex, responsive layouts</description>
+    <icon/>
+    <properties>
+        <!-- Grid Template Properties -->
+        <property key="gridTemplateColumns" type="string" required="false" defaultValue="1fr 1fr">
+            <caption>Grid Template Columns</caption>
+            <category>Grid Template</category>
+            <description>Defines the columns of the grid (e.g., "1fr 2fr 1fr" or "repeat(3, 1fr)")</description>
+        </property>
+        <property key="gridTemplateRows" type="string" required="false" defaultValue="auto">
+            <caption>Grid Template Rows</caption>
+            <category>Grid Template</category>
+            <description>Defines the rows of the grid (e.g., "auto 1fr auto")</description>
+        </property>
+        <property key="gridTemplateAreas" type="string" required="false" multiline="true">
+            <caption>Grid Template Areas</caption>
+            <category>Grid Template</category>
+            <description>Defines named grid areas (each line in quotes, e.g., "header header" "sidebar content")</description>
+        </property>
+
+        <!-- Gap Properties -->
+        <property key="gap" type="string" required="false">
+            <caption>Gap</caption>
+            <category>Spacing</category>
+            <description>Sets both row and column gaps (e.g., "16px" or "1rem")</description>
+        </property>
+        <property key="rowGap" type="string" required="false">
+            <caption>Row Gap</caption>
+            <category>Spacing</category>
+            <description>Sets the gap between rows (overrides gap property for rows)</description>
+        </property>
+        <property key="columnGap" type="string" required="false">
+            <caption>Column Gap</caption>
+            <category>Spacing</category>
+            <description>Sets the gap between columns (overrides gap property for columns)</description>
+        </property>
+
+        <!-- Alignment Properties -->
+        <property key="justifyItems" type="enumeration" defaultValue="stretch">
+            <caption>Justify Items</caption>
+            <category>Alignment</category>
+            <description>Aligns grid items along the row axis</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="alignItems" type="enumeration" defaultValue="stretch">
+            <caption>Align Items</caption>
+            <category>Alignment</category>
+            <description>Aligns grid items along the column axis</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="justifyContent" type="enumeration" defaultValue="start">
+            <caption>Justify Content</caption>
+            <category>Alignment</category>
+            <description>Aligns the grid along the row axis</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="alignContent" type="enumeration" defaultValue="start">
+            <caption>Align Content</caption>
+            <category>Alignment</category>
+            <description>Aligns the grid along the column axis</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+
+        <!-- Auto Properties -->
+        <property key="autoRows" type="string" required="false" defaultValue="auto">
+            <caption>Auto Rows</caption>
+            <category>Auto Grid</category>
+            <description>Sets the size of implicitly-created rows</description>
+        </property>
+        <property key="autoColumns" type="string" required="false" defaultValue="auto">
+            <caption>Auto Columns</caption>
+            <category>Auto Grid</category>
+            <description>Sets the size of implicitly-created columns</description>
+        </property>
+        <property key="autoFlow" type="enumeration" defaultValue="row">
+            <caption>Auto Flow</caption>
+            <category>Auto Grid</category>
+            <description>Controls how auto-placed items flow in the grid</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+
+        <!-- Size Constraints -->
+        <property key="minWidth" type="string" required="false">
+            <caption>Min Width</caption>
+            <category>Size Constraints</category>
+            <description>Minimum width of the grid container</description>
+        </property>
+        <property key="maxWidth" type="string" required="false">
+            <caption>Max Width</caption>
+            <category>Size Constraints</category>
+            <description>Maximum width of the grid container</description>
+        </property>
+        <property key="minHeight" type="string" required="false">
+            <caption>Min Height</caption>
+            <category>Size Constraints</category>
+            <description>Minimum height of the grid container</description>
+        </property>
+        <property key="maxHeight" type="string" required="false">
+            <caption>Max Height</caption>
+            <category>Size Constraints</category>
+            <description>Maximum height of the grid container</description>
+        </property>
+
+        <!-- Named Areas Toggle -->
+        <property key="useNamedAreas" type="boolean" defaultValue="false">
+            <caption>Use Named Areas</caption>
+            <category>Configuration</category>
+            <description>Enable to use grid-area instead of grid-column/row for item placement</description>
+        </property>
+
+        <!-- Grid Items -->
+        <property key="items" type="object" isList="true" required="true">
+            <caption>Grid Items</caption>
+            <category>Content</category>
+            <description>Items to place in the grid</description>
+            <properties>
+                <property key="itemName" type="string" required="false">
+                    <caption>Item Name</caption>
+                    <category>Item Content</category>
+                    <description>A descriptive name for this grid item (shown in preview)</description>
+                </property>
+                <property key="content" type="widgets" required="true">
+                    <caption>Content</caption>
+                    <category>Item Content</category>
+                    <description>Widget(s) to place in this grid cell</description>
+                </property>
+                <property key="placementType" type="enumeration" defaultValue="auto">
+                    <caption>Placement Type</caption>
+                    <category>Item Placement</category>
+                    <description>How to place this item in the grid</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="gridArea" type="string" required="false">
+                    <caption>Grid Area</caption>
+                    <category>Item Placement</category>
+                    <description>Named area (when placement type is "Named Area")</description>
+                </property>
+                <property key="columnStart" type="string" required="false" defaultValue="auto">
+                    <caption>Column Start</caption>
+                    <category>Item Placement</category>
+                    <description>Starting column line (when using coordinates or span)</description>
+                </property>
+                <property key="columnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>Column End</caption>
+                    <category>Item Placement</category>
+                    <description>Ending column line (when using coordinates)</description>
+                </property>
+                <property key="rowStart" type="string" required="false" defaultValue="auto">
+                    <caption>Row Start</caption>
+                    <category>Item Placement</category>
+                    <description>Starting row line (when using coordinates or span)</description>
+                </property>
+                <property key="rowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>Row End</caption>
+                    <category>Item Placement</category>
+                    <description>Ending row line (when using coordinates)</description>
+                </property>
+                <property key="justifySelf" type="enumeration" defaultValue="auto">
+                    <caption>Justify Self</caption>
+                    <category>Item Alignment</category>
+                    <description>Override justify-items for this item</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="start">Start</enumerationValue>
+                        <enumerationValue key="end">End</enumerationValue>
+                        <enumerationValue key="center">Center</enumerationValue>
+                        <enumerationValue key="stretch">Stretch</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="alignSelf" type="enumeration" defaultValue="auto">
+                    <caption>Align Self</caption>
+                    <category>Item Alignment</category>
+                    <description>Override align-items for this item</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="start">Start</enumerationValue>
+                        <enumerationValue key="end">End</enumerationValue>
+                        <enumerationValue key="center">Center</enumerationValue>
+                        <enumerationValue key="stretch">Stretch</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="zIndex" type="integer" defaultValue="0">
+                    <caption>Z-Index</caption>
+                    <category>Item Styling</category>
+                    <description>Stack order of overlapping items</description>
+                </property>
+                <property key="className" type="string" required="false">
+                    <caption>CSS Class</caption>
+                    <category>Item Styling</category>
+                    <description>CSS class for this grid item</description>
+                </property>
+            </properties>
+        </property>
+
+        <!-- Responsive Properties -->
+        <property key="enableBreakpoints" type="boolean" defaultValue="false">
+            <caption>Enable Breakpoints</caption>
+            <category>Responsive</category>
+            <description>Enable responsive breakpoints for different screen sizes</description>
+        </property>
+        <property key="breakpoints" type="object" isList="true" required="false">
+            <caption>Breakpoints</caption>
+            <category>Responsive</category>
+            <description>Define responsive breakpoints</description>
+            <properties>
+                <property key="minWidth" type="integer" defaultValue="0">
+                    <caption>Min Width (px)</caption>
+                    <category>Breakpoint</category>
+                    <description>Minimum viewport width for this breakpoint</description>
+                </property>
+                <property key="columns" type="string" required="false">
+                    <caption>Columns</caption>
+                    <category>Breakpoint</category>
+                    <description>Grid columns for this breakpoint</description>
+                </property>
+                <property key="rows" type="string" required="false">
+                    <caption>Rows</caption>
+                    <category>Breakpoint</category>
+                    <description>Grid rows for this breakpoint</description>
+                </property>
+                <property key="gap" type="string" required="false">
+                    <caption>Gap</caption>
+                    <category>Breakpoint</category>
+                    <description>Gap for this breakpoint</description>
+                </property>
+            </properties>
+        </property>
+
+        <!-- Performance Properties -->
+        <property key="enableVirtualization" type="boolean" defaultValue="false">
+            <caption>Enable Virtualization</caption>
+            <category>Performance</category>
+            <description>Enable virtualization for large grids (only renders visible items)</description>
+        </property>
+        <property key="virtualizeThreshold" type="integer" defaultValue="100">
+            <caption>Virtualization Threshold</caption>
+            <category>Performance</category>
+            <description>Number of items before virtualization kicks in</description>
+        </property>
+
+        <!-- Accessibility Properties -->
+        <property key="ariaLabel" type="string" required="false">
+            <caption>ARIA Label</caption>
+            <category>Accessibility</category>
+            <description>Accessible label for the grid container</description>
+        </property>
+        <property key="ariaLabelledBy" type="string" required="false">
+            <caption>ARIA Labelled By</caption>
+            <category>Accessibility</category>
+            <description>ID of element that labels this grid</description>
+        </property>
+        <property key="ariaDescribedBy" type="string" required="false">
+            <caption>ARIA Described By</caption>
+            <category>Accessibility</category>
+            <description>ID of element that describes this grid</description>
+        </property>
+        <property key="role" type="enumeration" defaultValue="group">
+            <caption>ARIA Role</caption>
+            <category>Accessibility</category>
+            <description>ARIA role for the grid container</description>
+            <enumerationValues>
+                <enumerationValue key="grid">Grid (for data)</enumerationValue>
+                <enumerationValue key="group">Group (for layout)</enumerationValue>
+                <enumerationValue key="region">Region</enumerationValue>
+            </enumerationValues>
+        </property>
+    </properties>
+</widget>

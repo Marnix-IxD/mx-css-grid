@@ -1,0 +1,49 @@
+{
+  "name": "cssgrid",
+  "widgetName": "CSSGrid",
+  "version": "1.0.0",
+  "description": "A CSS Grid implementation for Mendix Studio Pro 10.24+",
+  "copyright": "@The Orange Force B.V.",
+  "author": "Marnix Valentijn Puijker",
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "Apache-2.0",
+  "config": {
+    "projectPath": "../Mendix/CSSGrid",
+    "mendixHost": "http://localhost:8080",
+    "developmentPort": 3000
+  },
+  "packagePath": "theorangeforce",
+  "scripts": {
+    "start": "pluggable-widgets-tools start:server",
+    "dev": "pluggable-widgets-tools start:web",
+    "build": "npm run build:preview && pluggable-widgets-tools build:web",
+    "build:preview": "webpack --config webpack.preview.config.js",
+    "build:typings": "pluggable-widgets-tools build:typings",
+    "lint": "pluggable-widgets-tools lint",
+    "lint:fix": "pluggable-widgets-tools lint:fix",
+    "prerelease": "npm run lint",
+    "release": "pluggable-widgets-tools release:web"
+  },
+  "devDependencies": {
+    "@mendix/pluggable-widgets-tools": "^10.21.1",
+    "@types/big.js": "^6.0.2",
+    "@types/classnames": "^2.3.1"
+  },
+  "dependencies": {
+    "classnames": "^2.2.6"
+  },
+  "overrides": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "@types/react": "18.2.0",
+    "@types/react-dom": "18.2.0"
+  },
+  "resolutions": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "@types/react": "18.2.0",
+    "@types/react-dom": "18.2.0"
+  }
+}
