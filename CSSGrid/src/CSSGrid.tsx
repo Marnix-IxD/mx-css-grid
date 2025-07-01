@@ -13,21 +13,102 @@ import { CSSGridContainerProps } from "../typings/CSSGridProps";
 import { 
     getGridItemPlacement, 
     generateBreakpointStyles,
-    validateGridLine,
-    getGridDebugInfo 
+    generateItemBreakpointStyles
 } from "./utils/gridHelpers";
+import { 
+    BreakpointSize, 
+    getActiveBreakpoint, 
+    getActiveBreakpointClasses,
+    BREAKPOINT_CONFIGS 
+} from "./utils/CSSGridTypes";
 import "./ui/CSSGrid.css";
+
+// Type for responsive properties that might exist on items
+type ResponsiveProperties = {
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsPlacementType?: string;
+    xsGridArea?: string;
+    xsColumnStart?: string;
+    xsColumnEnd?: string;
+    xsRowStart?: string;
+    xsRowEnd?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smPlacementType?: string;
+    smGridArea?: string;
+    smColumnStart?: string;
+    smColumnEnd?: string;
+    smRowStart?: string;
+    smRowEnd?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdPlacementType?: string;
+    mdGridArea?: string;
+    mdColumnStart?: string;
+    mdColumnEnd?: string;
+    mdRowStart?: string;
+    mdRowEnd?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgPlacementType?: string;
+    lgGridArea?: string;
+    lgColumnStart?: string;
+    lgColumnEnd?: string;
+    lgRowStart?: string;
+    lgRowEnd?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlPlacementType?: string;
+    xlGridArea?: string;
+    xlColumnStart?: string;
+    xlColumnEnd?: string;
+    xlRowStart?: string;
+    xlRowEnd?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlPlacementType?: string;
+    xxlGridArea?: string;
+    xxlColumnStart?: string;
+    xxlColumnEnd?: string;
+    xxlRowStart?: string;
+    xxlRowEnd?: string;
+};
+
+// Use type intersection to combine base item type with responsive properties
+type ResponsiveItemType = {
+    // Base properties (these should match what's in the auto-generated types)
+    itemName?: string;
+    content: any;
+    className?: string;
+    placementType: string;
+    gridArea?: string;
+    columnStart: string;
+    columnEnd: string;
+    rowStart: string;
+    rowEnd: string;
+    justifySelf: string;
+    alignSelf: string;
+    zIndex?: number;
+    enableResponsive: boolean;
+} & ResponsiveProperties;
 
 /**
  * CSS Grid Widget for Mendix
  * 
  * Production-grade implementation with:
- * - Responsive breakpoints with optimized media queries
+ * - Enhanced responsive system with 6 breakpoints
+ * - Dynamic CSS classes based on active breakpoint
+ * - Per-item responsive placement
  * - Named grid areas with validation
  * - Auto-placement with configurable flow
  * - Virtualization for performance
  * - Full accessibility support
- * - Memoized computations for optimal re-renders
  * 
  * @param props - Widget properties from Mendix
  * @returns React element representing the CSS Grid
@@ -70,17 +151,19 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     const containerRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<IntersectionObserver | null>(null);
     const styleElementRef = useRef<HTMLStyleElement | null>(null);
+    const itemStyleElementRef = useRef<HTMLStyleElement | null>(null);
     const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
     // State management
     const [visibleItems, setVisibleItems] = useState<Set<number>>(() => new Set());
     const [currentBreakpoint, setCurrentBreakpoint] = useState<number | null>(null);
+    const [currentWidth, setCurrentWidth] = useState<number>(window.innerWidth);
+    const [activeBreakpointSize, setActiveBreakpointSize] = useState<BreakpointSize>('lg');
     const [isInitialized, setIsInitialized] = useState(false);
     const [debugMode, setDebugMode] = useState(false);
 
     /**
      * Generate unique widget identifier
-     * Ensures style isolation and accessibility
      */
     const widgetId = useMemo(() => {
         const baseId = props.name || `grid-${Date.now()}`;
@@ -89,7 +172,6 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Map enumeration values to CSS properties
-     * Handles Mendix enumeration restrictions
      */
     const cssEnumMappings = useMemo(() => ({
         autoFlow: {
@@ -117,49 +199,6 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             'spaceEvenly': 'space-evenly'
         }
     }), []);
-
-    /**
-     * Validate grid configuration in development mode
-     */
-    useEffect(() => {
-        if (process.env.NODE_ENV === 'development') {
-            // Validate grid template
-            const debugInfo = getGridDebugInfo(
-                gridTemplateColumns || "1fr",
-                useNamedAreas ? gridTemplateAreas : undefined
-            );
-            
-            if (!debugInfo.isValid) {
-                console.warn(`[CSSGrid ${widgetId}] Invalid grid configuration:`, debugInfo);
-            }
-
-            // Validate grid lines in items
-            items.forEach((item, index) => {
-                if (item.placementType === "coordinates" || item.placementType === "span") {
-                    const invalidLines = [];
-                    if (item.columnStart && !validateGridLine(item.columnStart)) {
-                        invalidLines.push(`columnStart: "${item.columnStart}"`);
-                    }
-                    if (item.columnEnd && !validateGridLine(item.columnEnd)) {
-                        invalidLines.push(`columnEnd: "${item.columnEnd}"`);
-                    }
-                    if (item.rowStart && !validateGridLine(item.rowStart)) {
-                        invalidLines.push(`rowStart: "${item.rowStart}"`);
-                    }
-                    if (item.rowEnd && !validateGridLine(item.rowEnd)) {
-                        invalidLines.push(`rowEnd: "${item.rowEnd}"`);
-                    }
-                    
-                    if (invalidLines.length > 0) {
-                        console.warn(
-                            `[CSSGrid ${widgetId}] Item ${index + 1} has invalid grid lines:`,
-                            invalidLines.join(", ")
-                        );
-                    }
-                }
-            });
-        }
-    }, [widgetId, gridTemplateColumns, gridTemplateAreas, useNamedAreas, items]);
 
     /**
      * Calculate base grid styles with memoization
@@ -229,8 +268,20 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             return null;
         }
 
-        return generateBreakpointStyles(breakpoints, `.${widgetId}`);
-    }, [enableBreakpoints, breakpoints, widgetId]);
+        return generateBreakpointStyles(breakpoints, `.${widgetId}`, useNamedAreas);
+    }, [enableBreakpoints, breakpoints, widgetId, useNamedAreas]);
+
+    /**
+     * Generate per-item responsive styles
+     */
+    const itemResponsiveStyles = useMemo(() => {
+        const itemsWithResponsive = items.filter(item => item.enableResponsive);
+        if (itemsWithResponsive.length === 0) {
+            return null;
+        }
+
+        return generateItemBreakpointStyles(items, widgetId);
+    }, [items, widgetId]);
 
     // Inject responsive styles into document head
     useLayoutEffect(() => {
@@ -239,19 +290,15 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 styleElementRef.current.remove();
                 styleElementRef.current = null;
             }
-            return;
+        } else {
+            if (!styleElementRef.current) {
+                styleElementRef.current = document.createElement('style');
+                styleElementRef.current.setAttribute('data-widget-styles', widgetId);
+                document.head.appendChild(styleElementRef.current);
+            }
+            styleElementRef.current.textContent = responsiveStyles;
         }
 
-        // Create or update style element
-        if (!styleElementRef.current) {
-            styleElementRef.current = document.createElement('style');
-            styleElementRef.current.setAttribute('data-widget-styles', widgetId);
-            document.head.appendChild(styleElementRef.current);
-        }
-
-        styleElementRef.current.textContent = responsiveStyles;
-
-        // Cleanup on unmount
         return () => {
             if (styleElementRef.current) {
                 styleElementRef.current.remove();
@@ -260,16 +307,45 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         };
     }, [responsiveStyles, widgetId]);
 
+    // Inject item responsive styles
+    useLayoutEffect(() => {
+        if (!itemResponsiveStyles) {
+            if (itemStyleElementRef.current) {
+                itemStyleElementRef.current.remove();
+                itemStyleElementRef.current = null;
+            }
+        } else {
+            if (!itemStyleElementRef.current) {
+                itemStyleElementRef.current = document.createElement('style');
+                itemStyleElementRef.current.setAttribute('data-widget-item-styles', widgetId);
+                document.head.appendChild(itemStyleElementRef.current);
+            }
+            itemStyleElementRef.current.textContent = itemResponsiveStyles;
+        }
+
+        return () => {
+            if (itemStyleElementRef.current) {
+                itemStyleElementRef.current.remove();
+                itemStyleElementRef.current = null;
+            }
+        };
+    }, [itemResponsiveStyles, widgetId]);
+
     /**
      * Handle responsive breakpoint changes with debouncing
      */
     useEffect(() => {
-        if (!enableBreakpoints || !breakpoints || breakpoints.length === 0) return;
-
         const updateBreakpoint = () => {
             const width = window.innerWidth;
-            const sortedBreakpoints = [...breakpoints].sort((a, b) => b.minWidth - a.minWidth);
+            setCurrentWidth(width);
             
+            // Update active breakpoint size
+            const newBreakpointSize = getActiveBreakpoint(width);
+            setActiveBreakpointSize(newBreakpointSize);
+            
+            if (!enableBreakpoints || !breakpoints || breakpoints.length === 0) return;
+            
+            const sortedBreakpoints = [...breakpoints].sort((a, b) => b.minWidth - a.minWidth);
             const activeBreakpoint = sortedBreakpoints.findIndex(bp => width >= bp.minWidth);
             setCurrentBreakpoint(activeBreakpoint >= 0 ? activeBreakpoint : null);
         };
@@ -296,6 +372,58 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     }, [enableBreakpoints, breakpoints]);
 
     /**
+     * Get active placement for item based on current breakpoint
+     */
+    const getActiveItemPlacement = useCallback((item: ResponsiveItemType) => {
+        if (!item.enableResponsive) {
+            return {
+                placementType: item.placementType,
+                gridArea: item.gridArea,
+                columnStart: item.columnStart,
+                columnEnd: item.columnEnd,
+                rowStart: item.rowStart,
+                rowEnd: item.rowEnd
+            };
+        }
+
+        // Check each breakpoint from largest to smallest using BREAKPOINT_CONFIGS
+        const sortedConfigs = [...BREAKPOINT_CONFIGS].reverse(); // Start from largest (xxl) to smallest (xs)
+        
+        for (const config of sortedConfigs) {
+            const enabledKey = `${config.size}Enabled` as keyof ResponsiveItemType;
+            
+            if (item[enabledKey] && currentWidth >= config.minWidth) {
+                const prefix = config.size;
+                
+                // Type-safe property access
+                const getBreakpointValue = (prop: string): string | undefined => {
+                    const key = `${prefix}${prop}` as keyof ResponsiveItemType;
+                    return item[key] as string | undefined;
+                };
+                
+                return {
+                    placementType: getBreakpointValue('PlacementType') || item.placementType,
+                    gridArea: getBreakpointValue('GridArea') || item.gridArea,
+                    columnStart: getBreakpointValue('ColumnStart') || item.columnStart,
+                    columnEnd: getBreakpointValue('ColumnEnd') || item.columnEnd,
+                    rowStart: getBreakpointValue('RowStart') || item.rowStart,
+                    rowEnd: getBreakpointValue('RowEnd') || item.rowEnd
+                };
+            }
+        }
+
+        // Fallback to default placement
+        return {
+            placementType: item.placementType,
+            gridArea: item.gridArea,
+            columnStart: item.columnStart,
+            columnEnd: item.columnEnd,
+            rowStart: item.rowStart,
+            rowEnd: item.rowEnd
+        };
+    }, [currentWidth]);
+
+    /**
      * Virtualization setup with Intersection Observer
      */
     const setupVirtualization = useCallback(() => {
@@ -304,17 +432,14 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                                containerRef.current;
 
         if (!shouldVirtualize) {
-            // Show all items if virtualization is disabled
             setVisibleItems(new Set(Array.from({ length: items.length }, (_, i) => i)));
             return;
         }
 
-        // Cleanup existing observer
         if (observerRef.current) {
             observerRef.current.disconnect();
         }
 
-        // Create new observer with optimized settings
         observerRef.current = new IntersectionObserver(
             (entries) => {
                 const updates = new Map<number, boolean>();
@@ -333,7 +458,6 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                             newSet.add(index);
                             changed = true;
                         } else if (!isVisible) {
-                            // Keep a buffer of items around viewport
                             const buffer = 5;
                             const sortedIndices = Array.from(newSet).sort((a, b) => a - b);
                             const minVisible = sortedIndices[0] || 0;
@@ -356,7 +480,6 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             }
         );
 
-        // Observe all grid items
         const gridItems = containerRef.current.querySelectorAll("[data-grid-index]");
         gridItems.forEach(item => observerRef.current!.observe(item));
 
@@ -370,7 +493,6 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     // Initialize virtualization
     useEffect(() => {
-        // Delay initialization to ensure DOM is ready
         const timeoutId = setTimeout(() => {
             setIsInitialized(true);
             setupVirtualization();
@@ -409,24 +531,26 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         return items.map((item, index) => {
             const isVisible = !shouldVirtualize || visibleItems.has(index) || !isInitialized;
             
+            // Cast item to ResponsiveItemType for type safety
+            const responsiveItem = item as ResponsiveItemType;
+            
+            // Get active placement based on current breakpoint
+            const activePlacement = getActiveItemPlacement(responsiveItem);
+            
             // Calculate item styles using the utility function
             const itemStyles: CSSProperties = {
-                justifySelf: item.justifySelf !== "auto" ? item.justifySelf : undefined,
-                alignSelf: item.alignSelf !== "auto" ? item.alignSelf : undefined,
-                zIndex: item.zIndex || undefined,
-                ...getGridItemPlacement({
-                    placementType: item.placementType,
-                    gridArea: item.gridArea,
-                    columnStart: item.columnStart || "auto",
-                    columnEnd: item.columnEnd || "auto",
-                    rowStart: item.rowStart || "auto",
-                    rowEnd: item.rowEnd || "auto"
-                })
+                justifySelf: responsiveItem.justifySelf !== "auto" ? responsiveItem.justifySelf : undefined,
+                alignSelf: responsiveItem.alignSelf !== "auto" ? responsiveItem.alignSelf : undefined,
+                zIndex: responsiveItem.zIndex || undefined,
+                ...getGridItemPlacement(activePlacement)
             };
 
-            const itemClassName = ["mx-css-grid-item", item.className]
-                .filter(Boolean)
-                .join(" ");
+            const itemClassName = [
+                "mx-css-grid-item", 
+                responsiveItem.className,
+                responsiveItem.enableResponsive ? `${widgetId}-item-${index}` : null,
+                responsiveItem.enableResponsive ? `mx-css-grid-item--responsive` : null
+            ].filter(Boolean).join(" ");
             
             // Render placeholder for non-visible virtualized items
             if (shouldVirtualize && !isVisible) {
@@ -443,24 +567,26 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
             // Determine ARIA attributes
             const itemAriaAttrs: Record<string, string | undefined> = {};
-            if (item.placementType === "area" && item.gridArea) {
+            if (activePlacement.placementType === "area" && activePlacement.gridArea) {
                 itemAriaAttrs.role = "region";
-                itemAriaAttrs["aria-label"] = `Grid area: ${item.gridArea}`;
+                itemAriaAttrs["aria-label"] = `Grid area: ${activePlacement.gridArea}`;
             }
 
             return (
                 <div
                     key={`grid-item-${index}`}
                     data-grid-index={index}
+                    data-item-name={responsiveItem.itemName || undefined}
+                    data-breakpoint={activeBreakpointSize}
                     className={itemClassName}
                     style={itemStyles}
                     {...itemAriaAttrs}
                 >
-                    {item.content}
+                    {responsiveItem.content}
                 </div>
             );
         });
-    }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized]);
+    }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized, getActiveItemPlacement, widgetId, activeBreakpointSize]);
 
     /**
      * Container class names with responsive identifier
@@ -482,38 +608,38 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             classes.push("debug");
         }
         
+        // Add dynamic breakpoint classes
+        const breakpointClasses = getActiveBreakpointClasses(currentWidth);
+        classes.push(...breakpointClasses);
+        
         return classes.filter(Boolean).join(" ");
-    }, [className, widgetId, enableVirtualization, items.length, virtualizeThreshold, currentBreakpoint, useNamedAreas, debugMode]);
+    }, [className, widgetId, enableVirtualization, items.length, virtualizeThreshold, currentBreakpoint, useNamedAreas, debugMode, currentWidth]);
 
     /**
      * Determine appropriate ARIA role
      */
     const containerRole = useMemo(() => {
         if (role) return role;
-        
-        // Use 'grid' for data-like structures, 'group' for layout
         return items.length > 10 || useNamedAreas ? "grid" : "group";
     }, [role, items.length, useNamedAreas]);
 
     // Performance tracking in development
     useEffect(() => {
         if (process.env.NODE_ENV === 'development') {
-            const debugInfo = getGridDebugInfo(
-                gridTemplateColumns || "1fr",
-                useNamedAreas ? gridTemplateAreas : undefined
-            );
-            
             console.debug(`[CSSGrid ${widgetId}] Rendered`, {
                 items: items.length,
+                itemsWithResponsive: items.filter(i => i.enableResponsive).length,
                 virtualized: enableVirtualization && items.length >= (virtualizeThreshold || 100),
                 visibleItems: visibleItems.size,
                 breakpoint: currentBreakpoint,
+                currentWidth,
+                activeBreakpointSize,
+                breakpointClasses: getActiveBreakpointClasses(currentWidth),
                 namedAreas: useNamedAreas,
-                gridInfo: debugInfo,
                 debugMode
             });
         }
-    }, [widgetId, items.length, enableVirtualization, virtualizeThreshold, visibleItems.size, currentBreakpoint, useNamedAreas, gridTemplateColumns, gridTemplateAreas, debugMode]);
+    }, [widgetId, items, enableVirtualization, virtualizeThreshold, visibleItems.size, currentBreakpoint, currentWidth, activeBreakpointSize, useNamedAreas, debugMode]);
 
     return (
         <div 
@@ -526,6 +652,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             aria-labelledby={ariaLabelledBy}
             aria-describedby={ariaDescribedBy}
             data-breakpoint={currentBreakpoint !== null ? currentBreakpoint : undefined}
+            data-breakpoint-size={activeBreakpointSize}
             data-item-count={items.length}
             data-show-areas={debugMode && useNamedAreas ? "true" : undefined}
         >
@@ -536,15 +663,3 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
 // Display name for debugging
 CSSGrid.displayName = "CSSGrid";
-
-// Default props for better developer experience
-CSSGrid.defaultProps = {
-    gridTemplateColumns: "1fr",
-    gridTemplateRows: "auto",
-    autoFlow: "row",
-    justifyItems: "stretch",
-    alignItems: "stretch",
-    justifyContent: "start",
-    alignContent: "start",
-    role: "group"
-};

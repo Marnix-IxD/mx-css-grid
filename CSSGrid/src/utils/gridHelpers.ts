@@ -9,6 +9,75 @@
 
 import { CSSProperties } from "react";
 
+// Type for responsive properties that might exist on items
+type ResponsiveProperties = {
+    enableResponsive?: boolean;
+    
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsPlacementType?: string;
+    xsGridArea?: string;
+    xsColumnStart?: string;
+    xsColumnEnd?: string;
+    xsRowStart?: string;
+    xsRowEnd?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smPlacementType?: string;
+    smGridArea?: string;
+    smColumnStart?: string;
+    smColumnEnd?: string;
+    smRowStart?: string;
+    smRowEnd?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdPlacementType?: string;
+    mdGridArea?: string;
+    mdColumnStart?: string;
+    mdColumnEnd?: string;
+    mdRowStart?: string;
+    mdRowEnd?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgPlacementType?: string;
+    lgGridArea?: string;
+    lgColumnStart?: string;
+    lgColumnEnd?: string;
+    lgRowStart?: string;
+    lgRowEnd?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlPlacementType?: string;
+    xlGridArea?: string;
+    xlColumnStart?: string;
+    xlColumnEnd?: string;
+    xlRowStart?: string;
+    xlRowEnd?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlPlacementType?: string;
+    xxlGridArea?: string;
+    xxlColumnStart?: string;
+    xxlColumnEnd?: string;
+    xxlRowStart?: string;
+    xxlRowEnd?: string;
+};
+
+// Type for grid items with responsive properties
+type ResponsiveGridItem = {
+    placementType: string;
+    gridArea?: string;
+    columnStart: string;
+    columnEnd: string;
+    rowStart: string;
+    rowEnd: string;
+} & ResponsiveProperties;
+
 /**
  * Parse CSS grid template string and expand repeat() functions
  * Modified to avoid complex regex patterns for Mendix compatibility
@@ -168,6 +237,7 @@ interface Breakpoint {
     columns?: string;
     rows?: string;
     gap?: string;
+    areas?: string;
 }
 
 /**
@@ -175,11 +245,13 @@ interface Breakpoint {
  * 
  * @param breakpoints - Array of breakpoint configurations
  * @param className - CSS class name for the grid container
+ * @param useNamedAreas - Whether named areas are enabled
  * @returns CSS string with media queries
  */
 export function generateBreakpointStyles(
     breakpoints: Breakpoint[],
-    className: string
+    className: string,
+    useNamedAreas: boolean = false
 ): string {
     if (!breakpoints || breakpoints.length === 0) {
         return "";
@@ -202,6 +274,9 @@ export function generateBreakpointStyles(
         if (bp.gap) {
             rules.push(`gap: ${bp.gap} !important;`);
         }
+        if (bp.areas && useNamedAreas) {
+            rules.push(`grid-template-areas: ${bp.areas} !important;`);
+        }
         
         if (rules.length > 0) {
             const mediaQuery = `
@@ -215,6 +290,136 @@ export function generateBreakpointStyles(
         }
     }
 
+    return cssRules.join("\n");
+}
+
+/**
+ * Generate CSS for per-item responsive breakpoints with new system
+ * 
+ * @param items - Array of grid items with breakpoint configurations
+ * @param widgetId - Unique widget identifier for CSS scoping
+ * @returns CSS string with media queries for item breakpoints
+ */
+export function generateItemBreakpointStyles(
+    items: ResponsiveGridItem[],
+    widgetId: string
+): string {
+    const cssRules: string[] = [];
+    
+    // Define breakpoint configurations
+    const breakpoints = [
+        { key: 'xs', minWidth: 0, maxWidth: 639 },
+        { key: 'sm', minWidth: 640, maxWidth: 767 },
+        { key: 'md', minWidth: 768, maxWidth: 1023 },
+        { key: 'lg', minWidth: 1024, maxWidth: 1439 },
+        { key: 'xl', minWidth: 1440, maxWidth: 1919 },
+        { key: 'xxl', minWidth: 1920, maxWidth: undefined }
+    ] as const;
+    
+    items.forEach((item, index) => {
+        if (!item.enableResponsive) {
+            return;
+        }
+        
+        const itemClassName = `.${widgetId}-item-${index}`;
+        
+        // Process each breakpoint
+        breakpoints.forEach(bp => {
+            // Type-safe property access
+            const enabledKey = `${bp.key}Enabled` as keyof ResponsiveGridItem;
+            if (!item[enabledKey]) {
+                return;
+            }
+            
+            const rules: string[] = [];
+            
+            // Get placement type for this breakpoint
+            const placementTypeKey = `${bp.key}PlacementType` as keyof ResponsiveGridItem;
+            const placementType = item[placementTypeKey] as string || 'auto';
+            
+            // Apply placement based on type
+            if (placementType === "area") {
+                const areaKey = `${bp.key}GridArea` as keyof ResponsiveGridItem;
+                const areaValue = item[areaKey] as string | undefined;
+                if (areaValue) {
+                    rules.push(`grid-area: ${areaValue} !important;`);
+                    // Clear coordinate-based placement
+                    rules.push(`grid-column: auto !important;`);
+                    rules.push(`grid-row: auto !important;`);
+                }
+            } else if (placementType === "coordinates") {
+                const colStartKey = `${bp.key}ColumnStart` as keyof ResponsiveGridItem;
+                const colEndKey = `${bp.key}ColumnEnd` as keyof ResponsiveGridItem;
+                const rowStartKey = `${bp.key}RowStart` as keyof ResponsiveGridItem;
+                const rowEndKey = `${bp.key}RowEnd` as keyof ResponsiveGridItem;
+                
+                const colStart = item[colStartKey] as string | undefined;
+                const colEnd = item[colEndKey] as string | undefined;
+                const rowStart = item[rowStartKey] as string | undefined;
+                const rowEnd = item[rowEndKey] as string | undefined;
+                
+                if (colStart && colStart !== "auto") {
+                    rules.push(`grid-column-start: ${colStart} !important;`);
+                }
+                if (colEnd && colEnd !== "auto") {
+                    rules.push(`grid-column-end: ${colEnd} !important;`);
+                }
+                if (rowStart && rowStart !== "auto") {
+                    rules.push(`grid-row-start: ${rowStart} !important;`);
+                }
+                if (rowEnd && rowEnd !== "auto") {
+                    rules.push(`grid-row-end: ${rowEnd} !important;`);
+                }
+                // Clear area placement
+                rules.push(`grid-area: auto !important;`);
+            } else if (placementType === "span") {
+                const colStartKey = `${bp.key}ColumnStart` as keyof ResponsiveGridItem;
+                const rowStartKey = `${bp.key}RowStart` as keyof ResponsiveGridItem;
+                
+                const colStart = item[colStartKey] as string | undefined;
+                const rowStart = item[rowStartKey] as string | undefined;
+                
+                if (colStart && colStart !== "auto") {
+                    rules.push(`grid-column: ${colStart} !important;`);
+                }
+                if (rowStart && rowStart !== "auto") {
+                    rules.push(`grid-row: ${rowStart} !important;`);
+                }
+                // Clear area placement
+                rules.push(`grid-area: auto !important;`);
+            } else if (placementType === "auto") {
+                // Reset to auto placement
+                rules.push(`grid-area: auto !important;`);
+                rules.push(`grid-column: auto !important;`);
+                rules.push(`grid-row: auto !important;`);
+            }
+            
+            if (rules.length > 0) {
+                // Create media query with min and max width for precise control
+                let mediaQuery: string;
+                if (bp.maxWidth !== undefined) {
+                    mediaQuery = `
+                        @media (min-width: ${bp.minWidth}px) and (max-width: ${bp.maxWidth}px) {
+                            ${itemClassName} {
+                                ${rules.join("\n                                ")}
+                            }
+                        }
+                    `;
+                } else {
+                    // For xxl, only min-width
+                    mediaQuery = `
+                        @media (min-width: ${bp.minWidth}px) {
+                            ${itemClassName} {
+                                ${rules.join("\n                                ")}
+                            }
+                        }
+                    `;
+                }
+                cssRules.push(mediaQuery);
+            }
+        });
+    });
+    
     return cssRules.join("\n");
 }
 

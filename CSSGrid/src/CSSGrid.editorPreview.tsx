@@ -1,8 +1,66 @@
-import { createElement, useState, useCallback, Fragment, useEffect, useMemo } from "react";
-import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
-import { parseGridTemplate, parseGridAreas, getUniqueAreaNames } from "./utils/gridHelpers";
-import { getAreaColor } from "./utils/gridItemUtils";
+import { createElement } from "react";
 import { Selectable } from "mendix/preview/Selectable";
+import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
+
+// Type for responsive properties that might exist on items
+type ResponsiveProperties = {
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsPlacementType?: string;
+    xsGridArea?: string;
+    xsColumnStart?: string;
+    xsColumnEnd?: string;
+    xsRowStart?: string;
+    xsRowEnd?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smPlacementType?: string;
+    smGridArea?: string;
+    smColumnStart?: string;
+    smColumnEnd?: string;
+    smRowStart?: string;
+    smRowEnd?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdPlacementType?: string;
+    mdGridArea?: string;
+    mdColumnStart?: string;
+    mdColumnEnd?: string;
+    mdRowStart?: string;
+    mdRowEnd?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgPlacementType?: string;
+    lgGridArea?: string;
+    lgColumnStart?: string;
+    lgColumnEnd?: string;
+    lgRowStart?: string;
+    lgRowEnd?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlPlacementType?: string;
+    xlGridArea?: string;
+    xlColumnStart?: string;
+    xlColumnEnd?: string;
+    xlRowStart?: string;
+    xlRowEnd?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlPlacementType?: string;
+    xxlGridArea?: string;
+    xxlColumnStart?: string;
+    xxlColumnEnd?: string;
+    xxlRowStart?: string;
+    xxlRowEnd?: string;
+};
+
+// Use type intersection instead of interface extension
+type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
 
 // Define the props type that includes Mendix preview properties
 type PreviewProps = CSSGridPreviewProps & {
@@ -15,348 +73,27 @@ type PreviewProps = CSSGridPreviewProps & {
 /**
  * CSS Grid Preview Component for Mendix Studio Pro
  * 
- * This is the main preview export that Mendix expects
+ * Uses the official Mendix Selectable component for proper item selection
  */
 export const preview: React.FC<PreviewProps> = (props) => {
     const {
         gridTemplateColumns,
         gridTemplateRows,
         gap,
+        rowGap,
+        columnGap,
         useNamedAreas,
         gridTemplateAreas,
         items,
         class: className,
-        style: customStyle,
-        readOnly,
-        renderMode
+        style: customStyle
     } = props;
-
-    // State management
-    const [editMode, setEditMode] = useState(false);
-    const [selectedArea, setSelectedArea] = useState<string>(".");
-    const [gridCells, setGridCells] = useState<string[][]>([]);
-    const [hoveredCell, setHoveredCell] = useState<{ row: number; col: number } | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-
-    // Parse grid dimensions
-    const columns = useMemo(() => parseGridTemplate(gridTemplateColumns || "1fr 1fr"), [gridTemplateColumns]);
-    const rows = useMemo(() => parseGridTemplate(gridTemplateRows || "auto auto"), [gridTemplateRows]);
-    const columnCount = columns.length;
-    const rowCount = Math.max(rows.length, Math.ceil(items.length / columnCount), 3);
-
-    /**
-     * Initialize grid cells for area editing
-     */
-    const initializeGrid = useCallback(() => {
-        if (useNamedAreas && gridTemplateAreas) {
-            const parsed = parseGridAreas(gridTemplateAreas);
-            if (parsed) {
-                setGridCells(parsed);
-                return;
-            }
-        }
-        
-        const emptyGrid = Array(rowCount).fill(null).map(() => 
-            Array(columnCount).fill(".")
-        );
-        setGridCells(emptyGrid);
-    }, [useNamedAreas, gridTemplateAreas, columnCount, rowCount]);
-
-    useEffect(() => {
-        initializeGrid();
-    }, [initializeGrid]);
-
-    /**
-     * Handle cell interaction in edit mode
-     */
-    const handleCellInteraction = useCallback((row: number, col: number, isClick: boolean) => {
-        if (!editMode || readOnly) return;
-
-        const newGrid = gridCells.map(r => [...r]);
-        
-        while (newGrid.length <= row) {
-            newGrid.push(Array(columnCount).fill("."));
-        }
-        
-        if (isClick || isDragging) {
-            newGrid[row][col] = selectedArea;
-            setGridCells(newGrid);
-        }
-    }, [editMode, gridCells, columnCount, selectedArea, isDragging, readOnly]);
-
-    /**
-     * Predefined and custom area names
-     */
-    const availableAreas = useMemo(() => {
-        const uniqueAreas = getUniqueAreaNames(gridCells);
-        const predefinedAreas = ["header", "sidebar", "content", "footer", "nav", "aside"];
-        return [...new Set([...predefinedAreas, ...uniqueAreas])].filter(a => a !== ".");
-    }, [gridCells]);
-
-    /**
-     * Render grid container with positioned items
-     */
-    const renderGridContainer = () => {
-        // Apply size constraints from props
-        const containerStyle: React.CSSProperties = {
-            display: "grid",
-            gridTemplateColumns: gridTemplateColumns || "1fr 1fr",
-            gridTemplateRows: gridTemplateRows || "auto",
-            gap: gap || "16px",
-            width: props.maxWidth || "100%",
-            height: props.maxHeight || undefined,
-            minWidth: props.minWidth || undefined,
-            minHeight: props.minHeight || undefined,
-            maxWidth: props.maxWidth || undefined,
-            maxHeight: props.maxHeight || undefined,
-            gridTemplateAreas: useNamedAreas && gridTemplateAreas ? gridTemplateAreas : undefined,
-            opacity: renderMode === "xray" ? 0.6 : 1
-        };
-
-        return (
-            <div 
-                className="mx-css-grid-editor-container"
-                style={containerStyle}
-            >
-                {/* Render grid items */}
-                {items.map((item: ItemsPreviewType, index: number) => {
-                    const ContentRenderer = item.content?.renderer;
-                    
-                    // Build item styles
-                    const itemStyles: React.CSSProperties = {
-                        position: "relative",
-                        overflow: "auto",
-                        minHeight: "50px"
-                    };
-
-                    // Apply grid placement
-                    if (item.placementType === "area" && item.gridArea && useNamedAreas) {
-                        itemStyles.gridArea = item.gridArea;
-                    } else if (item.placementType === "coordinates") {
-                        if (item.columnStart && item.columnStart !== "auto") {
-                            itemStyles.gridColumnStart = item.columnStart;
-                        }
-                        if (item.columnEnd && item.columnEnd !== "auto") {
-                            itemStyles.gridColumnEnd = item.columnEnd;
-                        }
-                        if (item.rowStart && item.rowStart !== "auto") {
-                            itemStyles.gridRowStart = item.rowStart;
-                        }
-                        if (item.rowEnd && item.rowEnd !== "auto") {
-                            itemStyles.gridRowEnd = item.rowEnd;
-                        }
-                    } else if (item.placementType === "span") {
-                        if (item.columnStart && item.columnStart !== "auto") {
-                            itemStyles.gridColumn = item.columnStart;
-                        }
-                        if (item.rowStart && item.rowStart !== "auto") {
-                            itemStyles.gridRow = item.rowStart;
-                        }
-                    }
-
-                    // Apply alignment if not auto
-                    if (item.justifySelf && item.justifySelf !== "auto") {
-                        itemStyles.justifySelf = item.justifySelf;
-                    }
-                    if (item.alignSelf && item.alignSelf !== "auto") {
-                        itemStyles.alignSelf = item.alignSelf;
-                    }
-
-                    // Apply z-index if specified
-                    if (item.zIndex) {
-                        itemStyles.zIndex = item.zIndex;
-                    }
-                    
-                    // Generate caption for Selectable
-                    const itemCaption = item.itemName || 
-                        (item.placementType === "area" && item.gridArea ? `Area: ${item.gridArea}` : 
-                         item.placementType === "coordinates" ? `Grid item at ${item.columnStart},${item.rowStart}` :
-                         `Grid item ${index + 1}`);
-                    
-                    return (
-                        <Selectable
-                            key={`item-${index}`}
-                            object={item}
-                            caption={itemCaption}
-                        >
-                            <div
-                                className={`mx-css-grid-editor-item ${item.className || ""}`}
-                                style={itemStyles}
-                            >
-                                {/* Render actual widget content */}
-                                {ContentRenderer ? (
-                                    <ContentRenderer>
-                                        <div style={{ width: "100%", height: "100%" }} />
-                                    </ContentRenderer>
-                                ) : (
-                                    <div style={{
-                                        width: "100%",
-                                        height: "100%",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color: "#9ca3af",
-                                        fontSize: "11px",
-                                        padding: "20px"
-                                    }}>
-                                        Drop widget here
-                                    </div>
-                                )}
-                            </div>
-                        </Selectable>
-                    );
-                })}
-            </div>
-        );
-    };
-
-    /**
-     * Render area editor
-     */
-    const renderAreaEditor = () => {
-        if (!useNamedAreas || readOnly) return null;
-
-        return (
-            <div className="mx-css-grid-editor-areas">
-                <div className="mx-css-grid-editor-areas__header">
-                    <h4 className="mx-css-grid-editor-areas__title">
-                        Visual Grid Area Editor
-                    </h4>
-                    <button
-                        onClick={() => {
-                            setEditMode(!editMode);
-                            if (!editMode) initializeGrid();
-                        }}
-                        className={`mx-css-grid-editor-areas__toggle ${editMode ? "mx-css-grid-editor-areas__toggle--active" : ""}`}
-                    >
-                        {editMode ? "Exit Edit Mode" : "Edit Areas"}
-                    </button>
-                </div>
-
-                {editMode && (
-                    <Fragment>
-                        <div className="mx-css-grid-editor-areas__palette">
-                            <label className="mx-css-grid-editor-areas__label">
-                                Select area to paint:
-                            </label>
-                            <div className="mx-css-grid-editor-areas__buttons">
-                                <button
-                                    onClick={() => setSelectedArea(".")}
-                                    className={`mx-css-grid-editor-areas__button ${
-                                        selectedArea === "." ? "mx-css-grid-editor-areas__button--selected" : ""
-                                    }`}
-                                >
-                                    Empty (.)
-                                </button>
-                                {availableAreas.map(area => (
-                                    <button
-                                        key={area}
-                                        onClick={() => setSelectedArea(area)}
-                                        className={`mx-css-grid-editor-areas__button ${
-                                            selectedArea === area ? "mx-css-grid-editor-areas__button--selected" : ""
-                                        }`}
-                                        style={{
-                                            backgroundColor: selectedArea === area ? undefined : getAreaColor(area)
-                                        }}
-                                    >
-                                        {area}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="mx-css-grid-editor-areas__custom">
-                                <input
-                                    type="text"
-                                    placeholder="Custom area name"
-                                    className="mx-css-grid-editor-areas__input"
-                                    onKeyPress={(e) => {
-                                        if (e.key === "Enter") {
-                                            const value = (e.target as HTMLInputElement).value.trim();
-                                            if (value && value !== "." && /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {
-                                                setSelectedArea(value);
-                                                (e.target as HTMLInputElement).value = "";
-                                            }
-                                        }
-                                    }}
-                                />
-                                <span className="mx-css-grid-editor-areas__hint">
-                                    Press Enter to add
-                                </span>
-                            </div>
-                        </div>
-
-                        <div 
-                            className="mx-css-grid-editor-cells"
-                            style={{
-                                gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
-                                gridTemplateRows: `repeat(${rowCount}, 60px)`
-                            }}
-                            onMouseLeave={() => {
-                                setHoveredCell(null);
-                                setIsDragging(false);
-                            }}
-                            onMouseUp={() => setIsDragging(false)}
-                        >
-                            {Array(rowCount).fill(null).map((_, row) => 
-                                Array(columnCount).fill(null).map((_, col) => {
-                                    const area = gridCells[row]?.[col] || ".";
-                                    const isHovered = hoveredCell?.row === row && hoveredCell?.col === col;
-                                    
-                                    return (
-                                        <div
-                                            key={`${row}-${col}`}
-                                            className={`mx-css-grid-editor-cell ${
-                                                area !== "." ? "mx-css-grid-editor-cell--filled" : ""
-                                            } ${isHovered && editMode ? "mx-css-grid-editor-cell--hovered" : ""}`}
-                                            style={{
-                                                backgroundColor: area === "." ? undefined : getAreaColor(area)
-                                            }}
-                                            onMouseDown={() => {
-                                                setIsDragging(true);
-                                                handleCellInteraction(row, col, true);
-                                            }}
-                                            onMouseEnter={() => {
-                                                setHoveredCell({ row, col });
-                                                if (isDragging) {
-                                                    handleCellInteraction(row, col, false);
-                                                }
-                                            }}
-                                        >
-                                            {area === "." ? "•" : area}
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-
-                        <div className="mx-css-grid-editor-template">
-                            <strong>Generated template:</strong>
-                            <pre className="mx-css-grid-editor-template__code">
-                                {gridCells.map(row => `"${row.join(" ")}"`).join("\n")}
-                            </pre>
-                            <button
-                                onClick={() => {
-                                    const template = gridCells.map(row => `"${row.join(" ")}"`).join("\n");
-                                    navigator.clipboard.writeText(template);
-                                }}
-                                className="mx-css-grid-editor-template__copy"
-                            >
-                                Copy to Clipboard
-                            </button>
-                        </div>
-                    </Fragment>
-                )}
-            </div>
-        );
-    };
-
-    // Combine className from props with widget base class
-    const containerClasses = ["mx-css-grid-editor-preview", className].filter(Boolean).join(" ");
 
     // Parse style string to React style object
     const parseStyleString = (styleStr?: string): React.CSSProperties => {
         if (!styleStr) return {};
         
-        const styleObj: any = {}; // Use 'any' to bypass strict typing
+        const styleObj: any = {};
         const declarations = styleStr.split(';').filter(s => s.trim());
         
         declarations.forEach(declaration => {
@@ -371,353 +108,276 @@ export const preview: React.FC<PreviewProps> = (props) => {
         return styleObj as React.CSSProperties;
     };
 
-    const containerStyles = parseStyleString(customStyle);
-
-    // Apply size constraints to the main container as well
-    const mainContainerStyles: React.CSSProperties = {
-        ...containerStyles,
-        width: props.maxWidth || "100%",
-        minWidth: props.minWidth || undefined,
-        minHeight: props.minHeight || undefined,
-        maxWidth: props.maxWidth || undefined,
-        maxHeight: props.maxHeight || undefined,
-        boxSizing: "border-box"
+    // Apply grid styles exactly as they would appear in the browser
+    const containerStyle: React.CSSProperties = {
+        display: "grid",
+        gridTemplateColumns: gridTemplateColumns || "1fr 1fr",
+        gridTemplateRows: gridTemplateRows || "auto",
+        // Use the actual gap values from props
+        gap: gap || undefined,
+        rowGap: rowGap || undefined,
+        columnGap: columnGap || undefined,
+        width: "100%",
+        gridTemplateAreas: useNamedAreas ? gridTemplateAreas : undefined,
+        ...parseStyleString(customStyle)
     };
 
     return (
-        <div className={containerClasses} style={mainContainerStyles}>
-            {renderGridContainer()}
-            {renderAreaEditor()}
+        <div 
+            className={`mx-css-grid-preview ${className || ""}`}
+            style={containerStyle}
+        >
+            {/* Render grid items with Selectable wrapper */}
+            {items.map((item: ItemsPreviewType, index: number) => {
+                const responsiveItem = item as ResponsiveItemPreview;
+                const ContentRenderer = responsiveItem.content?.renderer;
+                
+                // Build item styles
+                const itemStyles: React.CSSProperties = {
+                    position: "relative",
+                    minHeight: "40px",
+                    width: "100%",
+                    height: "100%"
+                };
+
+                // Apply grid placement
+                if (responsiveItem.placementType === "area" && responsiveItem.gridArea && useNamedAreas) {
+                    itemStyles.gridArea = responsiveItem.gridArea;
+                } else if (responsiveItem.placementType === "coordinates") {
+                    if (responsiveItem.columnStart && responsiveItem.columnStart !== "auto") {
+                        itemStyles.gridColumnStart = responsiveItem.columnStart;
+                    }
+                    if (responsiveItem.columnEnd && responsiveItem.columnEnd !== "auto") {
+                        itemStyles.gridColumnEnd = responsiveItem.columnEnd;
+                    }
+                    if (responsiveItem.rowStart && responsiveItem.rowStart !== "auto") {
+                        itemStyles.gridRowStart = responsiveItem.rowStart;
+                    }
+                    if (responsiveItem.rowEnd && responsiveItem.rowEnd !== "auto") {
+                        itemStyles.gridRowEnd = responsiveItem.rowEnd;
+                    }
+                } else if (responsiveItem.placementType === "span") {
+                    if (responsiveItem.columnStart && responsiveItem.columnStart !== "auto") {
+                        itemStyles.gridColumn = responsiveItem.columnStart;
+                    }
+                    if (responsiveItem.rowStart && responsiveItem.rowStart !== "auto") {
+                        itemStyles.gridRow = responsiveItem.rowStart;
+                    }
+                }
+
+                // Apply alignment if not auto
+                if (responsiveItem.justifySelf && responsiveItem.justifySelf !== "auto") {
+                    itemStyles.justifySelf = responsiveItem.justifySelf;
+                }
+                if (responsiveItem.alignSelf && responsiveItem.alignSelf !== "auto") {
+                    itemStyles.alignSelf = responsiveItem.alignSelf;
+                }
+
+                // Apply z-index if specified
+                if (responsiveItem.zIndex) {
+                    itemStyles.zIndex = responsiveItem.zIndex;
+                }
+                
+                const itemName = responsiveItem.itemName || 
+                    (responsiveItem.placementType === "area" && responsiveItem.gridArea ? responsiveItem.gridArea : 
+                     `Item ${index + 1}`);
+                
+                return (
+                    <Selectable
+                        key={`grid-item-${index}`}
+                        object={responsiveItem}
+                        caption={itemName}
+                    >
+                        <div
+                            className={`mx-css-grid-preview-item ${responsiveItem.className || ""}`}
+                            style={itemStyles}
+                        >
+                            {/* Show area name label only for named areas */}
+                            {responsiveItem.placementType === "area" && responsiveItem.gridArea && useNamedAreas && (
+                                <div className="mx-css-grid-preview-area-label">
+                                    {responsiveItem.gridArea}
+                                </div>
+                            )}
+                            
+                            {/* Render actual widget content or placeholder */}
+                            {ContentRenderer ? (
+                                <div className="mx-css-grid-preview-item-content">
+                                    <ContentRenderer>
+                                        <div style={{ width: "100%", height: "100%" }} />
+                                    </ContentRenderer>
+                                </div>
+                            ) : (
+                                <div className="mx-css-grid-preview-placeholder">
+                                    <span className="mx-css-grid-preview-placeholder-text">{itemName}</span>
+                                </div>
+                            )}
+                        </div>
+                    </Selectable>
+                );
+            })}
         </div>
     );
 };
 
 /**
  * Get preview CSS styles
- * This is exported separately as required by Mendix
+ * Minimal styles that match the actual widget appearance
  * 
  * @returns CSS string for editor preview styling
  */
 export function getPreviewCss(): string {
     return `
-        /* Container and layout */
-        .mx-css-grid-editor-preview {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            padding: 8px;
-            background-color: #ffffff;
-            border-radius: 4px;
-            position: relative;
+        /* Minimal grid preview styles - match actual widget */
+        .mx-css-grid-preview {
             box-sizing: border-box;
-        }
-
-        /* Read-only badge */
-        .mx-css-grid-editor-readonly-badge {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            background-color: #6b7280;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            z-index: 10;
-        }
-
-        .mx-css-grid-editor-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .mx-css-grid-editor-header__title {
-            margin: 0;
-            font-size: 13px;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .mx-css-grid-editor-header__info {
-            font-size: 10px;
-            color: #6b7280;
-        }
-
-        /* Grid container */
-        .mx-css-grid-editor-container {
-            margin-bottom: 8px;
-            box-sizing: border-box;
-        }
-
-        /* Area editor */
-        .mx-css-grid-editor-areas {
-            margin-top: 8px;
-            padding: 8px;
-            background-color: #f9fafb;
-            border-radius: 4px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .mx-css-grid-editor-areas__header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .mx-css-grid-editor-areas__title {
-            margin: 0;
-            font-size: 12px;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .mx-css-grid-editor-areas__toggle {
-            padding: 4px 12px;
-            background-color: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            font-size: 11px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background-color 0.2s;
-        }
-
-        .mx-css-grid-editor-areas__toggle:hover {
-            background-color: #2563eb;
-        }
-
-        .mx-css-grid-editor-areas__toggle--active {
-            background-color: #dc2626;
-        }
-
-        .mx-css-grid-editor-areas__toggle--active:hover {
-            background-color: #b91c1c;
-        }
-
-        .mx-css-grid-editor-areas__palette {
-            margin-bottom: 8px;
-        }
-
-        .mx-css-grid-editor-areas__label {
-            font-size: 11px;
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 500;
-            color: #374151;
-        }
-
-        .mx-css-grid-editor-areas__buttons {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 6px;
-        }
-
-        .mx-css-grid-editor-areas__button {
-            padding: 4px 8px;
-            border: 1px solid #d1d5db;
-            border-radius: 3px;
-            font-size: 10px;
-            cursor: pointer;
-            font-weight: 400;
-            transition: all 0.2s;
-            background-color: #ffffff;
-            color: #374151;
-        }
-
-        .mx-css-grid-editor-areas__button:hover {
-            border-color: #9ca3af;
-            transform: translateY(-1px);
-        }
-
-        .mx-css-grid-editor-areas__button--selected {
-            background-color: #10b981;
-            color: white;
-            border-color: #10b981;
-            font-weight: 500;
-        }
-
-        .mx-css-grid-editor-areas__custom {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .mx-css-grid-editor-areas__input {
-            padding: 4px 8px;
-            border: 1px solid #d1d5db;
-            border-radius: 3px;
-            font-size: 11px;
-            width: 120px;
-        }
-
-        .mx-css-grid-editor-areas__input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-
-        .mx-css-grid-editor-areas__hint {
-            font-size: 10px;
-            color: #6b7280;
-        }
-
-        /* Grid cells editor */
-        .mx-css-grid-editor-cells {
-            display: grid;
-            gap: 3px;
-            margin-bottom: 8px;
-            user-select: none;
-        }
-
-        .mx-css-grid-editor-cell {
-            background-color: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: crosshair;
-            font-size: 10px;
-            color: #6b7280;
-            transition: all 0.15s ease;
+            width: 100%;
             position: relative;
+        }
+
+        /* Grid items - applied to Selectable wrapper */
+        .mx-css-grid-preview-item {
+            box-sizing: border-box;
+            position: relative;
+            min-width: 0;
+            min-height: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Inner wrapper for grid item content */
+        .mx-css-grid-preview-item-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
             min-height: 40px;
+            overflow: hidden;
+            transition: background-color 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .mx-css-grid-editor-cell--filled {
-            font-weight: bold;
-            color: #1e40af;
-            border-color: #3b82f6;
-        }
-
-        .mx-css-grid-editor-cell--hovered {
-            transform: scale(0.95);
-            opacity: 0.8;
-        }
-
-        /* Template output */
-        .mx-css-grid-editor-template {
-            padding: 8px;
-            background-color: #f3f4f6;
-            border-radius: 3px;
-            font-size: 10px;
-        }
-
-        .mx-css-grid-editor-template__code {
-            margin: 6px 0 0 0;
-            white-space: pre-wrap;
-            font-family: "Consolas", "Monaco", "Courier New", monospace;
-            color: #1f2937;
-            font-size: 9px;
-            line-height: 1.4;
-        }
-
-        .mx-css-grid-editor-template__copy {
-            margin-top: 6px;
-            padding: 3px 8px;
-            background-color: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            font-size: 10px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .mx-css-grid-editor-template__copy:hover {
-            background-color: #2563eb;
-        }
-
-        /* Help text */
-        .mx-css-grid-editor-help {
-            margin-top: 8px;
-            padding: 8px;
-            background-color: #eff6ff;
-            border-radius: 3px;
-            font-size: 11px;
-            color: #1e40af;
-            line-height: 1.4;
-        }
-
-        /* Grid items with content */
-        .mx-css-grid-editor-item {
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-        }
-
-        .mx-css-grid-editor-item:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-            z-index: 10;
-        }
-
-        /* Ensure widget content fills the container */
-        .mx-css-grid-editor-item > div {
+        /* Content wrapper */
+        .mx-css-grid-preview-item-content {
             width: 100%;
             height: 100%;
         }
 
-        /* Make grid preview items more compact */
-        .mx-css-grid-editor-container .mx-css-grid-item {
-            padding: 8px;
-            min-height: 50px;
+        /* Area name labels - more subtle and better positioned */
+        .mx-css-grid-preview-area-label {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-weight: 500;
+            padding: 1px 4px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 2;
+            line-height: 1.2;
+            opacity: 0.8;
+            transition: opacity 0.15s ease;
         }
 
-        /* Visual feedback for selectable elements */
-        .mx-css-grid-editor-preview.mx-selectable-selected {
-            outline: 2px solid #3b82f6;
-            outline-offset: 2px;
+        /* Hide label on hover for better content visibility */
+        .mx-css-grid-preview-item:hover .mx-css-grid-preview-area-label {
+            opacity: 0.3;
         }
 
-        .mx-css-grid-editor-item.mx-selectable-selected {
-            outline: 2px solid #10b981;
-            outline-offset: -2px;
+        /* Placeholder for empty grid items - very light background */
+        .mx-css-grid-preview-placeholder {
+            width: 100%;
+            height: 100%;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fafafa;
+            border: 1px solid #f0f0f0;
+            transition: all 0.15s ease;
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 640px) {
-            .mx-css-grid-editor-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 4px;
-            }
-
-            .mx-css-grid-editor-areas__header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 4px;
-            }
-
-            .mx-css-grid-editor-areas__buttons {
-                justify-content: flex-start;
-            }
+        .mx-css-grid-preview-placeholder-text {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 12px;
+            color: #999;
+            user-select: none;
         }
 
-        /* High contrast mode */
-        @media (prefers-contrast: high) {
-            .mx-css-grid-editor-container {
-                border-width: 2px;
-            }
-
-            .mx-css-grid-editor-cell {
-                border-width: 2px;
-            }
+        /* Hover effect with pastel background */
+        .mx-css-grid-preview-item:hover .mx-css-grid-preview-placeholder {
+            background-color: #e3f2fd;
+            border-color: #bbdefb;
         }
 
-        /* Reduced motion */
-        @media (prefers-reduced-motion: reduce) {
-            .mx-css-grid-editor-areas__toggle,
-            .mx-css-grid-editor-areas__button,
-            .mx-css-grid-editor-cell {
-                transition: none;
-            }
+        .mx-css-grid-preview-item:hover .mx-css-grid-preview-placeholder-text {
+            color: #1976d2;
+        }
+
+        /* Ensure widget content fills the container */
+        .mx-css-grid-preview-item-inner > div {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Remove any default margins on nested elements */
+        .mx-css-grid-preview-item-inner > * {
+            margin: 0;
+        }
+
+        /* Handle nested Mendix widgets */
+        .mx-css-grid-preview-item .mx-widget,
+        .mx-css-grid-preview-item .mx-dataview,
+        .mx-css-grid-preview-item .mx-listview,
+        .mx-css-grid-preview-item .mx-container,
+        .mx-css-grid-preview-item .mx-container-nested {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Override any default Mendix Selectable styles */
+        .mx-selectable {
+            display: contents !important;
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Different hover colors for different areas */
+        .mx-css-grid-preview-item:nth-child(6n+1):hover .mx-css-grid-preview-placeholder {
+            background-color: #ffebee;
+            border-color: #ffcdd2;
+        }
+
+        .mx-css-grid-preview-item:nth-child(6n+2):hover .mx-css-grid-preview-placeholder {
+            background-color: #e8f5e9;
+            border-color: #c8e6c9;
+        }
+
+        .mx-css-grid-preview-item:nth-child(6n+3):hover .mx-css-grid-preview-placeholder {
+            background-color: #f3e5f5;
+            border-color: #e1bee7;
+        }
+
+        .mx-css-grid-preview-item:nth-child(6n+4):hover .mx-css-grid-preview-placeholder {
+            background-color: #fff3e0;
+            border-color: #ffe0b2;
+        }
+
+        .mx-css-grid-preview-item:nth-child(6n+5):hover .mx-css-grid-preview-placeholder {
+            background-color: #fce4ec;
+            border-color: #f8bbd0;
+        }
+
+        /* Ensure grid items with actual content have transparent background */
+        .mx-css-grid-preview-item-content {
+            background-color: transparent;
+        }
+
+        /* If there's content, don't show placeholder background */
+        .mx-css-grid-preview-item-inner:has(.mx-css-grid-preview-item-content) {
+            background-color: transparent;
         }
     `;
 }

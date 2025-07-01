@@ -7,44 +7,69 @@
     <description>A powerful CSS Grid implementation for creating complex, responsive layouts</description>
     <icon/>
     <properties>
-        <!-- Grid Template Properties -->
+        <!-- Grid Layout Properties -->
+        <property key="useNamedAreas" type="boolean" defaultValue="false">
+            <caption>Use Named Areas</caption>
+            <category>Grid Layout</category>
+            <description>Enable to use grid-area instead of grid-column/row for item placement</description>
+        </property>
         <property key="gridTemplateColumns" type="string" required="false" defaultValue="1fr 1fr">
             <caption>Grid Template Columns</caption>
-            <category>Grid Template</category>
+            <category>Grid Layout</category>
             <description>Defines the columns of the grid (e.g., "1fr 2fr 1fr" or "repeat(3, 1fr)")</description>
         </property>
         <property key="gridTemplateRows" type="string" required="false" defaultValue="auto">
             <caption>Grid Template Rows</caption>
-            <category>Grid Template</category>
+            <category>Grid Layout</category>
             <description>Defines the rows of the grid (e.g., "auto 1fr auto")</description>
         </property>
         <property key="gridTemplateAreas" type="string" required="false" multiline="true">
             <caption>Grid Template Areas</caption>
-            <category>Grid Template</category>
+            <category>Grid Layout</category>
             <description>Defines named grid areas (each line in quotes, e.g., "header header" "sidebar content")</description>
         </property>
 
-        <!-- Gap Properties -->
+        <!-- Grid Spacing & Size Properties -->
         <property key="gap" type="string" required="false">
             <caption>Gap</caption>
-            <category>Spacing</category>
+            <category>Grid Spacing &amp; Size</category>
             <description>Sets both row and column gaps (e.g., "16px" or "1rem")</description>
         </property>
         <property key="rowGap" type="string" required="false">
             <caption>Row Gap</caption>
-            <category>Spacing</category>
+            <category>Grid Spacing &amp; Size</category>
             <description>Sets the gap between rows (overrides gap property for rows)</description>
         </property>
         <property key="columnGap" type="string" required="false">
             <caption>Column Gap</caption>
-            <category>Spacing</category>
+            <category>Grid Spacing &amp; Size</category>
             <description>Sets the gap between columns (overrides gap property for columns)</description>
         </property>
+        <property key="minWidth" type="string" required="false">
+            <caption>Min Width</caption>
+            <category>Grid Spacing &amp; Size</category>
+            <description>Minimum width of the grid container</description>
+        </property>
+        <property key="maxWidth" type="string" required="false">
+            <caption>Max Width</caption>
+            <category>Grid Spacing &amp; Size</category>
+            <description>Maximum width of the grid container</description>
+        </property>
+        <property key="minHeight" type="string" required="false">
+            <caption>Min Height</caption>
+            <category>Grid Spacing &amp; Size</category>
+            <description>Minimum height of the grid container</description>
+        </property>
+        <property key="maxHeight" type="string" required="false">
+            <caption>Max Height</caption>
+            <category>Grid Spacing &amp; Size</category>
+            <description>Maximum height of the grid container</description>
+        </property>
 
-        <!-- Alignment Properties -->
+        <!-- Grid Alignment Properties -->
         <property key="justifyItems" type="enumeration" defaultValue="stretch">
             <caption>Justify Items</caption>
-            <category>Alignment</category>
+            <category>Grid Alignment</category>
             <description>Aligns grid items along the row axis</description>
             <enumerationValues>
                 <enumerationValue key="start">Start</enumerationValue>
@@ -55,7 +80,7 @@
         </property>
         <property key="alignItems" type="enumeration" defaultValue="stretch">
             <caption>Align Items</caption>
-            <category>Alignment</category>
+            <category>Grid Alignment</category>
             <description>Aligns grid items along the column axis</description>
             <enumerationValues>
                 <enumerationValue key="start">Start</enumerationValue>
@@ -66,7 +91,7 @@
         </property>
         <property key="justifyContent" type="enumeration" defaultValue="start">
             <caption>Justify Content</caption>
-            <category>Alignment</category>
+            <category>Grid Alignment</category>
             <description>Aligns the grid along the row axis</description>
             <enumerationValues>
                 <enumerationValue key="start">Start</enumerationValue>
@@ -80,7 +105,7 @@
         </property>
         <property key="alignContent" type="enumeration" defaultValue="start">
             <caption>Align Content</caption>
-            <category>Alignment</category>
+            <category>Grid Alignment</category>
             <description>Aligns the grid along the column axis</description>
             <enumerationValues>
                 <enumerationValue key="start">Start</enumerationValue>
@@ -93,20 +118,10 @@
             </enumerationValues>
         </property>
 
-        <!-- Auto Properties -->
-        <property key="autoRows" type="string" required="false" defaultValue="auto">
-            <caption>Auto Rows</caption>
-            <category>Auto Grid</category>
-            <description>Sets the size of implicitly-created rows</description>
-        </property>
-        <property key="autoColumns" type="string" required="false" defaultValue="auto">
-            <caption>Auto Columns</caption>
-            <category>Auto Grid</category>
-            <description>Sets the size of implicitly-created columns</description>
-        </property>
+        <!-- Grid Flow Properties -->
         <property key="autoFlow" type="enumeration" defaultValue="row">
             <caption>Auto Flow</caption>
-            <category>Auto Grid</category>
+            <category>Grid Flow</category>
             <description>Controls how auto-placed items flow in the grid</description>
             <enumerationValues>
                 <enumerationValue key="row">Row</enumerationValue>
@@ -115,34 +130,15 @@
                 <enumerationValue key="columnDense">Column Dense</enumerationValue>
             </enumerationValues>
         </property>
-
-        <!-- Size Constraints -->
-        <property key="minWidth" type="string" required="false">
-            <caption>Min Width</caption>
-            <category>Size Constraints</category>
-            <description>Minimum width of the grid container</description>
+        <property key="autoRows" type="string" required="false" defaultValue="auto">
+            <caption>Auto Rows</caption>
+            <category>Grid Flow</category>
+            <description>Sets the size of implicitly-created rows</description>
         </property>
-        <property key="maxWidth" type="string" required="false">
-            <caption>Max Width</caption>
-            <category>Size Constraints</category>
-            <description>Maximum width of the grid container</description>
-        </property>
-        <property key="minHeight" type="string" required="false">
-            <caption>Min Height</caption>
-            <category>Size Constraints</category>
-            <description>Minimum height of the grid container</description>
-        </property>
-        <property key="maxHeight" type="string" required="false">
-            <caption>Max Height</caption>
-            <category>Size Constraints</category>
-            <description>Maximum height of the grid container</description>
-        </property>
-
-        <!-- Named Areas Toggle -->
-        <property key="useNamedAreas" type="boolean" defaultValue="false">
-            <caption>Use Named Areas</caption>
-            <category>Configuration</category>
-            <description>Enable to use grid-area instead of grid-column/row for item placement</description>
+        <property key="autoColumns" type="string" required="false" defaultValue="auto">
+            <caption>Auto Columns</caption>
+            <category>Grid Flow</category>
+            <description>Sets the size of implicitly-created columns</description>
         </property>
 
         <!-- Grid Items -->
@@ -153,17 +149,24 @@
             <properties>
                 <property key="itemName" type="string" required="false">
                     <caption>Item Name</caption>
-                    <category>Item Content</category>
+                    <category>General</category>
                     <description>A descriptive name for this grid item (shown in preview)</description>
                 </property>
                 <property key="content" type="widgets" required="true">
                     <caption>Content</caption>
-                    <category>Item Content</category>
+                    <category>General</category>
                     <description>Widget(s) to place in this grid cell</description>
                 </property>
+                <property key="className" type="string" required="false">
+                    <caption>CSS Class</caption>
+                    <category>General</category>
+                    <description>CSS class for this grid item</description>
+                </property>
+                
+                <!-- Default Placement -->
                 <property key="placementType" type="enumeration" defaultValue="auto">
                     <caption>Placement Type</caption>
-                    <category>Item Placement</category>
+                    <category>Default Placement</category>
                     <description>How to place this item in the grid</description>
                     <enumerationValues>
                         <enumerationValue key="auto">Auto</enumerationValue>
@@ -174,29 +177,31 @@
                 </property>
                 <property key="gridArea" type="string" required="false">
                     <caption>Grid Area</caption>
-                    <category>Item Placement</category>
+                    <category>Default Placement</category>
                     <description>Named area (when placement type is "Named Area")</description>
                 </property>
                 <property key="columnStart" type="string" required="false" defaultValue="auto">
                     <caption>Column Start</caption>
-                    <category>Item Placement</category>
+                    <category>Default Placement</category>
                     <description>Starting column line (when using coordinates or span)</description>
                 </property>
                 <property key="columnEnd" type="string" required="false" defaultValue="auto">
                     <caption>Column End</caption>
-                    <category>Item Placement</category>
+                    <category>Default Placement</category>
                     <description>Ending column line (when using coordinates)</description>
                 </property>
                 <property key="rowStart" type="string" required="false" defaultValue="auto">
                     <caption>Row Start</caption>
-                    <category>Item Placement</category>
+                    <category>Default Placement</category>
                     <description>Starting row line (when using coordinates or span)</description>
                 </property>
                 <property key="rowEnd" type="string" required="false" defaultValue="auto">
                     <caption>Row End</caption>
-                    <category>Item Placement</category>
+                    <category>Default Placement</category>
                     <description>Ending row line (when using coordinates)</description>
                 </property>
+                
+                <!-- Item Alignment -->
                 <property key="justifySelf" type="enumeration" defaultValue="auto">
                     <caption>Justify Self</caption>
                     <category>Item Alignment</category>
@@ -223,27 +228,287 @@
                 </property>
                 <property key="zIndex" type="integer" defaultValue="0">
                     <caption>Z-Index</caption>
-                    <category>Item Styling</category>
+                    <category>Item Alignment</category>
                     <description>Stack order of overlapping items</description>
                 </property>
-                <property key="className" type="string" required="false">
-                    <caption>CSS Class</caption>
-                    <category>Item Styling</category>
-                    <description>CSS class for this grid item</description>
+                
+                <!-- Item Responsive Settings -->
+                <property key="enableResponsive" type="boolean" defaultValue="false">
+                    <caption>Enable Responsive Placement</caption>
+                    <category>Item Responsive</category>
+                    <description>Enable different placement at various screen sizes</description>
+                </property>
+                
+                <!-- Extra Small (< 640px) - Phones Portrait -->
+                <property key="xsEnabled" type="boolean" defaultValue="false">
+                    <caption>Extra Small Override</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>Override placement for extra small screens (phones in portrait)</description>
+                </property>
+                <property key="xsPlacementType" type="enumeration" defaultValue="auto">
+                    <caption>XS Placement Type</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>How to place this item on extra small screens</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="xsGridArea" type="string" required="false">
+                    <caption>XS Grid Area</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>Named area for extra small screens</description>
+                </property>
+                <property key="xsColumnStart" type="string" required="false" defaultValue="auto">
+                    <caption>XS Column Start</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>Starting column for extra small screens</description>
+                </property>
+                <property key="xsColumnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>XS Column End</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>Ending column for extra small screens</description>
+                </property>
+                <property key="xsRowStart" type="string" required="false" defaultValue="auto">
+                    <caption>XS Row Start</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>Starting row for extra small screens</description>
+                </property>
+                <property key="xsRowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>XS Row End</caption>
+                    <category>Item Responsive - XS (&lt;640px)</category>
+                    <description>Ending row for extra small screens</description>
+                </property>
+                
+                <!-- Small (640px - 768px) - Phones Landscape -->
+                <property key="smEnabled" type="boolean" defaultValue="false">
+                    <caption>Small Override</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>Override placement for small screens (phones in landscape)</description>
+                </property>
+                <property key="smPlacementType" type="enumeration" defaultValue="auto">
+                    <caption>SM Placement Type</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>How to place this item on small screens</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="smGridArea" type="string" required="false">
+                    <caption>SM Grid Area</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>Named area for small screens</description>
+                </property>
+                <property key="smColumnStart" type="string" required="false" defaultValue="auto">
+                    <caption>SM Column Start</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>Starting column for small screens</description>
+                </property>
+                <property key="smColumnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>SM Column End</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>Ending column for small screens</description>
+                </property>
+                <property key="smRowStart" type="string" required="false" defaultValue="auto">
+                    <caption>SM Row Start</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>Starting row for small screens</description>
+                </property>
+                <property key="smRowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>SM Row End</caption>
+                    <category>Item Responsive - SM (640-768px)</category>
+                    <description>Ending row for small screens</description>
+                </property>
+                
+                <!-- Medium (768px - 1024px) - Tablets -->
+                <property key="mdEnabled" type="boolean" defaultValue="false">
+                    <caption>Medium Override</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>Override placement for medium screens (tablets)</description>
+                </property>
+                <property key="mdPlacementType" type="enumeration" defaultValue="auto">
+                    <caption>MD Placement Type</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>How to place this item on medium screens</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="mdGridArea" type="string" required="false">
+                    <caption>MD Grid Area</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>Named area for medium screens</description>
+                </property>
+                <property key="mdColumnStart" type="string" required="false" defaultValue="auto">
+                    <caption>MD Column Start</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>Starting column for medium screens</description>
+                </property>
+                <property key="mdColumnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>MD Column End</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>Ending column for medium screens</description>
+                </property>
+                <property key="mdRowStart" type="string" required="false" defaultValue="auto">
+                    <caption>MD Row Start</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>Starting row for medium screens</description>
+                </property>
+                <property key="mdRowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>MD Row End</caption>
+                    <category>Item Responsive - MD (768-1024px)</category>
+                    <description>Ending row for medium screens</description>
+                </property>
+                
+                <!-- Large (1024px - 1440px) - Small Desktops -->
+                <property key="lgEnabled" type="boolean" defaultValue="false">
+                    <caption>Large Override</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>Override placement for large screens (small desktops)</description>
+                </property>
+                <property key="lgPlacementType" type="enumeration" defaultValue="auto">
+                    <caption>LG Placement Type</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>How to place this item on large screens</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="lgGridArea" type="string" required="false">
+                    <caption>LG Grid Area</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>Named area for large screens</description>
+                </property>
+                <property key="lgColumnStart" type="string" required="false" defaultValue="auto">
+                    <caption>LG Column Start</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>Starting column for large screens</description>
+                </property>
+                <property key="lgColumnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>LG Column End</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>Ending column for large screens</description>
+                </property>
+                <property key="lgRowStart" type="string" required="false" defaultValue="auto">
+                    <caption>LG Row Start</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>Starting row for large screens</description>
+                </property>
+                <property key="lgRowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>LG Row End</caption>
+                    <category>Item Responsive - LG (1024-1440px)</category>
+                    <description>Ending row for large screens</description>
+                </property>
+                
+                <!-- Extra Large (1440px - 1920px) - Standard Desktops -->
+                <property key="xlEnabled" type="boolean" defaultValue="false">
+                    <caption>Extra Large Override</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>Override placement for extra large screens (standard desktops)</description>
+                </property>
+                <property key="xlPlacementType" type="enumeration" defaultValue="auto">
+                    <caption>XL Placement Type</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>How to place this item on extra large screens</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="xlGridArea" type="string" required="false">
+                    <caption>XL Grid Area</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>Named area for extra large screens</description>
+                </property>
+                <property key="xlColumnStart" type="string" required="false" defaultValue="auto">
+                    <caption>XL Column Start</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>Starting column for extra large screens</description>
+                </property>
+                <property key="xlColumnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>XL Column End</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>Ending column for extra large screens</description>
+                </property>
+                <property key="xlRowStart" type="string" required="false" defaultValue="auto">
+                    <caption>XL Row Start</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>Starting row for extra large screens</description>
+                </property>
+                <property key="xlRowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>XL Row End</caption>
+                    <category>Item Responsive - XL (1440-1920px)</category>
+                    <description>Ending row for extra large screens</description>
+                </property>
+                
+                <!-- 2XL (> 1920px) - Large Desktops/4K -->
+                <property key="xxlEnabled" type="boolean" defaultValue="false">
+                    <caption>2XL Override</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>Override placement for 2XL screens (large desktops, 4K monitors)</description>
+                </property>
+                <property key="xxlPlacementType" type="enumeration" defaultValue="auto">
+                    <caption>2XL Placement Type</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>How to place this item on 2XL screens</description>
+                    <enumerationValues>
+                        <enumerationValue key="auto">Auto</enumerationValue>
+                        <enumerationValue key="area">Named Area</enumerationValue>
+                        <enumerationValue key="coordinates">Coordinates</enumerationValue>
+                        <enumerationValue key="span">Span</enumerationValue>
+                    </enumerationValues>
+                </property>
+                <property key="xxlGridArea" type="string" required="false">
+                    <caption>2XL Grid Area</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>Named area for 2XL screens</description>
+                </property>
+                <property key="xxlColumnStart" type="string" required="false" defaultValue="auto">
+                    <caption>2XL Column Start</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>Starting column for 2XL screens</description>
+                </property>
+                <property key="xxlColumnEnd" type="string" required="false" defaultValue="auto">
+                    <caption>2XL Column End</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>Ending column for 2XL screens</description>
+                </property>
+                <property key="xxlRowStart" type="string" required="false" defaultValue="auto">
+                    <caption>2XL Row Start</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>Starting row for 2XL screens</description>
+                </property>
+                <property key="xxlRowEnd" type="string" required="false" defaultValue="auto">
+                    <caption>2XL Row End</caption>
+                    <category>Item Responsive - 2XL (&gt;1920px)</category>
+                    <description>Ending row for 2XL screens</description>
                 </property>
             </properties>
         </property>
 
-        <!-- Responsive Properties -->
+        <!-- Container Responsive Properties -->
         <property key="enableBreakpoints" type="boolean" defaultValue="false">
-            <caption>Enable Breakpoints</caption>
+            <caption>Enable Container Breakpoints</caption>
             <category>Responsive</category>
-            <description>Enable responsive breakpoints for different screen sizes</description>
+            <description>Enable responsive breakpoints for the grid container</description>
         </property>
         <property key="breakpoints" type="object" isList="true" required="false">
-            <caption>Breakpoints</caption>
+            <caption>Container Breakpoints</caption>
             <category>Responsive</category>
-            <description>Define responsive breakpoints</description>
+            <description>Define responsive breakpoints for the grid</description>
             <properties>
                 <property key="minWidth" type="integer" defaultValue="0">
                     <caption>Min Width (px)</caption>
@@ -264,6 +529,11 @@
                     <caption>Gap</caption>
                     <category>Breakpoint</category>
                     <description>Gap for this breakpoint</description>
+                </property>
+                <property key="areas" type="string" required="false" multiline="true">
+                    <caption>Template Areas</caption>
+                    <category>Breakpoint</category>
+                    <description>Grid template areas for this breakpoint</description>
                 </property>
             </properties>
         </property>

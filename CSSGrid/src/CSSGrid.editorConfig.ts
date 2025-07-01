@@ -1,4 +1,4 @@
-import { CSSGridPreviewProps } from "../typings/CSSGridProps";
+import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
 
 /**
  * CSS Grid Editor Configuration
@@ -7,13 +7,15 @@ import { CSSGridPreviewProps } from "../typings/CSSGridProps";
  * for the Mendix Studio Pro property editor
  * 
  * Modified for Mendix Studio Pro compatibility - no regex usage
+ * Updated to handle new structure with item breakpoints
+ * Enhanced validation to guide users on property dependencies
  */
 
 // Type definitions for validation errors
 interface ValidationError {
     property?: string;
     message: string;
-    severity?: "error" | "warning";
+    severity?: "error" | "warning" | "info";
 }
 
 // Type for the check function
@@ -21,6 +23,66 @@ type CheckFunction = (values: CSSGridPreviewProps) => ValidationError[];
 
 // Type for the caption function
 type CaptionFunction = (values: CSSGridPreviewProps) => string;
+
+// Type for responsive properties that might exist on items
+type ResponsiveProperties = {
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsPlacementType?: string;
+    xsGridArea?: string;
+    xsColumnStart?: string;
+    xsColumnEnd?: string;
+    xsRowStart?: string;
+    xsRowEnd?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smPlacementType?: string;
+    smGridArea?: string;
+    smColumnStart?: string;
+    smColumnEnd?: string;
+    smRowStart?: string;
+    smRowEnd?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdPlacementType?: string;
+    mdGridArea?: string;
+    mdColumnStart?: string;
+    mdColumnEnd?: string;
+    mdRowStart?: string;
+    mdRowEnd?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgPlacementType?: string;
+    lgGridArea?: string;
+    lgColumnStart?: string;
+    lgColumnEnd?: string;
+    lgRowStart?: string;
+    lgRowEnd?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlPlacementType?: string;
+    xlGridArea?: string;
+    xlColumnStart?: string;
+    xlColumnEnd?: string;
+    xlRowStart?: string;
+    xlRowEnd?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlPlacementType?: string;
+    xxlGridArea?: string;
+    xxlColumnStart?: string;
+    xxlColumnEnd?: string;
+    xxlRowStart?: string;
+    xxlRowEnd?: string;
+};
+
+// Use type intersection instead of interface extension
+type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
 
 /**
  * Validate CSS grid template syntax without regex
@@ -209,31 +271,22 @@ function isValidSpanValue(value: string): boolean {
 export const check: CheckFunction = (values) => {
     const errors: ValidationError[] = [];
     
-    // Validate grid template columns
-    if (!values.gridTemplateColumns || values.gridTemplateColumns.trim() === "") {
-        errors.push({
-            property: "gridTemplateColumns",
-            severity: "error",
-            message: "Grid template columns cannot be empty"
-        });
-    } else {
-        // Validate grid template syntax
-        if (!validateGridTemplateSyntax(values.gridTemplateColumns.trim())) {
+    // Validate grid template based on useNamedAreas
+    if (values.useNamedAreas) {
+        // Info message about using named areas
+        if (values.gridTemplateColumns || values.gridTemplateRows) {
             errors.push({
-                property: "gridTemplateColumns",
-                severity: "warning",
-                message: "Grid template columns may have invalid syntax"
+                severity: "info",
+                message: "When using named areas, Grid Template Columns and Rows are defined implicitly by the Grid Template Areas. These properties will be ignored."
             });
         }
-    }
-    
-    // Validate grid template areas if enabled
-    if (values.useNamedAreas) {
+        
+        // Validate grid template areas
         if (!values.gridTemplateAreas || values.gridTemplateAreas.trim() === "") {
             errors.push({
                 property: "gridTemplateAreas",
                 severity: "error",
-                message: "Grid template areas cannot be empty when named areas are enabled"
+                message: "Grid Template Areas is required when 'Use Named Areas' is enabled. Define your grid areas or disable 'Use Named Areas' to use column/row templates."
             });
         } else {
             // Validate grid template areas format
@@ -290,10 +343,14 @@ export const check: CheckFunction = (values) => {
                 // Validate area names
                 const invalidAreas: string[] = [];
                 const allAreas = rowCells.flat();
+                const uniqueAreas = new Set<string>();
                 
                 for (const area of allAreas) {
-                    if (area !== "." && !isValidAreaName(area)) {
-                        invalidAreas.push(area);
+                    if (area !== ".") {
+                        uniqueAreas.add(area);
+                        if (!isValidAreaName(area)) {
+                            invalidAreas.push(area);
+                        }
                     }
                 }
                 
@@ -304,82 +361,170 @@ export const check: CheckFunction = (values) => {
                         message: `Invalid area names: ${invalidAreas.join(", ")}. Area names must start with a letter and contain only letters, numbers, hyphens, and underscores.`
                     });
                 }
+                
+                // Check items using areas
+                const definedAreas = Array.from(uniqueAreas);
+                values.items?.forEach((item, index) => {
+                    if (item.placementType === "area" && item.gridArea && !definedAreas.includes(item.gridArea)) {
+                        errors.push({
+                            property: `items[${index}].gridArea`,
+                            severity: "warning",
+                            message: `Item ${index + 1}: Grid area "${item.gridArea}" is not defined in Grid Template Areas. Available areas: ${definedAreas.join(", ")}`
+                        });
+                    }
+                });
+            }
+        }
+    } else {
+        // Info message about ignoring grid template areas
+        if (values.gridTemplateAreas) {
+            errors.push({
+                severity: "info",
+                message: "Grid Template Areas is only used when 'Use Named Areas' is enabled. Enable it to use area-based placement."
+            });
+        }
+        
+        // Validate grid template columns
+        if (!values.gridTemplateColumns || values.gridTemplateColumns.trim() === "") {
+            errors.push({
+                property: "gridTemplateColumns",
+                severity: "error",
+                message: "Grid Template Columns is required when not using named areas"
+            });
+        } else {
+            // Validate grid template syntax
+            if (!validateGridTemplateSyntax(values.gridTemplateColumns.trim())) {
+                errors.push({
+                    property: "gridTemplateColumns",
+                    severity: "warning",
+                    message: "Grid Template Columns may have invalid syntax. Example: '1fr 2fr 1fr' or 'repeat(3, 1fr)'"
+                });
             }
         }
     }
     
     // Validate items
     values.items?.forEach((item, index) => {
+        const responsiveItem = item as ResponsiveItemPreview;
+        
         // Validate area placement
-        if (item.placementType === "area" && values.useNamedAreas) {
-            if (!item.gridArea || item.gridArea.trim() === "") {
+        if (responsiveItem.placementType === "area") {
+            if (!values.useNamedAreas) {
                 errors.push({
-                    property: `items[${index}].gridArea`,
+                    property: `items[${index}].placementType`,
                     severity: "error",
-                    message: `Item ${index + 1}: Grid area name is required when placement type is 'Named Area'`
+                    message: `Item ${index + 1}: Cannot use 'Named Area' placement when 'Use Named Areas' is disabled. Enable 'Use Named Areas' or choose a different placement type.`
                 });
-            } else if (!isValidAreaName(item.gridArea.trim())) {
+            } else if (!responsiveItem.gridArea || responsiveItem.gridArea.trim() === "") {
                 errors.push({
                     property: `items[${index}].gridArea`,
                     severity: "error",
-                    message: `Item ${index + 1}: Invalid grid area name "${item.gridArea}"`
+                    message: `Item ${index + 1}: Grid Area is required when placement type is 'Named Area'`
+                });
+            } else if (!isValidAreaName(responsiveItem.gridArea.trim())) {
+                errors.push({
+                    property: `items[${index}].gridArea`,
+                    severity: "error",
+                    message: `Item ${index + 1}: Invalid grid area name "${responsiveItem.gridArea}"`
+                });
+            }
+            
+            // Info about unused properties
+            if (responsiveItem.columnStart !== "auto" || responsiveItem.columnEnd !== "auto" || responsiveItem.rowStart !== "auto" || responsiveItem.rowEnd !== "auto") {
+                errors.push({
+                    severity: "info",
+                    message: `Item ${index + 1}: Column/Row Start/End properties are ignored when using 'Named Area' placement`
                 });
             }
         }
         
         // Validate coordinate placement
-        if (item.placementType === "coordinates") {
-            if (item.columnStart && !isValidCoordinate(item.columnStart.trim())) {
+        if (responsiveItem.placementType === "coordinates") {
+            if (responsiveItem.columnStart && !isValidCoordinate(responsiveItem.columnStart.trim())) {
                 errors.push({
                     property: `items[${index}].columnStart`,
                     severity: "error",
-                    message: `Item ${index + 1}: columnStart must be 'auto', a positive number, or a negative number`
+                    message: `Item ${index + 1}: Column Start must be 'auto', a positive number, or a negative number (e.g., 1, -1)`
                 });
             }
-            if (item.columnEnd && !isValidCoordinate(item.columnEnd.trim())) {
+            if (responsiveItem.columnEnd && !isValidCoordinate(responsiveItem.columnEnd.trim())) {
                 errors.push({
                     property: `items[${index}].columnEnd`,
                     severity: "error",
-                    message: `Item ${index + 1}: columnEnd must be 'auto', a positive number, or a negative number`
+                    message: `Item ${index + 1}: Column End must be 'auto', a positive number, or a negative number`
                 });
             }
-            if (item.rowStart && !isValidCoordinate(item.rowStart.trim())) {
+            if (responsiveItem.rowStart && !isValidCoordinate(responsiveItem.rowStart.trim())) {
                 errors.push({
                     property: `items[${index}].rowStart`,
                     severity: "error",
-                    message: `Item ${index + 1}: rowStart must be 'auto', a positive number, or a negative number`
+                    message: `Item ${index + 1}: Row Start must be 'auto', a positive number, or a negative number`
                 });
             }
-            if (item.rowEnd && !isValidCoordinate(item.rowEnd.trim())) {
+            if (responsiveItem.rowEnd && !isValidCoordinate(responsiveItem.rowEnd.trim())) {
                 errors.push({
                     property: `items[${index}].rowEnd`,
                     severity: "error",
-                    message: `Item ${index + 1}: rowEnd must be 'auto', a positive number, or a negative number`
+                    message: `Item ${index + 1}: Row End must be 'auto', a positive number, or a negative number`
+                });
+            }
+            
+            // Info about unused properties
+            if (responsiveItem.gridArea) {
+                errors.push({
+                    severity: "info",
+                    message: `Item ${index + 1}: Grid Area property is ignored when using 'Coordinates' placement`
                 });
             }
         }
         
         // Validate span placement
-        if (item.placementType === "span") {
-            if (item.columnStart && !isValidSpanValue(item.columnStart.trim())) {
+        if (responsiveItem.placementType === "span") {
+            if (responsiveItem.columnStart && !isValidSpanValue(responsiveItem.columnStart.trim())) {
                 errors.push({
                     property: `items[${index}].columnStart`,
                     severity: "error",
-                    message: `Item ${index + 1}: columnStart must be 'auto', a number, or 'span N' format`
+                    message: `Item ${index + 1}: Column Start must be 'auto', a number, or 'span N' format (e.g., 'span 2')`
                 });
             }
-            if (item.rowStart && !isValidSpanValue(item.rowStart.trim())) {
+            if (responsiveItem.rowStart && !isValidSpanValue(responsiveItem.rowStart.trim())) {
                 errors.push({
                     property: `items[${index}].rowStart`,
                     severity: "error",
-                    message: `Item ${index + 1}: rowStart must be 'auto', a number, or 'span N' format`
+                    message: `Item ${index + 1}: Row Start must be 'auto', a number, or 'span N' format`
+                });
+            }
+            
+            // Info about unused properties
+            if (responsiveItem.columnEnd !== "auto" || responsiveItem.rowEnd !== "auto") {
+                errors.push({
+                    severity: "info",
+                    message: `Item ${index + 1}: Column/Row End properties are ignored when using 'Span' placement`
+                });
+            }
+            if (responsiveItem.gridArea) {
+                errors.push({
+                    severity: "info",
+                    message: `Item ${index + 1}: Grid Area property is ignored when using 'Span' placement`
+                });
+            }
+        }
+        
+        // Validate auto placement
+        if (responsiveItem.placementType === "auto") {
+            // Info about unused properties
+            if (responsiveItem.gridArea || responsiveItem.columnStart !== "auto" || responsiveItem.columnEnd !== "auto" || 
+                responsiveItem.rowStart !== "auto" || responsiveItem.rowEnd !== "auto") {
+                errors.push({
+                    severity: "info",
+                    message: `Item ${index + 1}: All placement properties are ignored when using 'Auto' placement. Items will be placed according to the grid's Auto Flow setting.`
                 });
             }
         }
         
         // Validate z-index
-        if (item.zIndex !== null && item.zIndex !== undefined) {
-            if (item.zIndex < -999 || item.zIndex > 999) {
+        if (responsiveItem.zIndex !== null && responsiveItem.zIndex !== undefined) {
+            if (responsiveItem.zIndex < -999 || responsiveItem.zIndex > 999) {
                 errors.push({
                     property: `items[${index}].zIndex`,
                     severity: "warning",
@@ -387,9 +532,119 @@ export const check: CheckFunction = (values) => {
                 });
             }
         }
+
+        // Validate responsive settings for items
+        const breakpointSizes = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
+        const breakpointLabels = {
+            xs: 'Extra Small (<640px)',
+            sm: 'Small (640-768px)',
+            md: 'Medium (768-1024px)',
+            lg: 'Large (1024-1440px)',
+            xl: 'Extra Large (1440-1920px)',
+            xxl: '2X Large (>1920px)'
+        };
+        
+        if (responsiveItem.enableResponsive) {
+            let hasAnyBreakpoint = false;
+            
+            breakpointSizes.forEach(size => {
+                const enabledKey = `${size}Enabled` as keyof ResponsiveItemPreview;
+                if (responsiveItem[enabledKey]) {
+                    hasAnyBreakpoint = true;
+                    
+                    const placementTypeKey = `${size}PlacementType` as keyof ResponsiveItemPreview;
+                    const placementType = responsiveItem[placementTypeKey] as string;
+                    
+                    // Validate placement for this breakpoint
+                    if (placementType === "area") {
+                        const areaKey = `${size}GridArea` as keyof ResponsiveItemPreview;
+                        if (!values.useNamedAreas) {
+                            errors.push({
+                                property: `items[${index}].${placementTypeKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Cannot use 'Named Area' placement when 'Use Named Areas' is disabled`
+                            });
+                        } else if (!responsiveItem[areaKey] || (responsiveItem[areaKey] as string).trim() === "") {
+                            errors.push({
+                                property: `items[${index}].${areaKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Grid area is required when using area placement`
+                            });
+                        }
+                    } else if (placementType === "coordinates") {
+                        const colStartKey = `${size}ColumnStart` as keyof ResponsiveItemPreview;
+                        const colEndKey = `${size}ColumnEnd` as keyof ResponsiveItemPreview;
+                        const rowStartKey = `${size}RowStart` as keyof ResponsiveItemPreview;
+                        const rowEndKey = `${size}RowEnd` as keyof ResponsiveItemPreview;
+                        
+                        const colStart = responsiveItem[colStartKey] as string | undefined;
+                        const colEnd = responsiveItem[colEndKey] as string | undefined;
+                        const rowStart = responsiveItem[rowStartKey] as string | undefined;
+                        const rowEnd = responsiveItem[rowEndKey] as string | undefined;
+                        
+                        if (colStart && !isValidCoordinate(colStart.trim())) {
+                            errors.push({
+                                property: `items[${index}].${colStartKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid column start value`
+                            });
+                        }
+                        if (colEnd && !isValidCoordinate(colEnd.trim())) {
+                            errors.push({
+                                property: `items[${index}].${colEndKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid column end value`
+                            });
+                        }
+                        if (rowStart && !isValidCoordinate(rowStart.trim())) {
+                            errors.push({
+                                property: `items[${index}].${rowStartKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid row start value`
+                            });
+                        }
+                        if (rowEnd && !isValidCoordinate(rowEnd.trim())) {
+                            errors.push({
+                                property: `items[${index}].${rowEndKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid row end value`
+                            });
+                        }
+                    } else if (placementType === "span") {
+                        const colStartKey = `${size}ColumnStart` as keyof ResponsiveItemPreview;
+                        const rowStartKey = `${size}RowStart` as keyof ResponsiveItemPreview;
+                        
+                        const colStart = responsiveItem[colStartKey] as string | undefined;
+                        const rowStart = responsiveItem[rowStartKey] as string | undefined;
+                        
+                        if (colStart && !isValidSpanValue(colStart.trim())) {
+                            errors.push({
+                                property: `items[${index}].${colStartKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid column span value`
+                            });
+                        }
+                        if (rowStart && !isValidSpanValue(rowStart.trim())) {
+                            errors.push({
+                                property: `items[${index}].${rowStartKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid row span value`
+                            });
+                        }
+                    }
+                }
+            });
+            
+            if (!hasAnyBreakpoint) {
+                errors.push({
+                    severity: "info",
+                    message: `Item ${index + 1}: Responsive placement is enabled but no breakpoints are configured. Enable at least one breakpoint size.`
+                });
+            }
+        }
     });
     
-    // Validate breakpoints
+    // Validate container breakpoints
     if (values.enableBreakpoints && values.breakpoints) {
         const widths = values.breakpoints
             .map(bp => bp.minWidth)
@@ -400,7 +655,7 @@ export const check: CheckFunction = (values) => {
             errors.push({
                 property: "breakpoints",
                 severity: "error",
-                message: "Breakpoint minimum widths must be unique"
+                message: "Container breakpoint minimum widths must be unique"
             });
         }
         
@@ -409,7 +664,7 @@ export const check: CheckFunction = (values) => {
                 errors.push({
                     property: `breakpoints[${index}].columns`,
                     severity: "error",
-                    message: `Breakpoint ${index + 1}: Column template cannot be empty`
+                    message: `Container breakpoint ${index + 1}: Columns template cannot be empty`
                 });
             }
             
@@ -417,15 +672,37 @@ export const check: CheckFunction = (values) => {
                 errors.push({
                     property: `breakpoints[${index}].minWidth`,
                     severity: "error",
-                    message: `Breakpoint ${index + 1}: Minimum width must be a positive number`
+                    message: `Container breakpoint ${index + 1}: Minimum width must be a positive number`
                 });
             } else if (bp.minWidth > 9999) {
                 errors.push({
                     property: `breakpoints[${index}].minWidth`,
                     severity: "warning",
-                    message: `Breakpoint ${index + 1}: Very large minimum width (${bp.minWidth}px) may not work as expected`
+                    message: `Container breakpoint ${index + 1}: Very large minimum width (${bp.minWidth}px) may not work as expected`
                 });
             }
+
+            // Validate areas if using named areas
+            if (values.useNamedAreas && bp.areas) {
+                const areaLines = bp.areas.split('\n').filter(line => line.trim());
+                if (areaLines.length === 0) {
+                    errors.push({
+                        property: `breakpoints[${index}].areas`,
+                        severity: "warning",
+                        message: `Container breakpoint ${index + 1}: Template areas should not be empty when using named areas`
+                    });
+                }
+            } else if (!values.useNamedAreas && bp.areas) {
+                errors.push({
+                    severity: "info",
+                    message: `Container breakpoint ${index + 1}: Template areas property is ignored when 'Use Named Areas' is disabled`
+                });
+            }
+        });
+    } else if (values.breakpoints && values.breakpoints.length > 0) {
+        errors.push({
+            severity: "info",
+            message: "Container breakpoints are configured but not enabled. Enable 'Enable Container Breakpoints' to use them."
         });
     }
     
@@ -444,6 +721,26 @@ export const check: CheckFunction = (values) => {
                 message: "Very high virtualization threshold may impact initial render performance"
             });
         }
+    } else if (!values.enableVirtualization && values.virtualizeThreshold && values.virtualizeThreshold !== 100) {
+        errors.push({
+            severity: "info",
+            message: "Virtualization threshold is configured but virtualization is not enabled. Enable 'Enable Virtualization' to use it."
+        });
+    }
+    
+    // General tips based on configuration
+    if (values.items.length === 0) {
+        errors.push({
+            severity: "info",
+            message: "No grid items configured. Add items to the grid to see your layout."
+        });
+    }
+    
+    if (values.items.length > 50 && !values.enableVirtualization) {
+        errors.push({
+            severity: "info",
+            message: `You have ${values.items.length} items. Consider enabling virtualization for better performance.`
+        });
     }
     
     return errors;
@@ -456,54 +753,60 @@ export const check: CheckFunction = (values) => {
  * @returns Custom caption string
  */
 export const getCustomCaption: CaptionFunction = (values) => {
-    // Parse grid dimensions without regex
-    const columnsParts: string[] = [];
-    const columnsStr = values.gridTemplateColumns || "1fr 1fr";
-    let current = "";
-    let depth = 0;
-    
-    for (let i = 0; i < columnsStr.length; i++) {
-        const char = columnsStr[i];
-        
-        if (char === "(") depth++;
-        if (char === ")") depth--;
-        
-        if ((char === " " || char === "\t") && depth === 0) {
-            if (current.trim()) {
-                columnsParts.push(current.trim());
-            }
-            current = "";
-        } else {
-            current += char;
-        }
-    }
-    
-    if (current.trim()) {
-        columnsParts.push(current.trim());
-    }
-    
-    const columns = columnsParts.length || 1;
-    
-    const rows = values.gridTemplateAreas && values.useNamedAreas
-        ? values.gridTemplateAreas.split('\n').filter(line => line.trim()).length
-        : (values.gridTemplateRows || "auto").split(/\s+/).filter(s => s.trim()).length;
-    
     // Build caption parts
-    const parts: string[] = [`Grid (${columns}×${rows})`];
+    const parts: string[] = [];
     
     if (values.useNamedAreas) {
-        parts.push("with areas");
+        const areaCount = values.gridTemplateAreas ? 
+            values.gridTemplateAreas.split('\n').filter(line => line.trim()).length : 0;
+        parts.push(`Grid (${areaCount} areas)`);
+    } else {
+        // Parse grid dimensions without regex
+        const columnsParts: string[] = [];
+        const columnsStr = values.gridTemplateColumns || "1fr 1fr";
+        let current = "";
+        let depth = 0;
+        
+        for (let i = 0; i < columnsStr.length; i++) {
+            const char = columnsStr[i];
+            
+            if (char === "(") depth++;
+            if (char === ")") depth--;
+            
+            if ((char === " " || char === "\t") && depth === 0) {
+                if (current.trim()) {
+                    columnsParts.push(current.trim());
+                }
+                current = "";
+            } else {
+                current += char;
+            }
+        }
+        
+        if (current.trim()) {
+            columnsParts.push(current.trim());
+        }
+        
+        const columns = columnsParts.length || 1;
+        const rows = (values.gridTemplateRows || "auto").split(/\s+/).filter(s => s.trim()).length;
+        
+        parts.push(`Grid (${columns}×${rows})`);
     }
     
     if (values.items.length > 0) {
-        parts.push(`- ${values.items.length} items`);
+        const responsiveItems = values.items.filter(item => item.enableResponsive).length;
+        if (responsiveItems > 0) {
+            parts.push(`${values.items.length} items (${responsiveItems} responsive)`);
+        } else {
+            parts.push(`${values.items.length} items`);
+        }
     }
     
     if (values.enableBreakpoints && values.breakpoints && values.breakpoints.length > 0) {
-        parts.push(`- ${values.breakpoints.length} breakpoints`);
+        parts.push(`${values.breakpoints.length} breakpoints`);
     }
     
-    return parts.join(" ");
+    return parts.join(" - ");
 };
 
 /**
