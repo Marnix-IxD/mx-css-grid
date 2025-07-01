@@ -10,7 +10,12 @@ import {
     useLayoutEffect 
 } from "react";
 import { CSSGridContainerProps } from "../typings/CSSGridProps";
-import { getGridItemPlacement, generateBreakpointStyles } from "./utils/gridHelpers";
+import { 
+    getGridItemPlacement, 
+    generateBreakpointStyles,
+    validateGridLine,
+    getGridDebugInfo 
+} from "./utils/gridHelpers";
 import "./ui/CSSGrid.css";
 
 /**
@@ -71,6 +76,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     const [visibleItems, setVisibleItems] = useState<Set<number>>(() => new Set());
     const [currentBreakpoint, setCurrentBreakpoint] = useState<number | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [debugMode, setDebugMode] = useState(false);
 
     /**
      * Generate unique widget identifier
@@ -111,6 +117,49 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             'spaceEvenly': 'space-evenly'
         }
     }), []);
+
+    /**
+     * Validate grid configuration in development mode
+     */
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            // Validate grid template
+            const debugInfo = getGridDebugInfo(
+                gridTemplateColumns || "1fr",
+                useNamedAreas ? gridTemplateAreas : undefined
+            );
+            
+            if (!debugInfo.isValid) {
+                console.warn(`[CSSGrid ${widgetId}] Invalid grid configuration:`, debugInfo);
+            }
+
+            // Validate grid lines in items
+            items.forEach((item, index) => {
+                if (item.placementType === "coordinates" || item.placementType === "span") {
+                    const invalidLines = [];
+                    if (item.columnStart && !validateGridLine(item.columnStart)) {
+                        invalidLines.push(`columnStart: "${item.columnStart}"`);
+                    }
+                    if (item.columnEnd && !validateGridLine(item.columnEnd)) {
+                        invalidLines.push(`columnEnd: "${item.columnEnd}"`);
+                    }
+                    if (item.rowStart && !validateGridLine(item.rowStart)) {
+                        invalidLines.push(`rowStart: "${item.rowStart}"`);
+                    }
+                    if (item.rowEnd && !validateGridLine(item.rowEnd)) {
+                        invalidLines.push(`rowEnd: "${item.rowEnd}"`);
+                    }
+                    
+                    if (invalidLines.length > 0) {
+                        console.warn(
+                            `[CSSGrid ${widgetId}] Item ${index + 1} has invalid grid lines:`,
+                            invalidLines.join(", ")
+                        );
+                    }
+                }
+            });
+        }
+    }, [widgetId, gridTemplateColumns, gridTemplateAreas, useNamedAreas, items]);
 
     /**
      * Calculate base grid styles with memoization
@@ -336,6 +385,22 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     }, [setupVirtualization]);
 
     /**
+     * Toggle debug mode with keyboard shortcut (Ctrl+Shift+D)
+     */
+    useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                setDebugMode(prev => !prev);
+            }
+        };
+
+        if (process.env.NODE_ENV === 'development') {
+            window.addEventListener('keydown', handleKeyPress);
+            return () => window.removeEventListener('keydown', handleKeyPress);
+        }
+    }, []);
+
+    /**
      * Render individual grid items with optimization
      */
     const renderGridItems = useCallback(() => {
@@ -344,7 +409,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         return items.map((item, index) => {
             const isVisible = !shouldVirtualize || visibleItems.has(index) || !isInitialized;
             
-            // Calculate item styles
+            // Calculate item styles using the utility function
             const itemStyles: CSSProperties = {
                 justifySelf: item.justifySelf !== "auto" ? item.justifySelf : undefined,
                 alignSelf: item.alignSelf !== "auto" ? item.alignSelf : undefined,
@@ -413,9 +478,12 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         if (useNamedAreas) {
             classes.push("mx-css-grid--named-areas");
         }
+        if (debugMode) {
+            classes.push("debug");
+        }
         
         return classes.filter(Boolean).join(" ");
-    }, [className, widgetId, enableVirtualization, items.length, virtualizeThreshold, currentBreakpoint, useNamedAreas]);
+    }, [className, widgetId, enableVirtualization, items.length, virtualizeThreshold, currentBreakpoint, useNamedAreas, debugMode]);
 
     /**
      * Determine appropriate ARIA role
@@ -430,14 +498,22 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     // Performance tracking in development
     useEffect(() => {
         if (process.env.NODE_ENV === 'development') {
-            console.debug(`[CSSGrid ${widgetId}] Rendered with ${items.length} items`, {
+            const debugInfo = getGridDebugInfo(
+                gridTemplateColumns || "1fr",
+                useNamedAreas ? gridTemplateAreas : undefined
+            );
+            
+            console.debug(`[CSSGrid ${widgetId}] Rendered`, {
+                items: items.length,
                 virtualized: enableVirtualization && items.length >= (virtualizeThreshold || 100),
                 visibleItems: visibleItems.size,
                 breakpoint: currentBreakpoint,
-                namedAreas: useNamedAreas
+                namedAreas: useNamedAreas,
+                gridInfo: debugInfo,
+                debugMode
             });
         }
-    }, [widgetId, items.length, enableVirtualization, virtualizeThreshold, visibleItems.size, currentBreakpoint, useNamedAreas]);
+    }, [widgetId, items.length, enableVirtualization, virtualizeThreshold, visibleItems.size, currentBreakpoint, useNamedAreas, gridTemplateColumns, gridTemplateAreas, debugMode]);
 
     return (
         <div 
@@ -451,6 +527,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             aria-describedby={ariaDescribedBy}
             data-breakpoint={currentBreakpoint !== null ? currentBreakpoint : undefined}
             data-item-count={items.length}
+            data-show-areas={debugMode && useNamedAreas ? "true" : undefined}
         >
             {renderGridItems()}
         </div>

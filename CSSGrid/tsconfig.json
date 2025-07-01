@@ -1,31 +1,7 @@
 {
-  "extends": "@mendix/pluggable-widgets-tools/configs/tsconfig.base.json",
+  "extends": "@mendix/pluggable-widgets-tools/configs/tsconfig.base",
   "compilerOptions": {
-    "baseUrl": ".",
-    "rootDir": "./src",
-    "module": "ES2020",
-    "target": "ES2020",
-    "moduleResolution": "node",
-    "declaration": false,
-    "declarationMap": false,
-    "emitDeclarationOnly": false,
-    "noEmit": true,
-    "paths": {
-      "*": ["./src/*"]
-    },
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "jsx": "react",
-    "isolatedModules": true,
-    "strictNullChecks": true,
-    "strict": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "baseUrl": "./"
   },
-  "include": ["./src/**/*", "./typings/**/*"],
-  "exclude": [
-    "./dist/**/*",
-    "./node_modules/**/*",
-    "./**/*.spec.ts",
-    "./**/*.spec.tsx"
-  ]
+  "include": ["./src", "./typings"]
 }

@@ -3,9 +3,11 @@ import { CSSGridPreviewProps } from "../typings/CSSGridProps";
 import { parseGridTemplate, parseGridAreas, getUniqueAreaNames } from "./utils/gridHelpers";
 import { 
     getItemDisplayName, 
-    calculateItemPlacement as calculatePlacement,
-    getAreaColor 
+    calculateItemPlacement,
+    getAreaColor,
+    isItemInlineWithOthers
 } from "./utils/gridItemUtils";
+import { GridPreviewItem, GridAreaBackground } from "./components/GridPreviewItem";
 
 /**
  * CSS Grid Editor Preview Component
@@ -38,6 +40,13 @@ export function editorPreview(props: CSSGridPreviewProps): ReactElement {
     const columnCount = columns.length;
     const rowCount = Math.max(rows.length, Math.ceil(items.length / columnCount), 3);
 
+    // Parse gap value to number
+    const gapValue = useMemo(() => {
+        if (!gap) return 16;
+        const match = gap.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 16;
+    }, [gap]);
+
     /**
      * Initialize grid cells for area editing
      */
@@ -61,32 +70,44 @@ export function editorPreview(props: CSSGridPreviewProps): ReactElement {
     }, [initializeGrid]);
 
     /**
-     * Calculate item placement with memoization
+     * Calculate item placement using shared utility
      */
-    const calculateItemPlacement = useCallback((item: any, index: number) => {
-        return calculatePlacement(item, index, gridCells, columnCount, useNamedAreas);
+    const calculatePlacement = useCallback((item: any, index: number) => {
+        return calculateItemPlacement(item, index, gridCells, columnCount, useNamedAreas);
     }, [gridCells, columnCount, useNamedAreas]);
 
     /**
-     * Get all item placements with inline detection
+     * Get all item placements with positioning
      */
     const itemPlacements = useMemo(() => {
-        const placements = items.map((item, index) => ({
-            item,
-            index,
-            placement: calculateItemPlacement(item, index)
-        }));
-
-        // Add inline detection
-        return placements.map((current, idx) => ({
-            ...current,
-            isInline: placements.some((other, otherIdx) => 
-                otherIdx !== idx &&
-                other.placement.rowStart === current.placement.rowStart &&
-                other.placement.rowEnd === current.placement.rowEnd
-            )
-        }));
-    }, [items, calculateItemPlacement]);
+        const cellWidth = 120; // Base cell width
+        const cellHeight = 80; // Base cell height
+        
+        return items.map((item, index) => {
+            const placement = calculatePlacement(item, index);
+            
+            // Calculate pixel positions
+            const x = (placement.colStart - 1) * (cellWidth + gapValue);
+            const y = (placement.rowStart - 1) * (cellHeight + gapValue);
+            const width = (placement.colEnd - placement.colStart) * cellWidth + 
+                         (placement.colEnd - placement.colStart - 1) * gapValue;
+            const height = (placement.rowEnd - placement.rowStart) * cellHeight + 
+                          (placement.rowEnd - placement.rowStart - 1) * gapValue;
+            
+            return {
+                item,
+                index,
+                placement: {
+                    ...placement,
+                    x,
+                    y,
+                    width,
+                    height
+                },
+                isInline: isItemInlineWithOthers(index, items, calculatePlacement)
+            };
+        });
+    }, [items, calculatePlacement, gapValue]);
 
     /**
      * Handle cell interaction in edit mode
@@ -107,18 +128,6 @@ export function editorPreview(props: CSSGridPreviewProps): ReactElement {
     }, [editMode, gridCells, columnCount, selectedArea, isDragging]);
 
     /**
-     * Generate grid styles based on configuration
-     */
-    const gridStyles = useMemo<React.CSSProperties>(() => ({
-        gridTemplateColumns: columns.join(" "),
-        gridTemplateRows: rows.map(() => "minmax(80px, auto)").join(" "),
-        gap: gap || "16px",
-        gridTemplateAreas: useNamedAreas && gridCells.length > 0 
-            ? gridCells.map(row => `"${row.join(" ")}"`).join(" ")
-            : undefined
-    }), [columns, rows, gap, useNamedAreas, gridCells]);
-
-    /**
      * Predefined and custom area names
      */
     const availableAreas = useMemo(() => {
@@ -128,74 +137,55 @@ export function editorPreview(props: CSSGridPreviewProps): ReactElement {
     }, [gridCells]);
 
     /**
-     * Render grid items
+     * Render grid container with positioned items
      */
-    const renderGridItems = () => {
-        return itemPlacements.map(({ item, index, placement, isInline }) => {
-            const itemStyles: React.CSSProperties = {
-                zIndex: item.zIndex || index + 1
-            };
+    const renderGridContainer = () => {
+        const containerWidth = columnCount * 120 + (columnCount - 1) * gapValue;
+        const containerHeight = rowCount * 80 + (rowCount - 1) * gapValue;
 
-            // Apply grid placement styles
-            if (item.placementType === "area" && item.gridArea && useNamedAreas) {
-                itemStyles.gridArea = item.gridArea;
-            } else if (item.placementType === "coordinates") {
-                itemStyles.gridColumn = `${placement.colStart} / ${placement.colEnd}`;
-                itemStyles.gridRow = `${placement.rowStart} / ${placement.rowEnd}`;
-            } else if (item.placementType === "span") {
-                if (item.columnStart && item.columnStart !== "auto") {
-                    itemStyles.gridColumn = item.columnStart.includes("span") 
-                        ? item.columnStart 
-                        : `${item.columnStart} / ${item.columnEnd || "auto"}`;
-                }
-                if (item.rowStart && item.rowStart !== "auto") {
-                    itemStyles.gridRow = item.rowStart.includes("span")
-                        ? item.rowStart
-                        : `${item.rowStart} / ${item.rowEnd || "auto"}`;
-                }
-            }
+        return (
+            <div 
+                className="mx-css-grid-editor-container"
+                style={{
+                    position: "relative",
+                    width: containerWidth,
+                    height: containerHeight,
+                    margin: "0 auto",
+                    backgroundColor: "#f9fafb",
+                    border: "2px dashed #d1d5db",
+                    borderRadius: "6px",
+                    padding: "16px"
+                }}
+            >
+                {/* Render area backgrounds */}
+                {useNamedAreas && gridCells.map((row, rowIdx) => 
+                    row.map((cell, colIdx) => (
+                        <GridAreaBackground
+                            key={`bg-${rowIdx}-${colIdx}`}
+                            row={rowIdx}
+                            col={colIdx}
+                            cellWidth={120}
+                            cellHeight={80}
+                            gap={gapValue}
+                            areaName={cell}
+                            color={getAreaColor(cell)}
+                        />
+                    ))
+                )}
 
-            const displayName = getItemDisplayName(item, index);
-            const widgetCount = item.content?.widgetCount || 0;
-
-            return (
-                <div
-                    key={`item-${index}`}
-                    className="mx-css-grid-editor-item"
-                    style={itemStyles}
-                >
-                    {isInline && (
-                        <div className="mx-css-grid-editor-item__inline-indicator" title="Displayed inline with other items">
-                            ↔
-                        </div>
-                    )}
-                    
-                    {item.zIndex && item.zIndex !== 0 && (
-                        <div className="mx-css-grid-editor-item__z-index">
-                            {item.zIndex}
-                        </div>
-                    )}
-                    
-                    <div className="mx-css-grid-editor-item__name">
-                        {displayName}
-                    </div>
-                    
-                    <div className="mx-css-grid-editor-item__widgets">
-                        {widgetCount} widget{widgetCount !== 1 ? "s" : ""}
-                    </div>
-                    
-                    {item.placementType !== "auto" && (
-                        <div className="mx-css-grid-editor-item__placement">
-                            {item.placementType === "area" && item.gridArea
-                                ? `Area: ${item.gridArea}`
-                                : item.placementType === "coordinates"
-                                ? `${placement.colStart}-${placement.rowStart}`
-                                : "Span"}
-                        </div>
-                    )}
-                </div>
-            );
-        });
+                {/* Render grid items using GridPreviewItem component */}
+                {itemPlacements.map(({ item, index, placement, isInline }) => (
+                    <GridPreviewItem
+                        key={`item-${index}`}
+                        item={item}
+                        index={index}
+                        name={getItemDisplayName(item, index)}
+                        placement={placement}
+                        isInlineWithOthers={isInline}
+                    />
+                ))}
+            </div>
+        );
     };
 
     /**
@@ -351,10 +341,7 @@ export function editorPreview(props: CSSGridPreviewProps): ReactElement {
                 </div>
             </div>
 
-            <div className="mx-css-grid-editor-container" style={gridStyles}>
-                {renderGridItems()}
-            </div>
-
+            {renderGridContainer()}
             {renderAreaEditor()}
 
             <div className="mx-css-grid-editor-help">
@@ -403,94 +390,8 @@ export function getPreviewCss(): string {
 
         /* Grid container */
         .mx-css-grid-editor-container {
-            display: grid;
-            background-color: #f9fafb;
-            border: 2px dashed #d1d5db;
-            border-radius: 6px;
-            padding: 16px;
-            min-height: 400px;
-            position: relative;
-        }
-
-        /* Grid items */
-        .mx-css-grid-editor-item {
-            background-color: #ffffff;
-            border: 2px solid #3b82f6;
-            border-radius: 6px;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            min-height: 60px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .mx-css-grid-editor-item:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-            border-color: #2563eb;
-        }
-
-        .mx-css-grid-editor-item__inline-indicator {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #10b981;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .mx-css-grid-editor-item__z-index {
-            position: absolute;
-            top: 4px;
-            left: 4px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: #6b7280;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .mx-css-grid-editor-item__name {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: #111827;
-            text-align: center;
-            word-break: break-word;
-        }
-
-        .mx-css-grid-editor-item__widgets {
-            font-size: 11px;
-            color: #6b7280;
-            margin-bottom: 4px;
-        }
-
-        .mx-css-grid-editor-item__placement {
-            font-size: 10px;
-            color: #3b82f6;
-            padding: 2px 8px;
-            background-color: #eff6ff;
-            border-radius: 3px;
-            margin-top: auto;
+            margin-bottom: 16px;
+            overflow: auto;
         }
 
         /* Area editor */
@@ -708,10 +609,6 @@ export function getPreviewCss(): string {
                 border-width: 3px;
             }
 
-            .mx-css-grid-editor-item {
-                border-width: 3px;
-            }
-
             .mx-css-grid-editor-cell {
                 border-width: 3px;
             }
@@ -719,7 +616,6 @@ export function getPreviewCss(): string {
 
         /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
-            .mx-css-grid-editor-item,
             .mx-css-grid-editor-areas__toggle,
             .mx-css-grid-editor-areas__button,
             .mx-css-grid-editor-cell {
