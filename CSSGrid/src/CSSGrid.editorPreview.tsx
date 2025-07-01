@@ -1,5 +1,5 @@
 import { createElement, useState, useCallback, Fragment, useEffect, useMemo } from "react";
-import { CSSGridPreviewProps } from "../typings/CSSGridProps";
+import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
 import { parseGridTemplate, parseGridAreas, getUniqueAreaNames } from "./utils/gridHelpers";
 import { getAreaColor } from "./utils/gridItemUtils";
 import { Selectable } from "mendix/preview/Selectable";
@@ -119,7 +119,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
                 style={containerStyle}
             >
                 {/* Render grid items */}
-                {items.map((item, index) => {
+                {items.map((item: ItemsPreviewType, index: number) => {
                     const ContentRenderer = item.content?.renderer;
                     
                     // Build item styles
@@ -668,6 +668,17 @@ export function getPreviewCss(): string {
         .mx-css-grid-editor-container .mx-css-grid-item {
             padding: 8px;
             min-height: 50px;
+        }
+
+        /* Visual feedback for selectable elements */
+        .mx-css-grid-editor-preview.mx-selectable-selected {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        .mx-css-grid-editor-item.mx-selectable-selected {
+            outline: 2px solid #10b981;
+            outline-offset: -2px;
         }
 
         /* Responsive adjustments */
