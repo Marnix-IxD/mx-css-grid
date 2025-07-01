@@ -19,7 +19,7 @@
     "start": "pluggable-widgets-tools start:server",
     "dev": "pluggable-widgets-tools start:web",
     "build": "npm run build:preview && pluggable-widgets-tools build:web",
-    "build:preview": "webpack --config webpack.preview.config.js",
+    "build:preview": "npx webpack --config webpack.preview.config.js",
     "build:typings": "pluggable-widgets-tools build:typings",
     "lint": "pluggable-widgets-tools lint",
     "lint:fix": "pluggable-widgets-tools lint:fix",
@@ -29,7 +29,10 @@
   "devDependencies": {
     "@mendix/pluggable-widgets-tools": "^10.21.1",
     "@types/big.js": "^6.0.2",
-    "@types/classnames": "^2.3.1"
+    "@types/classnames": "^2.3.1",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "classnames": "^2.2.6"
