@@ -1,4 +1,5 @@
 import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
+import { Properties, hidePropertiesIn, hidePropertyIn, hideNestedPropertiesIn, transformGroupsIntoTabs } from "@mendix/pluggable-widgets-tools";
 
 /**
  * CSS Grid Editor Configuration
@@ -83,12 +84,31 @@ type ResponsiveProperties = {
 type ResponsiveContainerProperties = {
     enableBreakpoints?: boolean;
     
+    // Debug properties
+    showGridLines?: boolean;
+    showGridAreas?: boolean;
+    showGridGaps?: boolean;
+    showLineNumbers?: boolean;
+    
     // XS breakpoint
     xsEnabled?: boolean;
     xsColumns?: string;
     xsRows?: string;
     xsAreas?: string;
     xsGap?: string;
+    xsRowGap?: string;
+    xsColumnGap?: string;
+    xsAutoFlow?: string;
+    xsAutoRows?: string;
+    xsAutoColumns?: string;
+    xsJustifyItems?: string;
+    xsAlignItems?: string;
+    xsJustifyContent?: string;
+    xsAlignContent?: string;
+    xsMinHeight?: string;
+    xsMaxHeight?: string;
+    xsMinWidth?: string;
+    xsMaxWidth?: string;
     
     // SM breakpoint
     smEnabled?: boolean;
@@ -96,6 +116,19 @@ type ResponsiveContainerProperties = {
     smRows?: string;
     smAreas?: string;
     smGap?: string;
+    smRowGap?: string;
+    smColumnGap?: string;
+    smAutoFlow?: string;
+    smAutoRows?: string;
+    smAutoColumns?: string;
+    smJustifyItems?: string;
+    smAlignItems?: string;
+    smJustifyContent?: string;
+    smAlignContent?: string;
+    smMinHeight?: string;
+    smMaxHeight?: string;
+    smMinWidth?: string;
+    smMaxWidth?: string;
     
     // MD breakpoint
     mdEnabled?: boolean;
@@ -103,6 +136,19 @@ type ResponsiveContainerProperties = {
     mdRows?: string;
     mdAreas?: string;
     mdGap?: string;
+    mdRowGap?: string;
+    mdColumnGap?: string;
+    mdAutoFlow?: string;
+    mdAutoRows?: string;
+    mdAutoColumns?: string;
+    mdJustifyItems?: string;
+    mdAlignItems?: string;
+    mdJustifyContent?: string;
+    mdAlignContent?: string;
+    mdMinHeight?: string;
+    mdMaxHeight?: string;
+    mdMinWidth?: string;
+    mdMaxWidth?: string;
     
     // LG breakpoint
     lgEnabled?: boolean;
@@ -110,6 +156,19 @@ type ResponsiveContainerProperties = {
     lgRows?: string;
     lgAreas?: string;
     lgGap?: string;
+    lgRowGap?: string;
+    lgColumnGap?: string;
+    lgAutoFlow?: string;
+    lgAutoRows?: string;
+    lgAutoColumns?: string;
+    lgJustifyItems?: string;
+    lgAlignItems?: string;
+    lgJustifyContent?: string;
+    lgAlignContent?: string;
+    lgMinHeight?: string;
+    lgMaxHeight?: string;
+    lgMinWidth?: string;
+    lgMaxWidth?: string;
     
     // XL breakpoint
     xlEnabled?: boolean;
@@ -117,6 +176,19 @@ type ResponsiveContainerProperties = {
     xlRows?: string;
     xlAreas?: string;
     xlGap?: string;
+    xlRowGap?: string;
+    xlColumnGap?: string;
+    xlAutoFlow?: string;
+    xlAutoRows?: string;
+    xlAutoColumns?: string;
+    xlJustifyItems?: string;
+    xlAlignItems?: string;
+    xlJustifyContent?: string;
+    xlAlignContent?: string;
+    xlMinHeight?: string;
+    xlMaxHeight?: string;
+    xlMinWidth?: string;
+    xlMaxWidth?: string;
     
     // XXL breakpoint
     xxlEnabled?: boolean;
@@ -124,11 +196,239 @@ type ResponsiveContainerProperties = {
     xxlRows?: string;
     xxlAreas?: string;
     xxlGap?: string;
+    xxlRowGap?: string;
+    xxlColumnGap?: string;
+    xxlAutoFlow?: string;
+    xxlAutoRows?: string;
+    xxlAutoColumns?: string;
+    xxlJustifyItems?: string;
+    xxlAlignItems?: string;
+    xxlJustifyContent?: string;
+    xxlAlignContent?: string;
+    xxlMinHeight?: string;
+    xxlMaxHeight?: string;
+    xxlMinWidth?: string;
+    xxlMaxWidth?: string;
 };
 
 // Use type intersection instead of interface extension
 type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
 type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerProperties;
+
+/**
+ * Dynamically configure which properties are visible based on other property values
+ * This significantly reduces UI clutter by showing only relevant options
+ */
+export function getProperties(
+    values: CSSGridPreviewProps,
+    defaultProperties: Properties
+): Properties {
+    // Start with default properties
+    let properties = defaultProperties;
+
+    // 1. Grid Layout conditional properties
+    // REMOVED the hiding of gridTemplateColumns and gridTemplateRows when useNamedAreas is true
+    // These are still needed to define the grid structure
+    if (!values.useNamedAreas) {
+        // When not using named areas, hide the areas property
+        hidePropertyIn(properties, values, "gridTemplateAreas");
+    }
+
+    // 2. Grid spacing optimization - hide individual gaps if general gap is set
+    if (values.gap && values.gap.trim() !== "") {
+        hidePropertiesIn(properties, values, ["rowGap", "columnGap"] as Array<keyof CSSGridPreviewProps>);
+    }
+
+    // 3. Container breakpoint properties
+    if (!values.enableBreakpoints) {
+        // Hide all breakpoint-related properties
+        const breakpointProps: Array<keyof CSSGridPreviewProps> = [
+            "xsEnabled", "xsColumns", "xsRows", "xsAreas", "xsGap", "xsRowGap", "xsColumnGap",
+            "xsAutoFlow", "xsAutoRows", "xsAutoColumns", "xsJustifyItems", "xsAlignItems",
+            "xsJustifyContent", "xsAlignContent", "xsMinHeight", "xsMaxHeight", "xsMinWidth", "xsMaxWidth",
+            
+            "smEnabled", "smColumns", "smRows", "smAreas", "smGap", "smRowGap", "smColumnGap",
+            "smAutoFlow", "smAutoRows", "smAutoColumns", "smJustifyItems", "smAlignItems",
+            "smJustifyContent", "smAlignContent", "smMinHeight", "smMaxHeight", "smMinWidth", "smMaxWidth",
+            
+            "mdEnabled", "mdColumns", "mdRows", "mdAreas", "mdGap", "mdRowGap", "mdColumnGap",
+            "mdAutoFlow", "mdAutoRows", "mdAutoColumns", "mdJustifyItems", "mdAlignItems",
+            "mdJustifyContent", "mdAlignContent", "mdMinHeight", "mdMaxHeight", "mdMinWidth", "mdMaxWidth",
+            
+            "lgEnabled", "lgColumns", "lgRows", "lgAreas", "lgGap", "lgRowGap", "lgColumnGap",
+            "lgAutoFlow", "lgAutoRows", "lgAutoColumns", "lgJustifyItems", "lgAlignItems",
+            "lgJustifyContent", "lgAlignContent", "lgMinHeight", "lgMaxHeight", "lgMinWidth", "lgMaxWidth",
+            
+            "xlEnabled", "xlColumns", "xlRows", "xlAreas", "xlGap", "xlRowGap", "xlColumnGap",
+            "xlAutoFlow", "xlAutoRows", "xlAutoColumns", "xlJustifyItems", "xlAlignItems",
+            "xlJustifyContent", "xlAlignContent", "xlMinHeight", "xlMaxHeight", "xlMinWidth", "xlMaxWidth",
+            
+            "xxlEnabled", "xxlColumns", "xxlRows", "xxlAreas", "xxlGap", "xxlRowGap", "xxlColumnGap",
+            "xxlAutoFlow", "xxlAutoRows", "xxlAutoColumns", "xxlJustifyItems", "xxlAlignItems",
+            "xxlJustifyContent", "xxlAlignContent", "xxlMinHeight", "xxlMaxHeight", "xxlMinWidth", "xxlMaxWidth"
+        ];
+        
+        hidePropertiesIn(properties, values, breakpointProps);
+    } else {
+        // Hide detailed breakpoint properties if the breakpoint is not enabled
+        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
+        
+        breakpoints.forEach(bp => {
+            const enabledKey = `${bp}Enabled` as keyof CSSGridPreviewProps;
+            if (!values[enabledKey]) {
+                const propsToHide: Array<keyof CSSGridPreviewProps> = [
+                    `${bp}Columns`, `${bp}Rows`, `${bp}Areas`, `${bp}Gap`, `${bp}RowGap`, `${bp}ColumnGap`,
+                    `${bp}AutoFlow`, `${bp}AutoRows`, `${bp}AutoColumns`, `${bp}JustifyItems`, `${bp}AlignItems`,
+                    `${bp}JustifyContent`, `${bp}AlignContent`, `${bp}MinHeight`, `${bp}MaxHeight`, 
+                    `${bp}MinWidth`, `${bp}MaxWidth`
+                ] as Array<keyof CSSGridPreviewProps>;
+                hidePropertiesIn(properties, values, propsToHide);
+            } else {
+                // If gap is set for this breakpoint, hide individual gaps
+                const gapKey = `${bp}Gap` as keyof CSSGridPreviewProps;
+                if (values[gapKey]) {
+                    hidePropertiesIn(properties, values, [
+                        `${bp}RowGap`, 
+                        `${bp}ColumnGap`
+                    ] as Array<keyof CSSGridPreviewProps>);
+                }
+                
+                // Hide areas if not using named areas
+                if (!values.useNamedAreas) {
+                    hidePropertyIn(properties, values, `${bp}Areas` as keyof CSSGridPreviewProps);
+                }
+                // NOTE: We do NOT hide columns/rows when useNamedAreas is true
+                // Both are needed to properly define the grid structure
+            }
+        });
+    }
+
+    // 4. Item-level conditional properties
+    if (values.items && values.items.length > 0) {
+        values.items.forEach((item, index) => {
+            // Hide placement-specific properties based on placement type
+            switch (item.placementType) {
+                case "auto":
+                    // Hide all placement properties for auto
+                    hideNestedPropertiesIn(properties, values, "items", index, [
+                        "gridArea", "columnStart", "columnEnd", "rowStart", "rowEnd"
+                    ] as Array<keyof ItemsPreviewType>);
+                    break;
+                    
+                case "area":
+                    // Hide coordinate properties for area placement
+                    hideNestedPropertiesIn(properties, values, "items", index, [
+                        "columnStart", "columnEnd", "rowStart", "rowEnd"
+                    ] as Array<keyof ItemsPreviewType>);
+                    
+                    // Hide grid area if not using named areas at container level
+                    if (!values.useNamedAreas) {
+                        hideNestedPropertiesIn(properties, values, "items", index, ["gridArea"] as Array<keyof ItemsPreviewType>);
+                    }
+                    break;
+                    
+                case "coordinates":
+                    // Hide area property for coordinate placement
+                    hideNestedPropertiesIn(properties, values, "items", index, ["gridArea"] as Array<keyof ItemsPreviewType>);
+                    break;
+                    
+                case "span":
+                    // Hide area and end properties for span placement
+                    hideNestedPropertiesIn(properties, values, "items", index, [
+                        "gridArea", "columnEnd", "rowEnd"
+                    ] as Array<keyof ItemsPreviewType>);
+                    break;
+            }
+            
+            // Hide all responsive properties if not enabled for this item
+            if (!item.enableResponsive) {
+                const responsiveProps: Array<keyof ItemsPreviewType> = [
+                    "xsEnabled", "xsPlacementType", "xsGridArea", "xsColumnStart", "xsColumnEnd", "xsRowStart", "xsRowEnd",
+                    "smEnabled", "smPlacementType", "smGridArea", "smColumnStart", "smColumnEnd", "smRowStart", "smRowEnd",
+                    "mdEnabled", "mdPlacementType", "mdGridArea", "mdColumnStart", "mdColumnEnd", "mdRowStart", "mdRowEnd",
+                    "lgEnabled", "lgPlacementType", "lgGridArea", "lgColumnStart", "lgColumnEnd", "lgRowStart", "lgRowEnd",
+                    "xlEnabled", "xlPlacementType", "xlGridArea", "xlColumnStart", "xlColumnEnd", "xlRowStart", "xlRowEnd",
+                    "xxlEnabled", "xxlPlacementType", "xxlGridArea", "xxlColumnStart", "xxlColumnEnd", "xxlRowStart", "xxlRowEnd"
+                ] as Array<keyof ItemsPreviewType>;
+                
+                hideNestedPropertiesIn(properties, values, "items", index, responsiveProps);
+            } else {
+                // Hide detailed responsive properties based on enabled breakpoints and placement types
+                const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
+                
+                breakpoints.forEach(bp => {
+                    const enabledKey = `${bp}Enabled` as keyof ItemsPreviewType;
+                    const placementTypeKey = `${bp}PlacementType` as keyof ItemsPreviewType;
+                    
+                    if (!item[enabledKey]) {
+                        // Hide all properties for this breakpoint
+                        const propsToHide: Array<keyof ItemsPreviewType> = [
+                            `${bp}PlacementType`, `${bp}GridArea`, 
+                            `${bp}ColumnStart`, `${bp}ColumnEnd`, 
+                            `${bp}RowStart`, `${bp}RowEnd`
+                        ] as Array<keyof ItemsPreviewType>;
+                        hideNestedPropertiesIn(properties, values, "items", index, propsToHide);
+                    } else {
+                        // Hide properties based on placement type for this breakpoint
+                        const placementType = item[placementTypeKey];
+                        
+                        switch (placementType) {
+                            case "auto":
+                                hideNestedPropertiesIn(properties, values, "items", index, [
+                                    `${bp}GridArea`, `${bp}ColumnStart`, `${bp}ColumnEnd`, 
+                                    `${bp}RowStart`, `${bp}RowEnd`
+                                ] as Array<keyof ItemsPreviewType>);
+                                break;
+                                
+                            case "area":
+                                hideNestedPropertiesIn(properties, values, "items", index, [
+                                    `${bp}ColumnStart`, `${bp}ColumnEnd`, 
+                                    `${bp}RowStart`, `${bp}RowEnd`
+                                ] as Array<keyof ItemsPreviewType>);
+                                
+                                // Hide area if container doesn't use named areas
+                                if (!values.useNamedAreas) {
+                                    hideNestedPropertiesIn(properties, values, "items", index, [
+                                        `${bp}GridArea`
+                                    ] as Array<keyof ItemsPreviewType>);
+                                }
+                                break;
+                                
+                            case "coordinates":
+                                hideNestedPropertiesIn(properties, values, "items", index, [
+                                    `${bp}GridArea`
+                                ] as Array<keyof ItemsPreviewType>);
+                                break;
+                                
+                            case "span":
+                                hideNestedPropertiesIn(properties, values, "items", index, [
+                                    `${bp}GridArea`, `${bp}ColumnEnd`, `${bp}RowEnd`
+                                ] as Array<keyof ItemsPreviewType>);
+                                break;
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    // 5. Performance properties
+    if (!values.enableVirtualization) {
+        hidePropertyIn(properties, values, "virtualizeThreshold");
+    }
+
+    // 6. Debug properties - only show relevant ones
+    const debugValues = values as ResponsiveContainerPreview;
+    if (!debugValues.useNamedAreas) {
+        hidePropertyIn(properties, debugValues, "showGridAreas" as keyof ResponsiveContainerPreview);
+    }
+
+    // 7. Transform property groups into tabs for better organization
+    // This makes the property panel much more manageable
+    transformGroupsIntoTabs(properties);
+
+    return properties;
+}
 
 /**
  * Validate CSS grid template syntax without regex
@@ -231,6 +531,77 @@ function hasValidNumericValue(value: string): boolean {
 }
 
 /**
+ * Validate CSS grid template areas format
+ * Now expects standard CSS format with quotes
+ * 
+ * @param areas - Grid template areas string
+ * @returns true if valid, false otherwise
+ */
+function validateGridTemplateAreas(areas: string): { valid: boolean; lines?: string[][]; error?: string } {
+    if (!areas || areas.trim() === "") {
+        return { valid: false, error: "Grid Template Areas cannot be empty" };
+    }
+
+    // Check if the areas string contains quotes (standard CSS format)
+    const hasQuotes = areas.includes('"') || areas.includes("'");
+    
+    if (!hasQuotes) {
+        return { 
+            valid: false, 
+            error: "Grid Template Areas must be in CSS format with quotes. Example:\n\"header header header\"\n\"sidebar main aside\"\n\"footer footer footer\"" 
+        };
+    }
+
+    // Parse quoted format
+    const quotedLines: string[] = [];
+    const quoteChar = areas.includes('"') ? '"' : "'";
+    let inQuote = false;
+    let currentLine = "";
+    
+    for (let i = 0; i < areas.length; i++) {
+        const char = areas[i];
+        if (char === quoteChar) {
+            if (inQuote) {
+                // End of quoted line
+                if (currentLine.trim()) {
+                    quotedLines.push(currentLine.trim());
+                }
+                currentLine = "";
+                inQuote = false;
+            } else {
+                // Start of quoted line
+                inQuote = true;
+            }
+        } else if (inQuote) {
+            currentLine += char;
+        }
+    }
+    
+    if (quotedLines.length === 0) {
+        return { valid: false, error: "No valid grid area lines found. Each line must be wrapped in quotes." };
+    }
+
+    // Parse each line into cells
+    const rowCells: string[][] = [];
+    for (const line of quotedLines) {
+        const cells = line.trim().split(/\s+/);
+        if (cells.length > 0) {
+            rowCells.push(cells);
+        }
+    }
+    
+    // Check column counts
+    const columnCounts = rowCells.map(row => row.length);
+    const firstCount = columnCounts[0];
+    
+    if (!columnCounts.every(count => count === firstCount)) {
+        return { valid: false, error: "All rows must have the same number of columns" };
+    }
+    
+    return { valid: true, lines: rowCells };
+}
+
+/**
  * Validate area name without regex
  * 
  * @param name - Area name to validate
@@ -320,76 +691,27 @@ export const check: CheckFunction = (values) => {
     
     // Validate grid template based on useNamedAreas
     if (values.useNamedAreas) {
-        // Info message about using named areas
-        if (values.gridTemplateColumns || values.gridTemplateRows) {
-            errors.push({
-                severity: "info",
-                message: "When using named areas, Grid Template Columns and Rows are defined implicitly by the Grid Template Areas. These properties will be ignored."
-            });
-        }
-        
         // Validate grid template areas
         if (!values.gridTemplateAreas || values.gridTemplateAreas.trim() === "") {
             errors.push({
                 property: "gridTemplateAreas",
                 severity: "error",
-                message: "Grid Template Areas is required when 'Use Named Areas' is enabled. Define your grid areas or disable 'Use Named Areas' to use column/row templates."
+                message: "Grid Template Areas is required when 'Use Named Areas' is enabled. Enter your grid areas in CSS format with quotes."
             });
         } else {
             // Validate grid template areas format
-            const lines = values.gridTemplateAreas
-                .trim()
-                .split('\n')
-                .filter(line => line.trim())
-                .map(line => {
-                    // Remove quotes manually
-                    let cleanLine = line;
-                    cleanLine = cleanLine.split('"').join('');
-                    cleanLine = cleanLine.split("'").join('');
-                    return cleanLine.trim();
-                });
+            const validation = validateGridTemplateAreas(values.gridTemplateAreas);
             
-            if (lines.length > 0) {
-                // Parse each line into cells
-                const rowCells: string[][] = [];
-                for (const line of lines) {
-                    const cells: string[] = [];
-                    let current = "";
-                    
-                    for (let i = 0; i < line.length; i++) {
-                        const char = line[i];
-                        if (char === " " || char === "\t") {
-                            if (current) {
-                                cells.push(current);
-                                current = "";
-                            }
-                        } else {
-                            current += char;
-                        }
-                    }
-                    
-                    if (current) {
-                        cells.push(current);
-                    }
-                    
-                    rowCells.push(cells);
-                }
-                
-                // Check column counts
-                const columnCounts = rowCells.map(row => row.length);
-                const firstCount = columnCounts[0];
-                
-                if (!columnCounts.every(count => count === firstCount)) {
-                    errors.push({
-                        property: "gridTemplateAreas",
-                        severity: "error",
-                        message: "All rows in grid template areas must have the same number of columns"
-                    });
-                }
-                
+            if (!validation.valid) {
+                errors.push({
+                    property: "gridTemplateAreas",
+                    severity: "error",
+                    message: validation.error || "Invalid grid template areas format"
+                });
+            } else if (validation.lines) {
                 // Validate area names
                 const invalidAreas: string[] = [];
-                const allAreas = rowCells.flat();
+                const allAreas = validation.lines.flat();
                 const uniqueAreas = new Set<string>();
                 
                 for (const area of allAreas) {
@@ -421,6 +743,23 @@ export const check: CheckFunction = (values) => {
                     }
                 });
             }
+        }
+        
+        // Still validate columns and rows when using named areas
+        if (!values.gridTemplateColumns || values.gridTemplateColumns.trim() === "") {
+            errors.push({
+                property: "gridTemplateColumns",
+                severity: "warning",
+                message: "Grid Template Columns is recommended even when using named areas to define the column structure"
+            });
+        }
+        
+        if (!values.gridTemplateRows || values.gridTemplateRows.trim() === "") {
+            errors.push({
+                property: "gridTemplateRows",
+                severity: "info",
+                message: "Grid Template Rows can be used with named areas to define row heights"
+            });
         }
     } else {
         // Info message about ignoring grid template areas
@@ -486,18 +825,27 @@ export const check: CheckFunction = (values) => {
                 
                 // Validate areas if using named areas
                 if (values.useNamedAreas && areas) {
-                    const areaLines = areas.split('\n').filter(line => line.trim());
-                    if (areaLines.length === 0) {
+                    const validation = validateGridTemplateAreas(areas);
+                    if (!validation.valid) {
                         errors.push({
                             property: areasKey,
-                            severity: "warning",
-                            message: `${breakpointLabels[size]}: Template areas should not be empty when using named areas`
+                            severity: "error",
+                            message: `${breakpointLabels[size]}: ${validation.error}`
                         });
                     }
                 } else if (!values.useNamedAreas && areas) {
                     errors.push({
                         severity: "info",
                         message: `${breakpointLabels[size]}: Template areas property is ignored when 'Use Named Areas' is disabled`
+                    });
+                }
+                
+                // When using named areas, columns and rows are still recommended
+                if (values.useNamedAreas && !columns) {
+                    errors.push({
+                        property: columnsKey,
+                        severity: "info",
+                        message: `${breakpointLabels[size]}: Consider defining grid columns even when using named areas to control column sizes`
                     });
                 }
             }

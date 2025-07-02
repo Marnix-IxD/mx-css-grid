@@ -298,7 +298,7 @@ export function parseGridTemplate(template: string): string[] {
 
 /**
  * Parse grid template areas string into a 2D array
- * Modified to use simpler string operations
+ * NO AUTOMATIC QUOTE ADDITION - uses the value exactly as provided
  * 
  * @param areas - Grid template areas string
  * @returns 2D array of area names or null if invalid
@@ -308,56 +308,61 @@ export function parseGridAreas(areas: string): string[][] | null {
         return null;
     }
 
-    // Remove quotes using simple replace
-    let cleanedAreas = areas;
-    cleanedAreas = cleanedAreas.split('"').join('');
-    cleanedAreas = cleanedAreas.split("'").join('');
-    cleanedAreas = cleanedAreas.trim();
+    // Check if the areas string contains quotes
+    const hasQuotes = areas.includes('"') || areas.includes("'");
     
-    // Split by newlines
-    const lines = cleanedAreas.split('\n').filter(line => line.trim());
-
-    const grid: string[][] = [];
-    
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        const cells: string[] = [];
-        let currentCell = "";
+    if (hasQuotes) {
+        // Parse quoted format (standard CSS format)
+        // Extract content between quotes
+        const quotedLines: string[] = [];
+        const quoteChar = areas.includes('"') ? '"' : "'";
+        let inQuote = false;
+        let currentLine = "";
         
-        // Split by spaces
-        for (let i = 0; i < trimmedLine.length; i++) {
-            const char = trimmedLine[i];
-            if (char === " " || char === "\t") {
-                if (currentCell) {
-                    cells.push(currentCell);
-                    currentCell = "";
+        for (let i = 0; i < areas.length; i++) {
+            const char = areas[i];
+            if (char === quoteChar) {
+                if (inQuote) {
+                    // End of quoted line
+                    if (currentLine.trim()) {
+                        quotedLines.push(currentLine.trim());
+                    }
+                    currentLine = "";
+                    inQuote = false;
+                } else {
+                    // Start of quoted line
+                    inQuote = true;
                 }
-            } else {
-                currentCell += char;
+            } else if (inQuote) {
+                currentLine += char;
             }
         }
         
-        if (currentCell) {
-            cells.push(currentCell);
+        // Parse the quoted lines into grid
+        const grid: string[][] = [];
+        for (const line of quotedLines) {
+            const cells = line.trim().split(/\s+/);
+            if (cells.length > 0) {
+                grid.push(cells);
+            }
         }
         
-        if (cells.length > 0) {
-            grid.push(cells);
-        }
-    }
-
-    // Validate that all rows have the same number of columns
-    if (grid.length > 0) {
-        const columnCount = grid[0].length;
-        const isValid = grid.every(row => row.length === columnCount);
+        return grid.length > 0 ? grid : null;
+    } else {
+        // Parse unquoted format (legacy support)
+        // Split by newlines
+        const lines = areas.split('\n').filter(line => line.trim());
         
-        if (!isValid) {
-            console.warn("Invalid grid template areas: rows have different column counts");
-            return null;
+        const grid: string[][] = [];
+        for (const line of lines) {
+            const cells = line.trim().split(/\s+/);
+            if (cells.length > 0) {
+                grid.push(cells);
+            }
         }
+        
+        return grid.length > 0 ? grid : null;
     }
-
-    return grid.length > 0 ? grid : null;
 }
 
 /**
@@ -674,21 +679,25 @@ interface GridItemPlacement {
 
 /**
  * Merge grid placement properties into CSS grid properties
+ * Fixed to properly handle mixed placement types when using named areas
  * 
  * @param item - Grid item placement configuration
+ * @param useNamedAreas - Whether the grid is using named areas
  * @returns CSS properties for grid item placement
  */
-export function getGridItemPlacement(item: GridItemPlacement): CSSProperties {
+export function getGridItemPlacement(item: GridItemPlacement, useNamedAreas: boolean = false): CSSProperties {
     const placement: CSSProperties = {};
 
     switch (item.placementType) {
         case "area":
-            if (item.gridArea) {
+            if (item.gridArea && useNamedAreas) {
                 placement.gridArea = item.gridArea;
+                // Don't set other properties - let them be auto
             }
             break;
 
         case "coordinates":
+            // Always apply coordinate placement regardless of useNamedAreas
             if (item.columnStart && item.columnStart !== "auto") {
                 placement.gridColumnStart = item.columnStart;
             }
@@ -704,18 +713,27 @@ export function getGridItemPlacement(item: GridItemPlacement): CSSProperties {
             break;
 
         case "span":
+            // Always apply span placement regardless of useNamedAreas
             // Handle span syntax in column
-            if (item.columnStart && item.columnStart.includes("span")) {
-                placement.gridColumn = item.columnStart;
-            } else if (item.columnStart && item.columnEnd && item.columnStart !== "auto") {
-                placement.gridColumn = `${item.columnStart} / ${item.columnEnd}`;
+            if (item.columnStart && item.columnStart !== "auto") {
+                if (item.columnStart.includes("span")) {
+                    placement.gridColumn = item.columnStart;
+                } else if (item.columnEnd && item.columnEnd !== "auto") {
+                    placement.gridColumn = `${item.columnStart} / ${item.columnEnd}`;
+                } else {
+                    placement.gridColumnStart = item.columnStart;
+                }
             }
 
             // Handle span syntax in row
-            if (item.rowStart && item.rowStart.includes("span")) {
-                placement.gridRow = item.rowStart;
-            } else if (item.rowStart && item.rowEnd && item.rowStart !== "auto") {
-                placement.gridRow = `${item.rowStart} / ${item.rowEnd}`;
+            if (item.rowStart && item.rowStart !== "auto") {
+                if (item.rowStart.includes("span")) {
+                    placement.gridRow = item.rowStart;
+                } else if (item.rowEnd && item.rowEnd !== "auto") {
+                    placement.gridRow = `${item.rowStart} / ${item.rowEnd}`;
+                } else {
+                    placement.gridRowStart = item.rowStart;
+                }
             }
             break;
 

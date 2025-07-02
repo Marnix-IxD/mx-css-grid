@@ -86,6 +86,7 @@ type ResponsiveItemType = {
     itemName?: string;
     content: any;
     className?: string;
+    dynamicClass?: any; // This will be a DynamicValue<string> from Mendix
     placementType: string;
     gridArea?: string;
     columnStart: string;
@@ -296,7 +297,8 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             ...style
         };
 
-        // Add named areas if enabled
+        // Add named areas if enabled - NO AUTOMATIC QUOTE ADDITION
+        // Users should enter the value exactly as it would appear in CSS
         if (useNamedAreas && activeConfig.areas) {
             styles.gridTemplateAreas = activeConfig.areas;
         }
@@ -552,6 +554,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Render individual grid items with optimization
+     * Updated to pass useNamedAreas to placement function
      */
     const renderGridItems = useCallback(() => {
         const shouldVirtualize = enableVirtualization && items.length >= (virtualizeThreshold || 100);
@@ -565,17 +568,21 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             // Get active placement based on current breakpoint
             const activePlacement = getActiveItemPlacement(responsiveItem);
             
-            // Calculate item styles using the utility function
+            // Calculate item styles using the utility function with useNamedAreas parameter
             const itemStyles: CSSProperties = {
                 justifySelf: responsiveItem.justifySelf !== "auto" ? responsiveItem.justifySelf : undefined,
                 alignSelf: responsiveItem.alignSelf !== "auto" ? responsiveItem.alignSelf : undefined,
                 zIndex: responsiveItem.zIndex || undefined,
-                ...getGridItemPlacement(activePlacement)
+                ...getGridItemPlacement(activePlacement, useNamedAreas) // Pass useNamedAreas here
             };
 
+            // Get dynamic class value if it exists
+            const dynamicClassName = responsiveItem.dynamicClass?.value || "";
+            
             const itemClassName = [
                 "mx-css-grid-item", 
                 responsiveItem.className,
+                dynamicClassName,
                 responsiveItem.enableResponsive ? `${widgetId}-item-${index}` : null,
                 responsiveItem.enableResponsive ? `mx-css-grid-item--responsive` : null
             ].filter(Boolean).join(" ");
@@ -595,7 +602,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
             // Determine ARIA attributes
             const itemAriaAttrs: Record<string, string | undefined> = {};
-            if (activePlacement.placementType === "area" && activePlacement.gridArea) {
+            if (activePlacement.placementType === "area" && activePlacement.gridArea && useNamedAreas) {
                 itemAriaAttrs.role = "region";
                 itemAriaAttrs["aria-label"] = `Grid area: ${activePlacement.gridArea}`;
             }
@@ -614,7 +621,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 </div>
             );
         });
-    }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized, getActiveItemPlacement, widgetId, activeBreakpointSize]);
+    }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized, getActiveItemPlacement, widgetId, activeBreakpointSize, useNamedAreas]);
 
     /**
      * Container class names with responsive identifier
