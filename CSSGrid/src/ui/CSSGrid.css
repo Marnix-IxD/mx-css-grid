@@ -91,46 +91,6 @@
     hyphens: auto;
 }
 
-/* Debug mode visualization */
-.mx-css-grid.debug {
-    background-image: 
-        repeating-linear-gradient(
-            0deg, 
-            rgba(0, 0, 0, 0.03) 0px, 
-            transparent 1px, 
-            transparent 40px, 
-            rgba(0, 0, 0, 0.03) 40px
-        ),
-        repeating-linear-gradient(
-            90deg, 
-            rgba(0, 0, 0, 0.03) 0px, 
-            transparent 1px, 
-            transparent 40px, 
-            rgba(0, 0, 0, 0.03) 40px
-        );
-    background-size: 40px 40px;
-}
-
-.mx-css-grid.debug .mx-css-grid-item {
-    outline: 1px dashed rgba(0, 123, 255, 0.5);
-    outline-offset: -1px;
-}
-
-.mx-css-grid.debug .mx-css-grid-item::before {
-    content: attr(data-grid-index);
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    font-size: 10px;
-    line-height: 1;
-    padding: 2px 4px;
-    background-color: rgba(0, 123, 255, 0.9);
-    color: white;
-    border-radius: 2px;
-    font-family: monospace;
-    z-index: 1;
-}
-
 /* Container query support for responsive components */
 @supports (container-type: inline-size) {
     .mx-css-grid.container-responsive {
@@ -203,20 +163,9 @@
     justify-content: center;
 }
 
-/* Named areas visual indicator */
-.mx-css-grid--named-areas[data-show-areas="true"] .mx-css-grid-item[style*="grid-area"]::after {
-    content: attr(style);
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    font-size: 9px;
-    padding: 2px 4px;
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    border-radius: 2px;
-    font-family: monospace;
-    pointer-events: none;
-    opacity: 0.8;
+/* Responsive grid indicators */
+.mx-css-grid--responsive {
+    position: relative;
 }
 
 /* Accessibility improvements */
@@ -255,11 +204,6 @@
         border: 1px solid;
     }
     
-    .mx-css-grid.debug .mx-css-grid-item {
-        outline-width: 2px;
-        outline-style: solid;
-    }
-    
     .mx-css-grid:focus {
         outline-width: 3px;
     }
@@ -281,24 +225,6 @@
 
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
-    .mx-css-grid.debug {
-        background-image: 
-            repeating-linear-gradient(
-                0deg, 
-                rgba(255, 255, 255, 0.03) 0px, 
-                transparent 1px, 
-                transparent 40px, 
-                rgba(255, 255, 255, 0.03) 40px
-            ),
-            repeating-linear-gradient(
-                90deg, 
-                rgba(255, 255, 255, 0.03) 0px, 
-                transparent 1px, 
-                transparent 40px, 
-                rgba(255, 255, 255, 0.03) 40px
-            );
-    }
-    
     .mx-css-grid.loading::after {
         border-color: rgba(255, 255, 255, 0.1);
         border-top-color: var(--mx-grid-focus-color);
@@ -315,19 +241,6 @@
     .mx-css-grid-item {
         break-inside: avoid;
         page-break-inside: avoid;
-    }
-    
-    /* Remove debug visuals */
-    .mx-css-grid.debug {
-        background-image: none !important;
-    }
-    
-    .mx-css-grid.debug .mx-css-grid-item {
-        outline: none !important;
-    }
-    
-    .mx-css-grid.debug .mx-css-grid-item::before {
-        display: none !important;
     }
     
     /* Remove loading states */
@@ -418,4 +331,34 @@
     color: white;
     font-size: 12px;
     font-weight: bold;
+}
+
+/* Responsive item indicator */
+.mx-css-grid-item--responsive {
+    position: relative;
+}
+
+/* Breakpoint-specific utility classes */
+.mx-grid-xs-up { display: grid; }
+.mx-grid-sm-up { display: grid; }
+.mx-grid-md-up { display: grid; }
+.mx-grid-lg-up { display: grid; }
+.mx-grid-xl-up { display: grid; }
+.mx-grid-xxl-up { display: grid; }
+
+/* Named areas visual enhancement */
+.mx-css-grid--named-areas .mx-css-grid-item[style*="grid-area"] {
+    position: relative;
+}
+
+/* Smooth responsive transitions */
+@media (min-width: 640px) and (max-width: 641px),
+       (min-width: 768px) and (max-width: 769px),
+       (min-width: 1024px) and (max-width: 1025px),
+       (min-width: 1440px) and (max-width: 1441px),
+       (min-width: 1920px) and (max-width: 1921px) {
+    .mx-css-grid,
+    .mx-css-grid-item {
+        transition: all var(--mx-grid-animation-duration) var(--mx-grid-animation-easing);
+    }
 }

@@ -6,9 +6,7 @@ import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
  * Provides validation, custom captions, and preview styling
  * for the Mendix Studio Pro property editor
  * 
- * Modified for Mendix Studio Pro compatibility - no regex usage
- * Updated to handle new structure with item breakpoints
- * Enhanced validation to guide users on property dependencies
+ * Enhanced with container-level responsive validation
  */
 
 // Type definitions for validation errors
@@ -81,8 +79,56 @@ type ResponsiveProperties = {
     xxlRowEnd?: string;
 };
 
+// Type for container responsive properties
+type ResponsiveContainerProperties = {
+    enableBreakpoints?: boolean;
+    
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsColumns?: string;
+    xsRows?: string;
+    xsAreas?: string;
+    xsGap?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smColumns?: string;
+    smRows?: string;
+    smAreas?: string;
+    smGap?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdColumns?: string;
+    mdRows?: string;
+    mdAreas?: string;
+    mdGap?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgColumns?: string;
+    lgRows?: string;
+    lgAreas?: string;
+    lgGap?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlColumns?: string;
+    xlRows?: string;
+    xlAreas?: string;
+    xlGap?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlColumns?: string;
+    xxlRows?: string;
+    xxlAreas?: string;
+    xxlGap?: string;
+};
+
 // Use type intersection instead of interface extension
 type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
+type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerProperties;
 
 /**
  * Validate CSS grid template syntax without regex
@@ -270,6 +316,7 @@ function isValidSpanValue(value: string): boolean {
  */
 export const check: CheckFunction = (values) => {
     const errors: ValidationError[] = [];
+    const containerValues = values as ResponsiveContainerPreview;
     
     // Validate grid template based on useNamedAreas
     if (values.useNamedAreas) {
@@ -400,6 +447,67 @@ export const check: CheckFunction = (values) => {
                     message: "Grid Template Columns may have invalid syntax. Example: '1fr 2fr 1fr' or 'repeat(3, 1fr)'"
                 });
             }
+        }
+    }
+    
+    // Validate container responsive settings
+    if (containerValues.enableBreakpoints) {
+        const breakpointSizes = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
+        const breakpointLabels = {
+            xs: 'Extra Small (<640px)',
+            sm: 'Small (640-768px)',
+            md: 'Medium (768-1024px)',
+            lg: 'Large (1024-1440px)',
+            xl: 'Extra Large (1440-1920px)',
+            xxl: '2X Large (>1920px)'
+        };
+        
+        let hasAnyBreakpoint = false;
+        
+        breakpointSizes.forEach(size => {
+            const enabledKey = `${size}Enabled` as keyof ResponsiveContainerPreview;
+            if (containerValues[enabledKey]) {
+                hasAnyBreakpoint = true;
+                
+                const columnsKey = `${size}Columns` as keyof ResponsiveContainerPreview;
+                const areasKey = `${size}Areas` as keyof ResponsiveContainerPreview;
+                
+                const columns = containerValues[columnsKey] as string | undefined;
+                const areas = containerValues[areasKey] as string | undefined;
+                
+                // Validate columns syntax
+                if (columns && !validateGridTemplateSyntax(columns)) {
+                    errors.push({
+                        property: columnsKey,
+                        severity: "warning",
+                        message: `${breakpointLabels[size]}: Grid columns may have invalid syntax`
+                    });
+                }
+                
+                // Validate areas if using named areas
+                if (values.useNamedAreas && areas) {
+                    const areaLines = areas.split('\n').filter(line => line.trim());
+                    if (areaLines.length === 0) {
+                        errors.push({
+                            property: areasKey,
+                            severity: "warning",
+                            message: `${breakpointLabels[size]}: Template areas should not be empty when using named areas`
+                        });
+                    }
+                } else if (!values.useNamedAreas && areas) {
+                    errors.push({
+                        severity: "info",
+                        message: `${breakpointLabels[size]}: Template areas property is ignored when 'Use Named Areas' is disabled`
+                    });
+                }
+            }
+        });
+        
+        if (!hasAnyBreakpoint) {
+            errors.push({
+                severity: "info",
+                message: "Responsive grid is enabled but no breakpoints are configured. Enable at least one breakpoint size."
+            });
         }
     }
     
@@ -644,68 +752,6 @@ export const check: CheckFunction = (values) => {
         }
     });
     
-    // Validate container breakpoints
-    if (values.enableBreakpoints && values.breakpoints) {
-        const widths = values.breakpoints
-            .map(bp => bp.minWidth)
-            .filter((w): w is number => w !== null);
-        const uniqueWidths = new Set(widths);
-        
-        if (uniqueWidths.size !== widths.length) {
-            errors.push({
-                property: "breakpoints",
-                severity: "error",
-                message: "Container breakpoint minimum widths must be unique"
-            });
-        }
-        
-        values.breakpoints.forEach((bp, index) => {
-            if (!bp.columns || bp.columns.trim() === "") {
-                errors.push({
-                    property: `breakpoints[${index}].columns`,
-                    severity: "error",
-                    message: `Container breakpoint ${index + 1}: Columns template cannot be empty`
-                });
-            }
-            
-            if (bp.minWidth === null || bp.minWidth < 0) {
-                errors.push({
-                    property: `breakpoints[${index}].minWidth`,
-                    severity: "error",
-                    message: `Container breakpoint ${index + 1}: Minimum width must be a positive number`
-                });
-            } else if (bp.minWidth > 9999) {
-                errors.push({
-                    property: `breakpoints[${index}].minWidth`,
-                    severity: "warning",
-                    message: `Container breakpoint ${index + 1}: Very large minimum width (${bp.minWidth}px) may not work as expected`
-                });
-            }
-
-            // Validate areas if using named areas
-            if (values.useNamedAreas && bp.areas) {
-                const areaLines = bp.areas.split('\n').filter(line => line.trim());
-                if (areaLines.length === 0) {
-                    errors.push({
-                        property: `breakpoints[${index}].areas`,
-                        severity: "warning",
-                        message: `Container breakpoint ${index + 1}: Template areas should not be empty when using named areas`
-                    });
-                }
-            } else if (!values.useNamedAreas && bp.areas) {
-                errors.push({
-                    severity: "info",
-                    message: `Container breakpoint ${index + 1}: Template areas property is ignored when 'Use Named Areas' is disabled`
-                });
-            }
-        });
-    } else if (values.breakpoints && values.breakpoints.length > 0) {
-        errors.push({
-            severity: "info",
-            message: "Container breakpoints are configured but not enabled. Enable 'Enable Container Breakpoints' to use them."
-        });
-    }
-    
     // Validate virtualization threshold
     if (values.enableVirtualization && values.virtualizeThreshold !== null) {
         if (values.virtualizeThreshold < 10) {
@@ -753,6 +799,8 @@ export const check: CheckFunction = (values) => {
  * @returns Custom caption string
  */
 export const getCustomCaption: CaptionFunction = (values) => {
+    const containerValues = values as ResponsiveContainerPreview;
+    
     // Build caption parts
     const parts: string[] = [];
     
@@ -802,8 +850,15 @@ export const getCustomCaption: CaptionFunction = (values) => {
         }
     }
     
-    if (values.enableBreakpoints && values.breakpoints && values.breakpoints.length > 0) {
-        parts.push(`${values.breakpoints.length} breakpoints`);
+    if (containerValues.enableBreakpoints) {
+        const breakpointCount = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'].filter(size => {
+            const key = `${size}Enabled` as keyof ResponsiveContainerPreview;
+            return containerValues[key];
+        }).length;
+        
+        if (breakpointCount > 0) {
+            parts.push(`${breakpointCount} breakpoints`);
+        }
     }
     
     return parts.join(" - ");

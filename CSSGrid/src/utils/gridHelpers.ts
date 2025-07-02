@@ -78,6 +78,137 @@ type ResponsiveGridItem = {
     rowEnd: string;
 } & ResponsiveProperties;
 
+// Type for container responsive properties
+type ResponsiveContainerProps = {
+    enableBreakpoints?: boolean;
+    
+    // Base grid properties
+    gridTemplateColumns?: string;
+    gridTemplateRows?: string;
+    gridTemplateAreas?: string;
+    gap?: string;
+    
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsColumns?: string;
+    xsRows?: string;
+    xsAreas?: string;
+    xsGap?: string;
+    xsRowGap?: string;
+    xsColumnGap?: string;
+    xsAutoFlow?: string;
+    xsAutoRows?: string;
+    xsAutoColumns?: string;
+    xsJustifyItems?: string;
+    xsAlignItems?: string;
+    xsJustifyContent?: string;
+    xsAlignContent?: string;
+    xsMinHeight?: string;
+    xsMaxHeight?: string;
+    xsMinWidth?: string;
+    xsMaxWidth?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smColumns?: string;
+    smRows?: string;
+    smAreas?: string;
+    smGap?: string;
+    smRowGap?: string;
+    smColumnGap?: string;
+    smAutoFlow?: string;
+    smAutoRows?: string;
+    smAutoColumns?: string;
+    smJustifyItems?: string;
+    smAlignItems?: string;
+    smJustifyContent?: string;
+    smAlignContent?: string;
+    smMinHeight?: string;
+    smMaxHeight?: string;
+    smMinWidth?: string;
+    smMaxWidth?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdColumns?: string;
+    mdRows?: string;
+    mdAreas?: string;
+    mdGap?: string;
+    mdRowGap?: string;
+    mdColumnGap?: string;
+    mdAutoFlow?: string;
+    mdAutoRows?: string;
+    mdAutoColumns?: string;
+    mdJustifyItems?: string;
+    mdAlignItems?: string;
+    mdJustifyContent?: string;
+    mdAlignContent?: string;
+    mdMinHeight?: string;
+    mdMaxHeight?: string;
+    mdMinWidth?: string;
+    mdMaxWidth?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgColumns?: string;
+    lgRows?: string;
+    lgAreas?: string;
+    lgGap?: string;
+    lgRowGap?: string;
+    lgColumnGap?: string;
+    lgAutoFlow?: string;
+    lgAutoRows?: string;
+    lgAutoColumns?: string;
+    lgJustifyItems?: string;
+    lgAlignItems?: string;
+    lgJustifyContent?: string;
+    lgAlignContent?: string;
+    lgMinHeight?: string;
+    lgMaxHeight?: string;
+    lgMinWidth?: string;
+    lgMaxWidth?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlColumns?: string;
+    xlRows?: string;
+    xlAreas?: string;
+    xlGap?: string;
+    xlRowGap?: string;
+    xlColumnGap?: string;
+    xlAutoFlow?: string;
+    xlAutoRows?: string;
+    xlAutoColumns?: string;
+    xlJustifyItems?: string;
+    xlAlignItems?: string;
+    xlJustifyContent?: string;
+    xlAlignContent?: string;
+    xlMinHeight?: string;
+    xlMaxHeight?: string;
+    xlMinWidth?: string;
+    xlMaxWidth?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlColumns?: string;
+    xxlRows?: string;
+    xxlAreas?: string;
+    xxlGap?: string;
+    xxlRowGap?: string;
+    xxlColumnGap?: string;
+    xxlAutoFlow?: string;
+    xxlAutoRows?: string;
+    xxlAutoColumns?: string;
+    xxlJustifyItems?: string;
+    xxlAlignItems?: string;
+    xxlJustifyContent?: string;
+    xxlAlignContent?: string;
+    xxlMinHeight?: string;
+    xxlMaxHeight?: string;
+    xxlMinWidth?: string;
+    xxlMaxWidth?: string;
+};
+
 /**
  * Parse CSS grid template string and expand repeat() functions
  * Modified to avoid complex regex patterns for Mendix compatibility
@@ -230,66 +361,172 @@ export function parseGridAreas(areas: string): string[][] | null {
 }
 
 /**
- * Breakpoint configuration for responsive grids
- */
-interface Breakpoint {
-    minWidth: number;
-    columns?: string;
-    rows?: string;
-    gap?: string;
-    areas?: string;
-}
-
-/**
- * Generate CSS for responsive breakpoints
+ * Generate CSS for container responsive breakpoints
  * 
- * @param breakpoints - Array of breakpoint configurations
+ * @param props - Container props with responsive settings
  * @param className - CSS class name for the grid container
  * @param useNamedAreas - Whether named areas are enabled
  * @returns CSS string with media queries
  */
-export function generateBreakpointStyles(
-    breakpoints: Breakpoint[],
+export function generateContainerBreakpointStyles(
+    props: ResponsiveContainerProps,
     className: string,
     useNamedAreas: boolean = false
 ): string {
-    if (!breakpoints || breakpoints.length === 0) {
+    if (!props.enableBreakpoints) {
         return "";
     }
 
-    // Sort breakpoints by minWidth to ensure proper cascade
-    const sorted = [...breakpoints].sort((a, b) => a.minWidth - b.minWidth);
-
     const cssRules: string[] = [];
-
-    for (const bp of sorted) {
+    
+    // Define breakpoint configurations
+    const breakpoints = [
+        { key: 'xs', minWidth: 0, maxWidth: 639 },
+        { key: 'sm', minWidth: 640, maxWidth: 767 },
+        { key: 'md', minWidth: 768, maxWidth: 1023 },
+        { key: 'lg', minWidth: 1024, maxWidth: 1439 },
+        { key: 'xl', minWidth: 1440, maxWidth: 1919 },
+        { key: 'xxl', minWidth: 1920, maxWidth: undefined }
+    ] as const;
+    
+    breakpoints.forEach(bp => {
+        const enabledKey = `${bp.key}Enabled` as keyof ResponsiveContainerProps;
+        if (!props[enabledKey]) {
+            return;
+        }
+        
         const rules: string[] = [];
         
-        if (bp.columns) {
-            rules.push(`grid-template-columns: ${bp.columns} !important;`);
+        // Get breakpoint-specific values
+        const columnsKey = `${bp.key}Columns` as keyof ResponsiveContainerProps;
+        const rowsKey = `${bp.key}Rows` as keyof ResponsiveContainerProps;
+        const areasKey = `${bp.key}Areas` as keyof ResponsiveContainerProps;
+        const gapKey = `${bp.key}Gap` as keyof ResponsiveContainerProps;
+        const rowGapKey = `${bp.key}RowGap` as keyof ResponsiveContainerProps;
+        const columnGapKey = `${bp.key}ColumnGap` as keyof ResponsiveContainerProps;
+        const autoFlowKey = `${bp.key}AutoFlow` as keyof ResponsiveContainerProps;
+        const autoRowsKey = `${bp.key}AutoRows` as keyof ResponsiveContainerProps;
+        const autoColumnsKey = `${bp.key}AutoColumns` as keyof ResponsiveContainerProps;
+        const justifyItemsKey = `${bp.key}JustifyItems` as keyof ResponsiveContainerProps;
+        const alignItemsKey = `${bp.key}AlignItems` as keyof ResponsiveContainerProps;
+        const justifyContentKey = `${bp.key}JustifyContent` as keyof ResponsiveContainerProps;
+        const alignContentKey = `${bp.key}AlignContent` as keyof ResponsiveContainerProps;
+        const minHeightKey = `${bp.key}MinHeight` as keyof ResponsiveContainerProps;
+        const maxHeightKey = `${bp.key}MaxHeight` as keyof ResponsiveContainerProps;
+        const minWidthKey = `${bp.key}MinWidth` as keyof ResponsiveContainerProps;
+        const maxWidthKey = `${bp.key}MaxWidth` as keyof ResponsiveContainerProps;
+        
+        const columns = props[columnsKey] as string | undefined;
+        const rows = props[rowsKey] as string | undefined;
+        const areas = props[areasKey] as string | undefined;
+        const gap = props[gapKey] as string | undefined;
+        const rowGap = props[rowGapKey] as string | undefined;
+        const columnGap = props[columnGapKey] as string | undefined;
+        const autoFlow = props[autoFlowKey] as string | undefined;
+        const autoRows = props[autoRowsKey] as string | undefined;
+        const autoColumns = props[autoColumnsKey] as string | undefined;
+        const justifyItems = props[justifyItemsKey] as string | undefined;
+        const alignItems = props[alignItemsKey] as string | undefined;
+        const justifyContent = props[justifyContentKey] as string | undefined;
+        const alignContent = props[alignContentKey] as string | undefined;
+        const minHeight = props[minHeightKey] as string | undefined;
+        const maxHeight = props[maxHeightKey] as string | undefined;
+        const minWidth = props[minWidthKey] as string | undefined;
+        const maxWidth = props[maxWidthKey] as string | undefined;
+        
+        if (columns) {
+            rules.push(`grid-template-columns: ${columns} !important;`);
         }
-        if (bp.rows) {
-            rules.push(`grid-template-rows: ${bp.rows} !important;`);
+        if (rows) {
+            rules.push(`grid-template-rows: ${rows} !important;`);
         }
-        if (bp.gap) {
-            rules.push(`gap: ${bp.gap} !important;`);
+        if (gap) {
+            rules.push(`gap: ${gap} !important;`);
         }
-        if (bp.areas && useNamedAreas) {
-            rules.push(`grid-template-areas: ${bp.areas} !important;`);
+        if (rowGap) {
+            rules.push(`row-gap: ${rowGap} !important;`);
+        }
+        if (columnGap) {
+            rules.push(`column-gap: ${columnGap} !important;`);
+        }
+        if (areas && useNamedAreas) {
+            rules.push(`grid-template-areas: ${areas} !important;`);
+        }
+        if (autoFlow) {
+            // Map enumeration values to CSS
+            const flowMapping: Record<string, string> = {
+                'row': 'row',
+                'column': 'column',
+                'dense': 'dense',
+                'columnDense': 'column dense'
+            };
+            rules.push(`grid-auto-flow: ${flowMapping[autoFlow] || autoFlow} !important;`);
+        }
+        if (autoRows) {
+            rules.push(`grid-auto-rows: ${autoRows} !important;`);
+        }
+        if (autoColumns) {
+            rules.push(`grid-auto-columns: ${autoColumns} !important;`);
+        }
+        if (justifyItems) {
+            rules.push(`justify-items: ${justifyItems} !important;`);
+        }
+        if (alignItems) {
+            rules.push(`align-items: ${alignItems} !important;`);
+        }
+        if (justifyContent) {
+            const contentMapping: Record<string, string> = {
+                'spaceBetween': 'space-between',
+                'spaceAround': 'space-around',
+                'spaceEvenly': 'space-evenly'
+            };
+            rules.push(`justify-content: ${contentMapping[justifyContent] || justifyContent} !important;`);
+        }
+        if (alignContent) {
+            const contentMapping: Record<string, string> = {
+                'spaceBetween': 'space-between',
+                'spaceAround': 'space-around',
+                'spaceEvenly': 'space-evenly'
+            };
+            rules.push(`align-content: ${contentMapping[alignContent] || alignContent} !important;`);
+        }
+        if (minHeight) {
+            rules.push(`min-height: ${minHeight} !important;`);
+        }
+        if (maxHeight) {
+            rules.push(`max-height: ${maxHeight} !important;`);
+        }
+        if (minWidth) {
+            rules.push(`min-width: ${minWidth} !important;`);
+        }
+        if (maxWidth) {
+            rules.push(`max-width: ${maxWidth} !important;`);
         }
         
         if (rules.length > 0) {
-            const mediaQuery = `
-                @media (min-width: ${bp.minWidth}px) {
-                    ${className} {
-                        ${rules.join("\n                        ")}
+            let mediaQuery: string;
+            if (bp.maxWidth !== undefined) {
+                mediaQuery = `
+                    @media (min-width: ${bp.minWidth}px) and (max-width: ${bp.maxWidth}px) {
+                        ${className} {
+                            ${rules.join("\n                            ")}
+                        }
                     }
-                }
-            `;
+                `;
+            } else {
+                // For xxl, only min-width
+                mediaQuery = `
+                    @media (min-width: ${bp.minWidth}px) {
+                        ${className} {
+                            ${rules.join("\n                            ")}
+                        }
+                    }
+                `;
+            }
             cssRules.push(mediaQuery);
         }
-    }
-
+    });
+    
     return cssRules.join("\n");
 }
 
@@ -657,28 +894,4 @@ export function parseCSSLength(value: string): { value: number; unit: string } |
     if (!validUnits.includes(unitStr)) return null;
     
     return { value: num, unit: unitStr };
-}
-
-/**
- * Generate debug information for grid
- * 
- * @param template - Grid template string
- * @param areas - Grid areas string
- * @returns Debug information object
- */
-export function getGridDebugInfo(template: string, areas?: string): {
-    columns: number;
-    rows: number;
-    areaNames: string[];
-    isValid: boolean;
-} {
-    const parsedTemplate = parseGridTemplate(template);
-    const parsedAreas = areas ? parseGridAreas(areas) : null;
-    
-    return {
-        columns: parsedTemplate.length,
-        rows: parsedAreas ? parsedAreas.length : 1,
-        areaNames: getUniqueAreaNames(parsedAreas),
-        isValid: parsedAreas ? parsedAreas.every(row => row.length === parsedTemplate.length) : true
-    };
 }

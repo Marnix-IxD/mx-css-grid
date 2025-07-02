@@ -59,11 +59,59 @@ type ResponsiveProperties = {
     xxlRowEnd?: string;
 };
 
+// Type for container responsive properties
+type ResponsiveContainerProperties = {
+    enableBreakpoints?: boolean;
+    
+    // XS breakpoint
+    xsEnabled?: boolean;
+    xsColumns?: string;
+    xsRows?: string;
+    xsAreas?: string;
+    xsGap?: string;
+    
+    // SM breakpoint
+    smEnabled?: boolean;
+    smColumns?: string;
+    smRows?: string;
+    smAreas?: string;
+    smGap?: string;
+    
+    // MD breakpoint
+    mdEnabled?: boolean;
+    mdColumns?: string;
+    mdRows?: string;
+    mdAreas?: string;
+    mdGap?: string;
+    
+    // LG breakpoint
+    lgEnabled?: boolean;
+    lgColumns?: string;
+    lgRows?: string;
+    lgAreas?: string;
+    lgGap?: string;
+    
+    // XL breakpoint
+    xlEnabled?: boolean;
+    xlColumns?: string;
+    xlRows?: string;
+    xlAreas?: string;
+    xlGap?: string;
+    
+    // XXL breakpoint
+    xxlEnabled?: boolean;
+    xxlColumns?: string;
+    xxlRows?: string;
+    xxlAreas?: string;
+    xxlGap?: string;
+};
+
 // Use type intersection instead of interface extension
 type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
+type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerProperties;
 
 // Define the props type that includes Mendix preview properties
-type PreviewProps = CSSGridPreviewProps & {
+type PreviewProps = ResponsiveContainerPreview & {
     readOnly?: boolean;
     renderMode?: string;
     class?: string;
@@ -85,6 +133,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
         useNamedAreas,
         gridTemplateAreas,
         items,
+        enableBreakpoints,
         class: className,
         style: customStyle
     } = props;
@@ -122,11 +171,34 @@ export const preview: React.FC<PreviewProps> = (props) => {
         ...parseStyleString(customStyle)
     };
 
+    // Get responsive status for caption
+    const getResponsiveStatus = (): string => {
+        if (enableBreakpoints) {
+            const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
+            const activeBreakpoints = breakpoints.filter(bp => {
+                const key = `${bp}Enabled` as keyof ResponsiveContainerPreview;
+                return props[key];
+            });
+            
+            if (activeBreakpoints.length > 0) {
+                return ` (${activeBreakpoints.length} breakpoints)`;
+            }
+        }
+        return "";
+    };
+
     return (
         <div 
             className={`mx-css-grid-preview ${className || ""}`}
             style={containerStyle}
         >
+            {/* Show responsive indicator */}
+            {enableBreakpoints && (
+                <div className="mx-css-grid-preview-responsive-indicator">
+                    Responsive Grid{getResponsiveStatus()}
+                </div>
+            )}
+            
             {/* Render grid items with Selectable wrapper */}
             {items.map((item: ItemsPreviewType, index: number) => {
                 const responsiveItem = item as ResponsiveItemPreview;
@@ -182,11 +254,14 @@ export const preview: React.FC<PreviewProps> = (props) => {
                     (responsiveItem.placementType === "area" && responsiveItem.gridArea ? responsiveItem.gridArea : 
                      `Item ${index + 1}`);
                 
+                // Get responsive status for item
+                const itemResponsiveIndicator = responsiveItem.enableResponsive ? " 📱" : "";
+                
                 return (
                     <Selectable
                         key={`grid-item-${index}`}
                         object={responsiveItem}
-                        caption={itemName}
+                        caption={`${itemName}${itemResponsiveIndicator}`}
                     >
                         <div
                             className={`mx-css-grid-preview-item ${responsiveItem.className || ""}`}
@@ -196,6 +271,13 @@ export const preview: React.FC<PreviewProps> = (props) => {
                             {responsiveItem.placementType === "area" && responsiveItem.gridArea && useNamedAreas && (
                                 <div className="mx-css-grid-preview-area-label">
                                     {responsiveItem.gridArea}
+                                </div>
+                            )}
+                            
+                            {/* Show responsive indicator */}
+                            {responsiveItem.enableResponsive && (
+                                <div className="mx-css-grid-preview-item-responsive">
+                                    <span title="Responsive placement enabled">📱</span>
                                 </div>
                             )}
                             
@@ -232,6 +314,21 @@ export function getPreviewCss(): string {
             box-sizing: border-box;
             width: 100%;
             position: relative;
+        }
+
+        /* Responsive indicator for container */
+        .mx-css-grid-preview-responsive-indicator {
+            position: absolute;
+            top: -20px;
+            right: 0;
+            font-size: 11px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #0066cc;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+            z-index: 10;
         }
 
         /* Grid items - applied to Selectable wrapper */
@@ -277,6 +374,22 @@ export function getPreviewCss(): string {
             line-height: 1.2;
             opacity: 0.8;
             transition: opacity 0.15s ease;
+        }
+
+        /* Responsive indicator for items */
+        .mx-css-grid-preview-item-responsive {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 12px;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 2px;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Hide label on hover for better content visibility */

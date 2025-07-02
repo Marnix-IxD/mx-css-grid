@@ -16,17 +16,17 @@
         <property key="gridTemplateColumns" type="string" required="false" defaultValue="1fr 1fr">
             <caption>Grid Template Columns</caption>
             <category>Grid Layout</category>
-            <description>Defines the columns of the grid (e.g., "1fr 2fr 1fr" or "repeat(3, 1fr)")</description>
+            <description>Default columns of the grid (e.g., "1fr 2fr 1fr" or "repeat(3, 1fr)")</description>
         </property>
         <property key="gridTemplateRows" type="string" required="false" defaultValue="auto">
             <caption>Grid Template Rows</caption>
             <category>Grid Layout</category>
-            <description>Defines the rows of the grid (e.g., "auto 1fr auto")</description>
+            <description>Default rows of the grid (e.g., "auto 1fr auto")</description>
         </property>
         <property key="gridTemplateAreas" type="string" required="false" multiline="true">
             <caption>Grid Template Areas</caption>
             <category>Grid Layout</category>
-            <description>Defines named grid areas (each line in quotes, e.g., "header header" "sidebar content")</description>
+            <description>Default named grid areas (each line in quotes, e.g., "header header" "sidebar content")</description>
         </property>
 
         <!-- Grid Spacing & Size Properties -->
@@ -103,7 +103,7 @@
                 <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
             </enumerationValues>
         </property>
-        <property key="alignContent" type="enumeration" defaultValue="start">
+        <property key="alignContent" type="enumeration" defaultValue="stretch">
             <caption>Align Content</caption>
             <category>Grid Alignment</category>
             <description>Aligns the grid along the column axis</description>
@@ -139,6 +139,781 @@
             <caption>Auto Columns</caption>
             <category>Grid Flow</category>
             <description>Sets the size of implicitly-created columns</description>
+        </property>
+
+        <!-- Container Responsive Properties -->
+        <property key="enableBreakpoints" type="boolean" defaultValue="false">
+            <caption>Enable Container Breakpoints</caption>
+            <category>Responsive Grid</category>
+            <description>Enable different grid configurations at various screen sizes</description>
+        </property>
+        
+        <!-- Extra Small (< 640px) Container Settings -->
+        <property key="xsEnabled" type="boolean" defaultValue="false">
+            <caption>XS Breakpoint Enabled</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Override grid settings for extra small screens (phones in portrait)</description>
+        </property>
+        <property key="xsColumns" type="string" required="false">
+            <caption>XS Columns</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Grid columns for extra small screens (e.g., "1fr" for single column)</description>
+        </property>
+        <property key="xsRows" type="string" required="false">
+            <caption>XS Rows</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Grid rows for extra small screens</description>
+        </property>
+        <property key="xsAreas" type="string" required="false" multiline="true">
+            <caption>XS Template Areas</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Grid template areas for extra small screens</description>
+        </property>
+        <property key="xsGap" type="string" required="false">
+            <caption>XS Gap</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Gap for extra small screens (sets both row and column)</description>
+        </property>
+        <property key="xsRowGap" type="string" required="false">
+            <caption>XS Row Gap</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Row gap for extra small screens</description>
+        </property>
+        <property key="xsColumnGap" type="string" required="false">
+            <caption>XS Column Gap</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Column gap for extra small screens</description>
+        </property>
+        <property key="xsAutoFlow" type="enumeration" defaultValue="row">
+            <caption>XS Auto Flow</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Auto flow direction for extra small screens</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xsAutoRows" type="string" required="false">
+            <caption>XS Auto Rows</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Size of implicitly-created rows for extra small screens</description>
+        </property>
+        <property key="xsAutoColumns" type="string" required="false">
+            <caption>XS Auto Columns</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Size of implicitly-created columns for extra small screens</description>
+        </property>
+        <property key="xsJustifyItems" type="enumeration" defaultValue="stretch">
+            <caption>XS Justify Items</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Justify items alignment for extra small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xsAlignItems" type="enumeration" defaultValue="stretch">
+            <caption>XS Align Items</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Align items alignment for extra small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xsJustifyContent" type="enumeration" defaultValue="start">
+            <caption>XS Justify Content</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Justify content alignment for extra small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xsAlignContent" type="enumeration" defaultValue="start">
+            <caption>XS Align Content</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Align content alignment for extra small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xsMinHeight" type="string" required="false">
+            <caption>XS Min Height</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Minimum height for extra small screens</description>
+        </property>
+        <property key="xsMaxHeight" type="string" required="false">
+            <caption>XS Max Height</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Maximum height for extra small screens</description>
+        </property>
+        <property key="xsMinWidth" type="string" required="false">
+            <caption>XS Min Width</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Minimum width for extra small screens</description>
+        </property>
+        <property key="xsMaxWidth" type="string" required="false">
+            <caption>XS Max Width</caption>
+            <category>Grid XS (&lt;640px)</category>
+            <description>Maximum width for extra small screens</description>
+        </property>
+        
+        <!-- Small (640px - 768px) Container Settings -->
+        <property key="smEnabled" type="boolean" defaultValue="false">
+            <caption>SM Breakpoint Enabled</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Override grid settings for small screens (phones in landscape)</description>
+        </property>
+        <property key="smColumns" type="string" required="false">
+            <caption>SM Columns</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Grid columns for small screens</description>
+        </property>
+        <property key="smRows" type="string" required="false">
+            <caption>SM Rows</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Grid rows for small screens</description>
+        </property>
+        <property key="smAreas" type="string" required="false" multiline="true">
+            <caption>SM Template Areas</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Grid template areas for small screens</description>
+        </property>
+        <property key="smGap" type="string" required="false">
+            <caption>SM Gap</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Gap for small screens (sets both row and column)</description>
+        </property>
+        <property key="smRowGap" type="string" required="false">
+            <caption>SM Row Gap</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Row gap for small screens</description>
+        </property>
+        <property key="smColumnGap" type="string" required="false">
+            <caption>SM Column Gap</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Column gap for small screens</description>
+        </property>
+        <property key="smAutoFlow" type="enumeration" defaultValue="row">
+            <caption>SM Auto Flow</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Auto flow direction for small screens</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="smAutoRows" type="string" required="false">
+            <caption>SM Auto Rows</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Size of implicitly-created rows for small screens</description>
+        </property>
+        <property key="smAutoColumns" type="string" required="false">
+            <caption>SM Auto Columns</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Size of implicitly-created columns for small screens</description>
+        </property>
+        <property key="smJustifyItems" type="enumeration" defaultValue="stretch">
+            <caption>SM Justify Items</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Justify items alignment for small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="smAlignItems" type="enumeration" defaultValue="stretch">
+            <caption>SM Align Items</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Align items alignment for small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="smJustifyContent" type="enumeration" defaultValue="start">
+            <caption>SM Justify Content</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Justify content alignment for small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="smAlignContent" type="enumeration" defaultValue="start">
+            <caption>SM Align Content</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Align content alignment for small screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="smMinHeight" type="string" required="false">
+            <caption>SM Min Height</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Minimum height for small screens</description>
+        </property>
+        <property key="smMaxHeight" type="string" required="false">
+            <caption>SM Max Height</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Maximum height for small screens</description>
+        </property>
+        <property key="smMinWidth" type="string" required="false">
+            <caption>SM Min Width</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Minimum width for small screens</description>
+        </property>
+        <property key="smMaxWidth" type="string" required="false">
+            <caption>SM Max Width</caption>
+            <category>Grid SM (640-768px)</category>
+            <description>Maximum width for small screens</description>
+        </property>
+        
+        <!-- Medium (768px - 1024px) Container Settings -->
+        <property key="mdEnabled" type="boolean" defaultValue="false">
+            <caption>MD Breakpoint Enabled</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Override grid settings for medium screens (tablets)</description>
+        </property>
+        <property key="mdColumns" type="string" required="false">
+            <caption>MD Columns</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Grid columns for medium screens</description>
+        </property>
+        <property key="mdRows" type="string" required="false">
+            <caption>MD Rows</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Grid rows for medium screens</description>
+        </property>
+        <property key="mdAreas" type="string" required="false" multiline="true">
+            <caption>MD Template Areas</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Grid template areas for medium screens</description>
+        </property>
+        <property key="mdGap" type="string" required="false">
+            <caption>MD Gap</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Gap for medium screens (sets both row and column)</description>
+        </property>
+        <property key="mdRowGap" type="string" required="false">
+            <caption>MD Row Gap</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Row gap for medium screens</description>
+        </property>
+        <property key="mdColumnGap" type="string" required="false">
+            <caption>MD Column Gap</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Column gap for medium screens</description>
+        </property>
+        <property key="mdAutoFlow" type="enumeration" defaultValue="row">
+            <caption>MD Auto Flow</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Auto flow direction for medium screens</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="mdAutoRows" type="string" required="false">
+            <caption>MD Auto Rows</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Size of implicitly-created rows for medium screens</description>
+        </property>
+        <property key="mdAutoColumns" type="string" required="false">
+            <caption>MD Auto Columns</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Size of implicitly-created columns for medium screens</description>
+        </property>
+        <property key="mdJustifyItems" type="enumeration" defaultValue="stretch">
+            <caption>MD Justify Items</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Justify items alignment for medium screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="mdAlignItems" type="enumeration" defaultValue="stretch">
+            <caption>MD Align Items</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Align items alignment for medium screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="mdJustifyContent" type="enumeration" defaultValue="start">
+            <caption>MD Justify Content</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Justify content alignment for medium screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="mdAlignContent" type="enumeration" defaultValue="start">
+            <caption>MD Align Content</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Align content alignment for medium screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="mdMinHeight" type="string" required="false">
+            <caption>MD Min Height</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Minimum height for medium screens</description>
+        </property>
+        <property key="mdMaxHeight" type="string" required="false">
+            <caption>MD Max Height</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Maximum height for medium screens</description>
+        </property>
+        <property key="mdMinWidth" type="string" required="false">
+            <caption>MD Min Width</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Minimum width for medium screens</description>
+        </property>
+        <property key="mdMaxWidth" type="string" required="false">
+            <caption>MD Max Width</caption>
+            <category>Grid MD (768-1024px)</category>
+            <description>Maximum width for medium screens</description>
+        </property>
+        
+        <!-- Large (1024px - 1440px) Container Settings -->
+        <property key="lgEnabled" type="boolean" defaultValue="false">
+            <caption>LG Breakpoint Enabled</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Override grid settings for large screens (small desktops)</description>
+        </property>
+        <property key="lgColumns" type="string" required="false">
+            <caption>LG Columns</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Grid columns for large screens</description>
+        </property>
+        <property key="lgRows" type="string" required="false">
+            <caption>LG Rows</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Grid rows for large screens</description>
+        </property>
+        <property key="lgAreas" type="string" required="false" multiline="true">
+            <caption>LG Template Areas</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Grid template areas for large screens</description>
+        </property>
+        <property key="lgGap" type="string" required="false">
+            <caption>LG Gap</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Gap for large screens (sets both row and column)</description>
+        </property>
+        <property key="lgRowGap" type="string" required="false">
+            <caption>LG Row Gap</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Row gap for large screens</description>
+        </property>
+        <property key="lgColumnGap" type="string" required="false">
+            <caption>LG Column Gap</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Column gap for large screens</description>
+        </property>
+        <property key="lgAutoFlow" type="enumeration" defaultValue="row">
+            <caption>LG Auto Flow</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Auto flow direction for large screens</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="lgAutoRows" type="string" required="false">
+            <caption>LG Auto Rows</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Size of implicitly-created rows for large screens</description>
+        </property>
+        <property key="lgAutoColumns" type="string" required="false">
+            <caption>LG Auto Columns</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Size of implicitly-created columns for large screens</description>
+        </property>
+        <property key="lgJustifyItems" type="enumeration" defaultValue="stretch">
+            <caption>LG Justify Items</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Justify items alignment for large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="lgAlignItems" type="enumeration" defaultValue="stretch">
+            <caption>LG Align Items</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Align items alignment for large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="lgJustifyContent" type="enumeration" defaultValue="start">
+            <caption>LG Justify Content</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Justify content alignment for large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="lgAlignContent" type="enumeration" defaultValue="start">
+            <caption>LG Align Content</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Align content alignment for large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="lgMinHeight" type="string" required="false">
+            <caption>LG Min Height</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Minimum height for large screens</description>
+        </property>
+        <property key="lgMaxHeight" type="string" required="false">
+            <caption>LG Max Height</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Maximum height for large screens</description>
+        </property>
+        <property key="lgMinWidth" type="string" required="false">
+            <caption>LG Min Width</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Minimum width for large screens</description>
+        </property>
+        <property key="lgMaxWidth" type="string" required="false">
+            <caption>LG Max Width</caption>
+            <category>Grid LG (1024-1440px)</category>
+            <description>Maximum width for large screens</description>
+        </property>
+        
+        <!-- Extra Large (1440px - 1920px) Container Settings -->
+        <property key="xlEnabled" type="boolean" defaultValue="false">
+            <caption>XL Breakpoint Enabled</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Override grid settings for extra large screens (standard desktops)</description>
+        </property>
+        <property key="xlColumns" type="string" required="false">
+            <caption>XL Columns</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Grid columns for extra large screens</description>
+        </property>
+        <property key="xlRows" type="string" required="false">
+            <caption>XL Rows</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Grid rows for extra large screens</description>
+        </property>
+        <property key="xlAreas" type="string" required="false" multiline="true">
+            <caption>XL Template Areas</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Grid template areas for extra large screens</description>
+        </property>
+        <property key="xlGap" type="string" required="false">
+            <caption>XL Gap</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Gap for extra large screens (sets both row and column)</description>
+        </property>
+        <property key="xlRowGap" type="string" required="false">
+            <caption>XL Row Gap</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Row gap for extra large screens</description>
+        </property>
+        <property key="xlColumnGap" type="string" required="false">
+            <caption>XL Column Gap</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Column gap for extra large screens</description>
+        </property>
+        <property key="xlAutoFlow" type="enumeration" defaultValue="row">
+            <caption>XL Auto Flow</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Auto flow direction for extra large screens</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xlAutoRows" type="string" required="false">
+            <caption>XL Auto Rows</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Size of implicitly-created rows for extra large screens</description>
+        </property>
+        <property key="xlAutoColumns" type="string" required="false">
+            <caption>XL Auto Columns</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Size of implicitly-created columns for extra large screens</description>
+        </property>
+        <property key="xlJustifyItems" type="enumeration" defaultValue="stretch">
+            <caption>XL Justify Items</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Justify items alignment for extra large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xlAlignItems" type="enumeration" defaultValue="stretch">
+            <caption>XL Align Items</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Align items alignment for extra large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xlJustifyContent" type="enumeration" defaultValue="start">
+            <caption>XL Justify Content</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Justify content alignment for extra large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xlAlignContent" type="enumeration" defaultValue="start">
+            <caption>XL Align Content</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Align content alignment for extra large screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xlMinHeight" type="string" required="false">
+            <caption>XL Min Height</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Minimum height for extra large screens</description>
+        </property>
+        <property key="xlMaxHeight" type="string" required="false">
+            <caption>XL Max Height</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Maximum height for extra large screens</description>
+        </property>
+        <property key="xlMinWidth" type="string" required="false">
+            <caption>XL Min Width</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Minimum width for extra large screens</description>
+        </property>
+        <property key="xlMaxWidth" type="string" required="false">
+            <caption>XL Max Width</caption>
+            <category>Grid XL (1440-1920px)</category>
+            <description>Maximum width for extra large screens</description>
+        </property>
+        
+        <!-- 2XL (> 1920px) Container Settings -->
+        <property key="xxlEnabled" type="boolean" defaultValue="false">
+            <caption>2XL Breakpoint Enabled</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Override grid settings for 2XL screens (large desktops, 4K monitors)</description>
+        </property>
+        <property key="xxlColumns" type="string" required="false">
+            <caption>2XL Columns</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Grid columns for 2XL screens</description>
+        </property>
+        <property key="xxlRows" type="string" required="false">
+            <caption>2XL Rows</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Grid rows for 2XL screens</description>
+        </property>
+        <property key="xxlAreas" type="string" required="false" multiline="true">
+            <caption>2XL Template Areas</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Grid template areas for 2XL screens</description>
+        </property>
+        <property key="xxlGap" type="string" required="false">
+            <caption>2XL Gap</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Gap for 2XL screens (sets both row and column)</description>
+        </property>
+        <property key="xxlRowGap" type="string" required="false">
+            <caption>2XL Row Gap</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Row gap for 2XL screens</description>
+        </property>
+        <property key="xxlColumnGap" type="string" required="false">
+            <caption>2XL Column Gap</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Column gap for 2XL screens</description>
+        </property>
+        <property key="xxlAutoFlow" type="enumeration" defaultValue="row">
+            <caption>2XL Auto Flow</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Auto flow direction for 2XL screens</description>
+            <enumerationValues>
+                <enumerationValue key="row">Row</enumerationValue>
+                <enumerationValue key="column">Column</enumerationValue>
+                <enumerationValue key="dense">Row Dense</enumerationValue>
+                <enumerationValue key="columnDense">Column Dense</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xxlAutoRows" type="string" required="false">
+            <caption>2XL Auto Rows</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Size of implicitly-created rows for 2XL screens</description>
+        </property>
+        <property key="xxlAutoColumns" type="string" required="false">
+            <caption>2XL Auto Columns</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Size of implicitly-created columns for 2XL screens</description>
+        </property>
+        <property key="xxlJustifyItems" type="enumeration" defaultValue="stretch">
+            <caption>2XL Justify Items</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Justify items alignment for 2XL screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xxlAlignItems" type="enumeration" defaultValue="stretch">
+            <caption>2XL Align Items</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Align items alignment for 2XL screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xxlJustifyContent" type="enumeration" defaultValue="start">
+            <caption>2XL Justify Content</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Justify content alignment for 2XL screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xxlAlignContent" type="enumeration" defaultValue="start">
+            <caption>2XL Align Content</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Align content alignment for 2XL screens</description>
+            <enumerationValues>
+                <enumerationValue key="start">Start</enumerationValue>
+                <enumerationValue key="end">End</enumerationValue>
+                <enumerationValue key="center">Center</enumerationValue>
+                <enumerationValue key="stretch">Stretch</enumerationValue>
+                <enumerationValue key="spaceBetween">Space Between</enumerationValue>
+                <enumerationValue key="spaceAround">Space Around</enumerationValue>
+                <enumerationValue key="spaceEvenly">Space Evenly</enumerationValue>
+            </enumerationValues>
+        </property>
+        <property key="xxlMinHeight" type="string" required="false">
+            <caption>2XL Min Height</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Minimum height for 2XL screens</description>
+        </property>
+        <property key="xxlMaxHeight" type="string" required="false">
+            <caption>2XL Max Height</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Maximum height for 2XL screens</description>
+        </property>
+        <property key="xxlMinWidth" type="string" required="false">
+            <caption>2XL Min Width</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Minimum width for 2XL screens</description>
+        </property>
+        <property key="xxlMaxWidth" type="string" required="false">
+            <caption>2XL Max Width</caption>
+            <category>Grid 2XL (&gt;1920px)</category>
+            <description>Maximum width for 2XL screens</description>
         </property>
 
         <!-- Grid Items -->
@@ -495,45 +1270,6 @@
                     <caption>2XL Row End</caption>
                     <category>Item Responsive - 2XL (&gt;1920px)</category>
                     <description>Ending row for 2XL screens</description>
-                </property>
-            </properties>
-        </property>
-
-        <!-- Container Responsive Properties -->
-        <property key="enableBreakpoints" type="boolean" defaultValue="false">
-            <caption>Enable Container Breakpoints</caption>
-            <category>Responsive</category>
-            <description>Enable responsive breakpoints for the grid container</description>
-        </property>
-        <property key="breakpoints" type="object" isList="true" required="false">
-            <caption>Container Breakpoints</caption>
-            <category>Responsive</category>
-            <description>Define responsive breakpoints for the grid</description>
-            <properties>
-                <property key="minWidth" type="integer" defaultValue="0">
-                    <caption>Min Width (px)</caption>
-                    <category>Breakpoint</category>
-                    <description>Minimum viewport width for this breakpoint</description>
-                </property>
-                <property key="columns" type="string" required="false">
-                    <caption>Columns</caption>
-                    <category>Breakpoint</category>
-                    <description>Grid columns for this breakpoint</description>
-                </property>
-                <property key="rows" type="string" required="false">
-                    <caption>Rows</caption>
-                    <category>Breakpoint</category>
-                    <description>Grid rows for this breakpoint</description>
-                </property>
-                <property key="gap" type="string" required="false">
-                    <caption>Gap</caption>
-                    <category>Breakpoint</category>
-                    <description>Gap for this breakpoint</description>
-                </property>
-                <property key="areas" type="string" required="false" multiline="true">
-                    <caption>Template Areas</caption>
-                    <category>Breakpoint</category>
-                    <description>Grid template areas for this breakpoint</description>
                 </property>
             </properties>
         </property>
