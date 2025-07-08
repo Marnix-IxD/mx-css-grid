@@ -580,10 +580,28 @@ function validateGridTemplateAreas(areas: string): { valid: boolean; lines?: str
         return { valid: false, error: "No valid grid area lines found. Each line must be wrapped in quotes." };
     }
 
-    // Parse each line into cells
+    // Parse each line into cells without using split()
     const rowCells: string[][] = [];
     for (const line of quotedLines) {
-        const cells = line.trim().split(/\s+/);
+        const trimmedLine = line.trim();
+        const cells: string[] = [];
+        let currentCell = '';
+        
+        for (let i = 0; i < trimmedLine.length; i++) {
+            const char = trimmedLine[i];
+            if (char === ' ' || char === '\t') {
+                if (currentCell) {
+                    cells.push(currentCell);
+                    currentCell = '';
+                }
+            } else {
+                currentCell += char;
+            }
+        }
+        if (currentCell) {
+            cells.push(currentCell);
+        }
+        
         if (cells.length > 0) {
             rowCells.push(cells);
         }
@@ -1240,7 +1258,34 @@ export const getCustomCaption: CaptionFunction = (values) => {
         }
         
         const columns = columnsParts.length || 1;
-        const rows = (values.gridTemplateRows || "auto").split(/\s+/).filter(s => s.trim()).length;
+        
+        // Parse rows without using split() with regex
+        const rowsStr = values.gridTemplateRows || "auto";
+        const rowsParts: string[] = [];
+        current = "";
+        depth = 0;
+        
+        for (let i = 0; i < rowsStr.length; i++) {
+            const char = rowsStr[i];
+            
+            if (char === "(") depth++;
+            if (char === ")") depth--;
+            
+            if ((char === " " || char === "\t") && depth === 0) {
+                if (current.trim()) {
+                    rowsParts.push(current.trim());
+                }
+                current = "";
+            } else {
+                current += char;
+            }
+        }
+        
+        if (current.trim()) {
+            rowsParts.push(current.trim());
+        }
+        
+        const rows = rowsParts.length || 1;
         
         parts.push(`Grid (${columns}×${rows})`);
     }
