@@ -8,206 +8,11 @@
  */
 
 import { CSSProperties } from "react";
-
-// Type for responsive properties that might exist on items
-type ResponsiveProperties = {
-    enableResponsive?: boolean;
-    
-    // XS breakpoint
-    xsEnabled?: boolean;
-    xsPlacementType?: string;
-    xsGridArea?: string;
-    xsColumnStart?: string;
-    xsColumnEnd?: string;
-    xsRowStart?: string;
-    xsRowEnd?: string;
-    
-    // SM breakpoint
-    smEnabled?: boolean;
-    smPlacementType?: string;
-    smGridArea?: string;
-    smColumnStart?: string;
-    smColumnEnd?: string;
-    smRowStart?: string;
-    smRowEnd?: string;
-    
-    // MD breakpoint
-    mdEnabled?: boolean;
-    mdPlacementType?: string;
-    mdGridArea?: string;
-    mdColumnStart?: string;
-    mdColumnEnd?: string;
-    mdRowStart?: string;
-    mdRowEnd?: string;
-    
-    // LG breakpoint
-    lgEnabled?: boolean;
-    lgPlacementType?: string;
-    lgGridArea?: string;
-    lgColumnStart?: string;
-    lgColumnEnd?: string;
-    lgRowStart?: string;
-    lgRowEnd?: string;
-    
-    // XL breakpoint
-    xlEnabled?: boolean;
-    xlPlacementType?: string;
-    xlGridArea?: string;
-    xlColumnStart?: string;
-    xlColumnEnd?: string;
-    xlRowStart?: string;
-    xlRowEnd?: string;
-    
-    // XXL breakpoint
-    xxlEnabled?: boolean;
-    xxlPlacementType?: string;
-    xxlGridArea?: string;
-    xxlColumnStart?: string;
-    xxlColumnEnd?: string;
-    xxlRowStart?: string;
-    xxlRowEnd?: string;
-};
-
-// Type for grid items with responsive properties
-type ResponsiveGridItem = {
-    placementType: string;
-    gridArea?: string;
-    columnStart: string;
-    columnEnd: string;
-    rowStart: string;
-    rowEnd: string;
-} & ResponsiveProperties;
-
-// Type for container responsive properties
-type ResponsiveContainerProps = {
-    enableBreakpoints?: boolean;
-    
-    // Base grid properties
-    gridTemplateColumns?: string;
-    gridTemplateRows?: string;
-    gridTemplateAreas?: string;
-    gap?: string;
-    
-    // XS breakpoint
-    xsEnabled?: boolean;
-    xsColumns?: string;
-    xsRows?: string;
-    xsAreas?: string;
-    xsGap?: string;
-    xsRowGap?: string;
-    xsColumnGap?: string;
-    xsAutoFlow?: string;
-    xsAutoRows?: string;
-    xsAutoColumns?: string;
-    xsJustifyItems?: string;
-    xsAlignItems?: string;
-    xsJustifyContent?: string;
-    xsAlignContent?: string;
-    xsMinHeight?: string;
-    xsMaxHeight?: string;
-    xsMinWidth?: string;
-    xsMaxWidth?: string;
-    
-    // SM breakpoint
-    smEnabled?: boolean;
-    smColumns?: string;
-    smRows?: string;
-    smAreas?: string;
-    smGap?: string;
-    smRowGap?: string;
-    smColumnGap?: string;
-    smAutoFlow?: string;
-    smAutoRows?: string;
-    smAutoColumns?: string;
-    smJustifyItems?: string;
-    smAlignItems?: string;
-    smJustifyContent?: string;
-    smAlignContent?: string;
-    smMinHeight?: string;
-    smMaxHeight?: string;
-    smMinWidth?: string;
-    smMaxWidth?: string;
-    
-    // MD breakpoint
-    mdEnabled?: boolean;
-    mdColumns?: string;
-    mdRows?: string;
-    mdAreas?: string;
-    mdGap?: string;
-    mdRowGap?: string;
-    mdColumnGap?: string;
-    mdAutoFlow?: string;
-    mdAutoRows?: string;
-    mdAutoColumns?: string;
-    mdJustifyItems?: string;
-    mdAlignItems?: string;
-    mdJustifyContent?: string;
-    mdAlignContent?: string;
-    mdMinHeight?: string;
-    mdMaxHeight?: string;
-    mdMinWidth?: string;
-    mdMaxWidth?: string;
-    
-    // LG breakpoint
-    lgEnabled?: boolean;
-    lgColumns?: string;
-    lgRows?: string;
-    lgAreas?: string;
-    lgGap?: string;
-    lgRowGap?: string;
-    lgColumnGap?: string;
-    lgAutoFlow?: string;
-    lgAutoRows?: string;
-    lgAutoColumns?: string;
-    lgJustifyItems?: string;
-    lgAlignItems?: string;
-    lgJustifyContent?: string;
-    lgAlignContent?: string;
-    lgMinHeight?: string;
-    lgMaxHeight?: string;
-    lgMinWidth?: string;
-    lgMaxWidth?: string;
-    
-    // XL breakpoint
-    xlEnabled?: boolean;
-    xlColumns?: string;
-    xlRows?: string;
-    xlAreas?: string;
-    xlGap?: string;
-    xlRowGap?: string;
-    xlColumnGap?: string;
-    xlAutoFlow?: string;
-    xlAutoRows?: string;
-    xlAutoColumns?: string;
-    xlJustifyItems?: string;
-    xlAlignItems?: string;
-    xlJustifyContent?: string;
-    xlAlignContent?: string;
-    xlMinHeight?: string;
-    xlMaxHeight?: string;
-    xlMinWidth?: string;
-    xlMaxWidth?: string;
-    
-    // XXL breakpoint
-    xxlEnabled?: boolean;
-    xxlColumns?: string;
-    xxlRows?: string;
-    xxlAreas?: string;
-    xxlGap?: string;
-    xxlRowGap?: string;
-    xxlColumnGap?: string;
-    xxlAutoFlow?: string;
-    xxlAutoRows?: string;
-    xxlAutoColumns?: string;
-    xxlJustifyItems?: string;
-    xxlAlignItems?: string;
-    xxlJustifyContent?: string;
-    xxlAlignContent?: string;
-    xxlMinHeight?: string;
-    xxlMaxHeight?: string;
-    xxlMinWidth?: string;
-    xxlMaxWidth?: string;
-};
+import { 
+    RuntimeGridContainer, 
+    RuntimeGridItem,
+    GridItemPlacement 
+} from "../types/ConditionalTypes";
 
 /**
  * Parse CSS grid template string and expand repeat() functions
@@ -374,7 +179,7 @@ export function parseGridAreas(areas: string): string[][] | null {
  * @returns CSS string with media queries
  */
 export function generateContainerBreakpointStyles(
-    props: ResponsiveContainerProps,
+    props: RuntimeGridContainer,
     className: string,
     useNamedAreas: boolean = false
 ): string {
@@ -395,7 +200,7 @@ export function generateContainerBreakpointStyles(
     ] as const;
     
     breakpoints.forEach(bp => {
-        const enabledKey = `${bp.key}Enabled` as keyof ResponsiveContainerProps;
+        const enabledKey = `${bp.key}Enabled` as keyof RuntimeGridContainer;
         if (!props[enabledKey]) {
             return;
         }
@@ -403,23 +208,23 @@ export function generateContainerBreakpointStyles(
         const rules: string[] = [];
         
         // Get breakpoint-specific values
-        const columnsKey = `${bp.key}Columns` as keyof ResponsiveContainerProps;
-        const rowsKey = `${bp.key}Rows` as keyof ResponsiveContainerProps;
-        const areasKey = `${bp.key}Areas` as keyof ResponsiveContainerProps;
-        const gapKey = `${bp.key}Gap` as keyof ResponsiveContainerProps;
-        const rowGapKey = `${bp.key}RowGap` as keyof ResponsiveContainerProps;
-        const columnGapKey = `${bp.key}ColumnGap` as keyof ResponsiveContainerProps;
-        const autoFlowKey = `${bp.key}AutoFlow` as keyof ResponsiveContainerProps;
-        const autoRowsKey = `${bp.key}AutoRows` as keyof ResponsiveContainerProps;
-        const autoColumnsKey = `${bp.key}AutoColumns` as keyof ResponsiveContainerProps;
-        const justifyItemsKey = `${bp.key}JustifyItems` as keyof ResponsiveContainerProps;
-        const alignItemsKey = `${bp.key}AlignItems` as keyof ResponsiveContainerProps;
-        const justifyContentKey = `${bp.key}JustifyContent` as keyof ResponsiveContainerProps;
-        const alignContentKey = `${bp.key}AlignContent` as keyof ResponsiveContainerProps;
-        const minHeightKey = `${bp.key}MinHeight` as keyof ResponsiveContainerProps;
-        const maxHeightKey = `${bp.key}MaxHeight` as keyof ResponsiveContainerProps;
-        const minWidthKey = `${bp.key}MinWidth` as keyof ResponsiveContainerProps;
-        const maxWidthKey = `${bp.key}MaxWidth` as keyof ResponsiveContainerProps;
+        const columnsKey = `${bp.key}Columns` as keyof RuntimeGridContainer;
+        const rowsKey = `${bp.key}Rows` as keyof RuntimeGridContainer;
+        const areasKey = `${bp.key}Areas` as keyof RuntimeGridContainer;
+        const gapKey = `${bp.key}Gap` as keyof RuntimeGridContainer;
+        const rowGapKey = `${bp.key}RowGap` as keyof RuntimeGridContainer;
+        const columnGapKey = `${bp.key}ColumnGap` as keyof RuntimeGridContainer;
+        const autoFlowKey = `${bp.key}AutoFlow` as keyof RuntimeGridContainer;
+        const autoRowsKey = `${bp.key}AutoRows` as keyof RuntimeGridContainer;
+        const autoColumnsKey = `${bp.key}AutoColumns` as keyof RuntimeGridContainer;
+        const justifyItemsKey = `${bp.key}JustifyItems` as keyof RuntimeGridContainer;
+        const alignItemsKey = `${bp.key}AlignItems` as keyof RuntimeGridContainer;
+        const justifyContentKey = `${bp.key}JustifyContent` as keyof RuntimeGridContainer;
+        const alignContentKey = `${bp.key}AlignContent` as keyof RuntimeGridContainer;
+        const minHeightKey = `${bp.key}MinHeight` as keyof RuntimeGridContainer;
+        const maxHeightKey = `${bp.key}MaxHeight` as keyof RuntimeGridContainer;
+        const minWidthKey = `${bp.key}MinWidth` as keyof RuntimeGridContainer;
+        const maxWidthKey = `${bp.key}MaxWidth` as keyof RuntimeGridContainer;
         
         const columns = props[columnsKey] as string | undefined;
         const rows = props[rowsKey] as string | undefined;
@@ -448,10 +253,10 @@ export function generateContainerBreakpointStyles(
         if (gap) {
             rules.push(`gap: ${gap} !important;`);
         }
-        if (rowGap) {
+        if (rowGap && !gap) {
             rules.push(`row-gap: ${rowGap} !important;`);
         }
-        if (columnGap) {
+        if (columnGap && !gap) {
             rules.push(`column-gap: ${columnGap} !important;`);
         }
         if (areas && useNamedAreas) {
@@ -506,6 +311,8 @@ export function generateContainerBreakpointStyles(
         }
         if (maxWidth) {
             rules.push(`max-width: ${maxWidth} !important;`);
+            rules.push(`margin-left: auto !important;`);
+            rules.push(`margin-right: auto !important;`);
         }
         
         if (rules.length > 0) {
@@ -543,7 +350,7 @@ export function generateContainerBreakpointStyles(
  * @returns CSS string with media queries for item breakpoints
  */
 export function generateItemBreakpointStyles(
-    items: ResponsiveGridItem[],
+    items: RuntimeGridItem[],
     widgetId: string
 ): string {
     const cssRules: string[] = [];
@@ -568,7 +375,7 @@ export function generateItemBreakpointStyles(
         // Process each breakpoint
         breakpoints.forEach(bp => {
             // Type-safe property access
-            const enabledKey = `${bp.key}Enabled` as keyof ResponsiveGridItem;
+            const enabledKey = `${bp.key}Enabled` as keyof RuntimeGridItem;
             if (!item[enabledKey]) {
                 return;
             }
@@ -576,12 +383,12 @@ export function generateItemBreakpointStyles(
             const rules: string[] = [];
             
             // Get placement type for this breakpoint
-            const placementTypeKey = `${bp.key}PlacementType` as keyof ResponsiveGridItem;
+            const placementTypeKey = `${bp.key}PlacementType` as keyof RuntimeGridItem;
             const placementType = item[placementTypeKey] as string || 'auto';
             
             // Apply placement based on type
             if (placementType === "area") {
-                const areaKey = `${bp.key}GridArea` as keyof ResponsiveGridItem;
+                const areaKey = `${bp.key}GridArea` as keyof RuntimeGridItem;
                 const areaValue = item[areaKey] as string | undefined;
                 if (areaValue) {
                     rules.push(`grid-area: ${areaValue} !important;`);
@@ -590,10 +397,10 @@ export function generateItemBreakpointStyles(
                     rules.push(`grid-row: auto !important;`);
                 }
             } else if (placementType === "coordinates") {
-                const colStartKey = `${bp.key}ColumnStart` as keyof ResponsiveGridItem;
-                const colEndKey = `${bp.key}ColumnEnd` as keyof ResponsiveGridItem;
-                const rowStartKey = `${bp.key}RowStart` as keyof ResponsiveGridItem;
-                const rowEndKey = `${bp.key}RowEnd` as keyof ResponsiveGridItem;
+                const colStartKey = `${bp.key}ColumnStart` as keyof RuntimeGridItem;
+                const colEndKey = `${bp.key}ColumnEnd` as keyof RuntimeGridItem;
+                const rowStartKey = `${bp.key}RowStart` as keyof RuntimeGridItem;
+                const rowEndKey = `${bp.key}RowEnd` as keyof RuntimeGridItem;
                 
                 const colStart = item[colStartKey] as string | undefined;
                 const colEnd = item[colEndKey] as string | undefined;
@@ -615,17 +422,25 @@ export function generateItemBreakpointStyles(
                 // Clear area placement
                 rules.push(`grid-area: auto !important;`);
             } else if (placementType === "span") {
-                const colStartKey = `${bp.key}ColumnStart` as keyof ResponsiveGridItem;
-                const rowStartKey = `${bp.key}RowStart` as keyof ResponsiveGridItem;
+                const colStartKey = `${bp.key}ColumnStart` as keyof RuntimeGridItem;
+                const rowStartKey = `${bp.key}RowStart` as keyof RuntimeGridItem;
                 
                 const colStart = item[colStartKey] as string | undefined;
                 const rowStart = item[rowStartKey] as string | undefined;
                 
                 if (colStart && colStart !== "auto") {
-                    rules.push(`grid-column: ${colStart} !important;`);
+                    if (colStart.includes("span")) {
+                        rules.push(`grid-column: ${colStart} !important;`);
+                    } else {
+                        rules.push(`grid-column-start: ${colStart} !important;`);
+                    }
                 }
                 if (rowStart && rowStart !== "auto") {
-                    rules.push(`grid-row: ${rowStart} !important;`);
+                    if (rowStart.includes("span")) {
+                        rules.push(`grid-row: ${rowStart} !important;`);
+                    } else {
+                        rules.push(`grid-row-start: ${rowStart} !important;`);
+                    }
                 }
                 // Clear area placement
                 rules.push(`grid-area: auto !important;`);
@@ -663,18 +478,6 @@ export function generateItemBreakpointStyles(
     });
     
     return cssRules.join("\n");
-}
-
-/**
- * Grid item placement configuration
- */
-interface GridItemPlacement {
-    placementType: string;
-    gridArea?: string;
-    columnStart: string;
-    columnEnd: string;
-    rowStart: string;
-    rowEnd: string;
 }
 
 /**
@@ -747,76 +550,6 @@ export function getGridItemPlacement(item: GridItemPlacement, useNamedAreas: boo
 }
 
 /**
- * Validate grid line references
- * Using simple string checks instead of regex
- * 
- * @param line - Grid line reference (e.g., "1", "-1", "span 2", "header-start")
- * @returns true if valid, false otherwise
- */
-export function validateGridLine(line: string): boolean {
-    if (!line || line === "auto") {
-        return true;
-    }
-
-    // Check for span syntax
-    if (line.startsWith("span")) {
-        const parts = line.split(" ");
-        if (parts.length === 2) {
-            const num = parseInt(parts[1], 10);
-            return !isNaN(num) && num > 0;
-        }
-        return false;
-    }
-
-    // Check for line number (positive or negative)
-    const lineNumber = parseInt(line, 10);
-    if (!isNaN(lineNumber) && lineNumber !== 0) {
-        return true;
-    }
-
-    // Check for named line - basic validation
-    // Must start with letter and contain only letters, numbers, hyphens, underscores
-    if (line.length > 0) {
-        const firstChar = line.charCodeAt(0);
-        // Check if first character is a letter (a-z or A-Z)
-        if ((firstChar >= 65 && firstChar <= 90) || (firstChar >= 97 && firstChar <= 122)) {
-            // Check remaining characters
-            for (let i = 1; i < line.length; i++) {
-                const charCode = line.charCodeAt(i);
-                const isLetter = (charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122);
-                const isNumber = charCode >= 48 && charCode <= 57;
-                const isHyphen = charCode === 45;
-                const isUnderscore = charCode === 95;
-                
-                if (!isLetter && !isNumber && !isHyphen && !isUnderscore) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Calculate the number of cells in a grid
- * 
- * @param template - Grid template columns string
- * @param areas - Parsed grid areas array
- * @returns Object with columns and rows count
- */
-export function calculateGridSize(
-    template: string,
-    areas?: string[][] | null
-): { columns: number; rows: number } {
-    const columns = parseGridTemplate(template).length;
-    const rows = areas ? areas.length : 1;
-    
-    return { columns, rows };
-}
-
-/**
  * Get unique area names from grid template areas
  * 
  * @param areas - Parsed grid areas array
@@ -872,44 +605,4 @@ export function isValidAreaName(name: string): boolean {
     }
 
     return true;
-}
-
-/**
- * Parse CSS length value and unit
- * Using simple string operations
- * 
- * @param value - CSS length value (e.g., "100px", "2rem", "50%")
- * @returns Object with numeric value and unit, or null if invalid
- */
-export function parseCSSLength(value: string): { value: number; unit: string } | null {
-    if (!value) return null;
-    
-    let numStr = "";
-    let unitStr = "";
-    let foundUnit = false;
-    
-    // Extract number and unit
-    for (let i = 0; i < value.length; i++) {
-        const char = value[i];
-        const charCode = char.charCodeAt(0);
-        
-        // Check if character is digit or decimal point
-        if ((charCode >= 48 && charCode <= 57) || char === ".") {
-            if (!foundUnit) {
-                numStr += char;
-            }
-        } else {
-            foundUnit = true;
-            unitStr += char;
-        }
-    }
-    
-    const num = parseFloat(numStr);
-    if (isNaN(num)) return null;
-    
-    // Validate unit
-    const validUnits = ["px", "em", "rem", "%", "vw", "vh", "fr", "ch", "ex"];
-    if (!validUnits.includes(unitStr)) return null;
-    
-    return { value: num, unit: unitStr };
 }

@@ -1,115 +1,13 @@
-import { createElement, CSSProperties, useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { createElement, Fragment, CSSProperties, useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { Selectable } from "mendix/preview/Selectable";
-import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
+import { CSSGridPreviewProps } from "../typings/CSSGridProps";
+import { 
+    RuntimeGridItemPreview, 
+    RuntimeGridContainerPreview,
+    GridItemPlacement,
+    GridMetrics 
+} from "./types/ConditionalTypes";
 import { getGridItemPlacement, parseGridTemplate, parseGridAreas } from "./utils/gridHelpers";
-
-// Type definitions for responsive properties
-type ResponsiveProperties = {
-    enableResponsive?: boolean;
-    xsEnabled?: boolean;
-    xsPlacementType?: string;
-    xsGridArea?: string;
-    xsColumnStart?: string;
-    xsColumnEnd?: string;
-    xsRowStart?: string;
-    xsRowEnd?: string;
-    smEnabled?: boolean;
-    smPlacementType?: string;
-    smGridArea?: string;
-    smColumnStart?: string;
-    smColumnEnd?: string;
-    smRowStart?: string;
-    smRowEnd?: string;
-    mdEnabled?: boolean;
-    mdPlacementType?: string;
-    mdGridArea?: string;
-    mdColumnStart?: string;
-    mdColumnEnd?: string;
-    mdRowStart?: string;
-    mdRowEnd?: string;
-    lgEnabled?: boolean;
-    lgPlacementType?: string;
-    lgGridArea?: string;
-    lgColumnStart?: string;
-    lgColumnEnd?: string;
-    lgRowStart?: string;
-    lgRowEnd?: string;
-    xlEnabled?: boolean;
-    xlPlacementType?: string;
-    xlGridArea?: string;
-    xlColumnStart?: string;
-    xlColumnEnd?: string;
-    xlRowStart?: string;
-    xlRowEnd?: string;
-    xxlEnabled?: boolean;
-    xxlPlacementType?: string;
-    xxlGridArea?: string;
-    xxlColumnStart?: string;
-    xxlColumnEnd?: string;
-    xxlRowStart?: string;
-    xxlRowEnd?: string;
-};
-
-// Container responsive properties
-type ResponsiveContainerProperties = {
-    enableBreakpoints?: boolean;
-    xsEnabled?: boolean;
-    xsColumns?: string;
-    xsRows?: string;
-    xsAreas?: string;
-    xsGap?: string;
-    xsRowGap?: string;
-    xsColumnGap?: string;
-    smEnabled?: boolean;
-    smColumns?: string;
-    smRows?: string;
-    smAreas?: string;
-    smGap?: string;
-    smRowGap?: string;
-    smColumnGap?: string;
-    mdEnabled?: boolean;
-    mdColumns?: string;
-    mdRows?: string;
-    mdAreas?: string;
-    mdGap?: string;
-    mdRowGap?: string;
-    mdColumnGap?: string;
-    lgEnabled?: boolean;
-    lgColumns?: string;
-    lgRows?: string;
-    lgAreas?: string;
-    lgGap?: string;
-    lgRowGap?: string;
-    lgColumnGap?: string;
-    xlEnabled?: boolean;
-    xlColumns?: string;
-    xlRows?: string;
-    xlAreas?: string;
-    xlGap?: string;
-    xlRowGap?: string;
-    xlColumnGap?: string;
-    xxlEnabled?: boolean;
-    xxlColumns?: string;
-    xxlRows?: string;
-    xxlAreas?: string;
-    xxlGap?: string;
-    xxlRowGap?: string;
-    xxlColumnGap?: string;
-};
-
-// Extended types
-type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
-type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerProperties & {
-    showGridLines?: boolean;
-    showGridAreas?: boolean;
-    showGridGaps?: boolean;
-};
-type PreviewProps = ResponsiveContainerPreview & {
-    readOnly?: boolean;
-    renderMode?: string;
-    class?: string;
-    style?: string;
-};
 
 /**
  * Generate vibrant colors for areas with better visibility
@@ -139,9 +37,16 @@ const generateAreaColors = (areas: string[]): Record<string, string> => {
 /**
  * CSS Grid Editor Preview Component
  * 
- * Simplified version with only content and dropzones
+ * Provides visual feedback in Mendix Studio Pro with:
+ * - Grid lines visualization
+ * - Grid areas highlighting
+ * - Gap visualization
+ * - Responsive indicators
  */
-export const preview: React.FC<PreviewProps> = (props) => {
+export const preview: React.FC<CSSGridPreviewProps> = (props) => {
+    // Cast to runtime type to handle conditional properties
+    const runtimeProps = props as RuntimeGridContainerPreview;
+    
     const {
         gridTemplateColumns,
         gridTemplateRows,
@@ -168,7 +73,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
         showGridGaps = false,
         class: className = "",
         style: customStyle = ""
-    } = props;
+    } = runtimeProps;
 
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
@@ -176,12 +81,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
     // State for grid measurements
-    const [gridMetrics, setGridMetrics] = useState<{
-        tracks: { columns: number[]; rows: number[] };
-        gaps: { column: number; row: number };
-        containerBox: DOMRect | null;
-        gridBox: DOMRect | null;
-    } | null>(null);
+    const [gridMetrics, setGridMetrics] = useState<GridMetrics | null>(null);
 
     // Parse custom style string into React CSSProperties
     const parseInlineStyles = useCallback((styleStr: string): CSSProperties => {
@@ -239,17 +139,23 @@ export const preview: React.FC<PreviewProps> = (props) => {
         };
     }, [gridTemplateColumns, gridTemplateRows, gridTemplateAreas, useNamedAreas]);
 
-    // Calculate actual gap values
+    // Calculate actual gap values with proper normalization
     const actualGaps = useMemo(() => {
-        // Priority: gap > individual gaps > 0
-        const effectiveGap = gap || undefined;
-        const effectiveRowGap = effectiveGap || rowGap || "0";
-        const effectiveColumnGap = effectiveGap || columnGap || "0";
+        // Helper to normalize gap values
+        const normalizeGap = (value: string | undefined): string | undefined => {
+            if (!value || value.trim() === "") return undefined;
+            return value;
+        };
+        
+        // Priority: gap > individual gaps > undefined
+        const normalizedGap = normalizeGap(gap);
+        const normalizedRowGap = normalizeGap(rowGap);
+        const normalizedColumnGap = normalizeGap(columnGap);
         
         return {
-            gap: effectiveGap,
-            rowGap: effectiveRowGap,
-            columnGap: effectiveColumnGap
+            gap: normalizedGap,
+            rowGap: normalizedRowGap,
+            columnGap: normalizedColumnGap
         };
     }, [gap, rowGap, columnGap]);
 
@@ -259,9 +165,6 @@ export const preview: React.FC<PreviewProps> = (props) => {
             display: "grid",
             gridTemplateColumns: gridTemplateColumns || "1fr",
             gridTemplateRows: gridTemplateRows || "auto",
-            gap: actualGaps.gap,
-            rowGap: !actualGaps.gap ? actualGaps.rowGap : undefined,
-            columnGap: !actualGaps.gap ? actualGaps.columnGap : undefined,
             gridAutoFlow: mapEnumToCSS(autoFlow, 'flow'),
             gridAutoColumns: autoColumns,
             gridAutoRows: autoRows,
@@ -279,6 +182,21 @@ export const preview: React.FC<PreviewProps> = (props) => {
             ...parseInlineStyles(customStyle)
         };
 
+        // Handle gap properties with proper priority
+        // 1. If general gap is defined, use it
+        // 2. Otherwise, use individual row/column gaps
+        // 3. If nothing is defined, default to 0
+        if (actualGaps.gap !== undefined) {
+            styles.gap = actualGaps.gap;
+        } else if (actualGaps.rowGap !== undefined || actualGaps.columnGap !== undefined) {
+            // Use individual gaps
+            styles.rowGap = actualGaps.rowGap || "0";
+            styles.columnGap = actualGaps.columnGap || "0";
+        } else {
+            // No gaps defined, set default
+            styles.gap = "0";
+        }
+
         // Add named areas if enabled
         if (useNamedAreas && gridTemplateAreas) {
             styles.gridTemplateAreas = gridTemplateAreas;
@@ -295,54 +213,68 @@ export const preview: React.FC<PreviewProps> = (props) => {
         autoRows, justifyItems, alignItems, justifyContent, alignContent, minHeight, maxHeight,
         minWidth, maxWidth, useNamedAreas, gridTemplateAreas, customStyle, parseInlineStyles, mapEnumToCSS]);
 
-    // Measure grid tracks and gaps
+    /**
+     * Measure grid tracks and gaps after DOM updates
+     * Uses double requestAnimationFrame to ensure browser layout is complete
+     * This is necessary because gap changes need a full layout recalculation
+     */
     const measureGrid = useCallback(() => {
         if (!gridRef.current || !containerRef.current) return;
 
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-            if (!gridRef.current || !containerRef.current) return;
+        // Force style recalculation
+        const gridEl = gridRef.current;
+        void gridEl.offsetHeight; // Force reflow
 
-            const gridEl = gridRef.current;
-            const computedStyle = window.getComputedStyle(gridEl);
-            const containerBox = containerRef.current.getBoundingClientRect();
-            const gridBox = gridEl.getBoundingClientRect();
-            
-            // Get the actual computed gap values
-            const computedColumnGap = parseFloat(computedStyle.columnGap) || 0;
-            const computedRowGap = parseFloat(computedStyle.rowGap) || 0;
-            
-            // Parse track sizes from computed style
-            const columnTracks = computedStyle.gridTemplateColumns.split(' ').map(parseFloat).filter(n => !isNaN(n));
-            const rowTracks = computedStyle.gridTemplateRows.split(' ').map(parseFloat).filter(n => !isNaN(n));
-            
-            // Calculate cumulative positions WITHOUT gaps
-            // The positions represent the grid lines, not including gaps
-            let columnPositions = [0];
-            let currentX = 0;
-            columnTracks.forEach((size) => {
-                currentX += size;
-                columnPositions.push(currentX);
-            });
-            
-            let rowPositions = [0];
-            let currentY = 0;
-            rowTracks.forEach((size) => {
-                currentY += size;
-                rowPositions.push(currentY);
-            });
-            
-            setGridMetrics({
-                tracks: {
-                    columns: columnPositions,
-                    rows: rowPositions
-                },
-                gaps: {
-                    column: computedColumnGap,
-                    row: computedRowGap
-                },
-                containerBox,
-                gridBox
+        // Use double RAF to ensure layout is complete
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (!gridRef.current || !containerRef.current) return;
+
+                const computedStyle = window.getComputedStyle(gridEl);
+                const containerBox = containerRef.current.getBoundingClientRect();
+                const gridBox = gridEl.getBoundingClientRect();
+                
+                // Get the actual computed gap values
+                const computedColumnGap = parseFloat(computedStyle.columnGap) || 0;
+                const computedRowGap = parseFloat(computedStyle.rowGap) || 0;
+                
+                // Parse track sizes from computed style
+                const columnTracks = computedStyle.gridTemplateColumns
+                    .split(' ')
+                    .map(parseFloat)
+                    .filter(n => !isNaN(n));
+                const rowTracks = computedStyle.gridTemplateRows
+                    .split(' ')
+                    .map(parseFloat)
+                    .filter(n => !isNaN(n));
+                
+                // Calculate cumulative positions WITHOUT gaps
+                let columnPositions = [0];
+                let currentX = 0;
+                columnTracks.forEach((size) => {
+                    currentX += size;
+                    columnPositions.push(currentX);
+                });
+                
+                let rowPositions = [0];
+                let currentY = 0;
+                rowTracks.forEach((size) => {
+                    currentY += size;
+                    rowPositions.push(currentY);
+                });
+                
+                setGridMetrics({
+                    tracks: {
+                        columns: columnPositions,
+                        rows: rowPositions
+                    },
+                    gaps: {
+                        column: computedColumnGap,
+                        row: computedRowGap
+                    },
+                    containerBox,
+                    gridBox
+                });
             });
         });
     }, []);
@@ -372,17 +304,27 @@ export const preview: React.FC<PreviewProps> = (props) => {
     }, [measureGrid]);
 
     // Re-measure when grid properties change
+    // Double RAF ensures the browser has completed layout updates before measuring
     useEffect(() => {
-        measureGrid();
+        // Force layout recalculation before measuring
+        if (gridRef.current) {
+            void gridRef.current.offsetHeight;
+            
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    measureGrid();
+                });
+            });
+        }
     }, [gridTemplateColumns, gridTemplateRows, gap, rowGap, columnGap, measureGrid]);
 
     // Helper to get responsive breakpoints for items
-    const getItemResponsiveBreakpoints = useCallback((item: ResponsiveItemPreview): string[] => {
+    const getItemResponsiveBreakpoints = useCallback((item: RuntimeGridItemPreview): string[] => {
         if (!item.enableResponsive) return [];
         
         const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
         return breakpoints.filter(bp => {
-            const key = `${bp}Enabled` as keyof ResponsiveItemPreview;
+            const key = `${bp}Enabled` as keyof RuntimeGridItemPreview;
             return item[key];
         });
     }, []);
@@ -392,12 +334,18 @@ export const preview: React.FC<PreviewProps> = (props) => {
         if (!enableBreakpoints) return false;
         const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
         return breakpoints.some(bp => {
-            const key = `${bp}Enabled` as keyof ResponsiveContainerPreview;
-            return props[key];
+            const key = `${bp}Enabled` as keyof RuntimeGridContainerPreview;
+            return runtimeProps[key];
         });
-    }, [enableBreakpoints, props]);
+    }, [enableBreakpoints, runtimeProps]);
 
-    // Render debug overlays using SVG - FIXED GAP POSITIONING
+    /**
+     * Render debug overlays using SVG
+     * Provides visual debugging tools for grid structure:
+     * - Grid lines: Shows the grid track boundaries
+     * - Grid gaps: Highlights the space between grid cells
+     * - Grid areas: Shows named area regions (rendered separately)
+     */
     const renderDebugOverlays = () => {
         if (!gridMetrics || (!showGridLines && !showGridGaps)) return null;
 
@@ -423,12 +371,15 @@ export const preview: React.FC<PreviewProps> = (props) => {
                 height={height}
                 viewBox={`0 0 ${width} ${height}`}
             >
-                {/* Grid Gaps - FIXED TO APPEAR ON CORRECT SIDE */}
+                {/* Render gap visualization between grid tracks
+                    Gaps appear as semi-transparent red rectangles between grid cells
+                    Column gaps: vertical rectangles between columns
+                    Row gaps: horizontal rectangles between rows */}
                 {showGridGaps && gaps.column > 0 && tracks.columns.length > 1 && (
                     <g className="grid-gaps-column">
                         {tracks.columns.slice(1, -1).map((_, i) => {
-                            // Gap should appear BEFORE the grid line (to the left)
-                            // Position is the track position plus all previous gaps MINUS the gap width
+                            // Calculate gap position: appears before each grid line except the first
+                            // Account for cumulative gap widths in multi-column grids
                             const trackPos = tracks.columns[i + 1];
                             const xPos = trackPos + (gaps.column * i);
                             return (
@@ -448,8 +399,8 @@ export const preview: React.FC<PreviewProps> = (props) => {
                 {showGridGaps && gaps.row > 0 && tracks.rows.length > 1 && (
                     <g className="grid-gaps-row">
                         {tracks.rows.slice(1, -1).map((_, i) => {
-                            // Gap should appear ABOVE the grid line
-                            // Position is the track position plus all previous gaps MINUS the gap height
+                            // Calculate gap position: appears before each grid line except the first
+                            // Account for cumulative gap heights in multi-row grids
                             const trackPos = tracks.rows[i + 1];
                             const yPos = trackPos + (gaps.row * i);
                             return (
@@ -466,43 +417,52 @@ export const preview: React.FC<PreviewProps> = (props) => {
                     </g>
                 )}
 
-                {/* Grid Lines - with 1px width */}
+                {/* Render grid lines for visualizing the grid structure
+                    Lines appear at the boundaries of each grid track
+                    For gaps: lines are drawn on both sides of the gap */}
                 {showGridLines && (
                     <g className="grid-lines">
-                        {/* Vertical lines */}
+                        {/* Vertical lines (column boundaries) */}
                         {tracks.columns.map((x, i) => {
-                            // For lines after the first, we need to account for gaps
-                            const xPosBeforeGap = i > 0 ? x + (gaps.column * (i - 1)) : x;
+                            const xPos = x + (gaps.column * Math.max(0, i - 1));
                             const xPosAfterGap = x + (gaps.column * i);
                             
                             return (
                                 <g key={`v-${i}`}>
-                                    {/* Line before gap (or only line for first/last) */}
-                                    {(i === 0 || i === tracks.columns.length - 1 || gaps.column > 0) && (
+                                    {i === 0 && (
                                         <line
-                                            x1={i === 0 ? x : xPosBeforeGap}
+                                            x1={x}
                                             y1={0}
-                                            x2={i === 0 ? x : xPosBeforeGap}
+                                            x2={x}
                                             y2={height}
                                             stroke="#ff003d"
                                             strokeWidth="1"
                                             opacity="0.6"
                                         />
                                     )}
-                                    {/* Line after gap (for middle lines when there's a gap) */}
                                     {i > 0 && i < tracks.columns.length - 1 && gaps.column > 0 && (
-                                        <line
-                                            x1={xPosAfterGap}
-                                            y1={0}
-                                            x2={xPosAfterGap}
-                                            y2={height}
-                                            stroke="#ff003d"
-                                            strokeWidth="1"
-                                            opacity="0.6"
-                                        />
+                                        <Fragment>
+                                            <line
+                                                x1={xPos}
+                                                y1={0}
+                                                x2={xPos}
+                                                y2={height}
+                                                stroke="#ff003d"
+                                                strokeWidth="1"
+                                                opacity="0.6"
+                                            />
+                                            <line
+                                                x1={xPosAfterGap}
+                                                y1={0}
+                                                x2={xPosAfterGap}
+                                                y2={height}
+                                                stroke="#ff003d"
+                                                strokeWidth="1"
+                                                opacity="0.6"
+                                            />
+                                        </Fragment>
                                     )}
-                                    {/* Last line */}
-                                    {i === tracks.columns.length - 1 && i > 0 && (
+                                    {i === tracks.columns.length - 1 && (
                                         <line
                                             x1={xPosAfterGap}
                                             y1={0}
@@ -517,40 +477,47 @@ export const preview: React.FC<PreviewProps> = (props) => {
                             );
                         })}
                         
-                        {/* Horizontal lines */}
+                        {/* Horizontal lines (row boundaries) */}
                         {tracks.rows.map((y, i) => {
-                            // For lines after the first, we need to account for gaps
-                            const yPosBeforeGap = i > 0 ? y + (gaps.row * (i - 1)) : y;
+                            const yPos = y + (gaps.row * Math.max(0, i - 1));
                             const yPosAfterGap = y + (gaps.row * i);
                             
                             return (
                                 <g key={`h-${i}`}>
-                                    {/* Line before gap (or only line for first/last) */}
-                                    {(i === 0 || i === tracks.rows.length - 1 || gaps.row > 0) && (
+                                    {i === 0 && (
                                         <line
                                             x1={0}
-                                            y1={i === 0 ? y : yPosBeforeGap}
+                                            y1={y}
                                             x2={width}
-                                            y2={i === 0 ? y : yPosBeforeGap}
+                                            y2={y}
                                             stroke="#ff003d"
                                             strokeWidth="1"
                                             opacity="0.6"
                                         />
                                     )}
-                                    {/* Line after gap (for middle lines when there's a gap) */}
                                     {i > 0 && i < tracks.rows.length - 1 && gaps.row > 0 && (
-                                        <line
-                                            x1={0}
-                                            y1={yPosAfterGap}
-                                            x2={width}
-                                            y2={yPosAfterGap}
-                                            stroke="#ff003d"
-                                            strokeWidth="1"
-                                            opacity="0.6"
-                                        />
+                                        <Fragment>
+                                            <line
+                                                x1={0}
+                                                y1={yPos}
+                                                x2={width}
+                                                y2={yPos}
+                                                stroke="#ff003d"
+                                                strokeWidth="1"
+                                                opacity="0.6"
+                                            />
+                                            <line
+                                                x1={0}
+                                                y1={yPosAfterGap}
+                                                x2={width}
+                                                y2={yPosAfterGap}
+                                                stroke="#ff003d"
+                                                strokeWidth="1"
+                                                opacity="0.6"
+                                            />
+                                        </Fragment>
                                     )}
-                                    {/* Last line */}
-                                    {i === tracks.rows.length - 1 && i > 0 && (
+                                    {i === tracks.rows.length - 1 && (
                                         <line
                                             x1={0}
                                             y1={yPosAfterGap}
@@ -570,7 +537,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
         );
     };
 
-    // Render grid areas overlay with absolute positioned labels
+    // Render grid areas overlay
     const renderGridAreasOverlay = () => {
         if (!showGridAreas || !useNamedAreas || !gridDimensions.parsedAreas) return null;
 
@@ -610,10 +577,9 @@ export const preview: React.FC<PreviewProps> = (props) => {
                             border: '1px solid rgba(0, 0, 0, 0.1)',
                             pointerEvents: 'none',
                             position: 'relative',
-                            zIndex: -1 // Place behind content
+                            zIndex: -1
                         }}
                     >
-                        {/* Absolutely positioned label */}
                         <div 
                             className="mx-css-grid-preview-area-label-container"
                             style={{
@@ -669,7 +635,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
                 </div>
             )}
             
-            {/* Main grid container with actual content */}
+            {/* Main grid container */}
             <div 
                 ref={gridRef}
                 className={`mx-css-grid-preview ${className}`}
@@ -677,7 +643,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
                 data-columns={gridDimensions.columnCount}
                 data-rows={gridDimensions.rowCount}
             >
-                {/* Grid areas overlay - render as grid children */}
+                {/* Grid areas overlay */}
                 {renderGridAreasOverlay()}
                 
                 {/* Debug overlays */}
@@ -685,22 +651,24 @@ export const preview: React.FC<PreviewProps> = (props) => {
                 
                 {/* Grid items */}
                 {items.map((item, index) => {
-                    const responsiveItem = item as ResponsiveItemPreview;
+                    const runtimeItem = item as RuntimeGridItemPreview;
                     
                     // Check if item should use area placement
-                    const effectivePlacementType = (useNamedAreas && responsiveItem.gridArea?.trim()) 
+                    const effectivePlacementType = (useNamedAreas && runtimeItem.gridArea?.trim()) 
                         ? "area" 
-                        : responsiveItem.placementType;
+                        : runtimeItem.placementType;
                     
                     // Get placement styles for the item
-                    const itemPlacement = getGridItemPlacement({
+                    const itemPlacement: GridItemPlacement = {
                         placementType: effectivePlacementType,
-                        gridArea: responsiveItem.gridArea,
-                        columnStart: responsiveItem.columnStart,
-                        columnEnd: responsiveItem.columnEnd,
-                        rowStart: responsiveItem.rowStart,
-                        rowEnd: responsiveItem.rowEnd
-                    }, useNamedAreas);
+                        gridArea: runtimeItem.gridArea,
+                        columnStart: runtimeItem.columnStart,
+                        columnEnd: runtimeItem.columnEnd,
+                        rowStart: runtimeItem.rowStart,
+                        rowEnd: runtimeItem.rowEnd
+                    };
+                    
+                    const placementStyles = getGridItemPlacement(itemPlacement, useNamedAreas);
 
                     // Build item styles
                     const itemStyles: CSSProperties = {
@@ -709,42 +677,42 @@ export const preview: React.FC<PreviewProps> = (props) => {
                         boxSizing: "border-box",
                         width: "100%",
                         height: "100%",
-                        ...itemPlacement,
-                        justifySelf: responsiveItem.justifySelf !== "auto" ? responsiveItem.justifySelf : undefined,
-                        alignSelf: responsiveItem.alignSelf !== "auto" ? responsiveItem.alignSelf : undefined,
-                        zIndex: responsiveItem.zIndex || undefined
+                        ...placementStyles,
+                        justifySelf: runtimeItem.justifySelf !== "auto" ? runtimeItem.justifySelf : undefined,
+                        alignSelf: runtimeItem.alignSelf !== "auto" ? runtimeItem.alignSelf : undefined,
+                        zIndex: runtimeItem.zIndex || undefined
                     };
 
                     // Item name for display
-                    const itemName = responsiveItem.itemName || 
-                        (effectivePlacementType === "area" && responsiveItem.gridArea ? 
-                         responsiveItem.gridArea : 
+                    const itemName = runtimeItem.itemName || 
+                        (effectivePlacementType === "area" && runtimeItem.gridArea ? 
+                         runtimeItem.gridArea : 
                          `Item ${index + 1}`);
 
                     // Check if item has responsive settings
-                    const itemBreakpoints = getItemResponsiveBreakpoints(responsiveItem);
+                    const itemBreakpoints = getItemResponsiveBreakpoints(runtimeItem);
                     const hasResponsive = itemBreakpoints.length > 0;
                     
                     // Build caption for Selectable
                     const itemCaption = `${itemName}${hasResponsive ? ' 📱' : ''}`;
 
                     // Get content renderer
-                    const ContentRenderer = responsiveItem.content?.renderer;
+                    const ContentRenderer = runtimeItem.content?.renderer;
                     
                     return (
                         <Selectable
                             key={`grid-item-${index}`}
-                            object={responsiveItem}
+                            object={runtimeItem}
                             caption={itemCaption}
                         >
                             <div
-                                className={`mx-css-grid-preview-item ${responsiveItem.className || ""}`}
+                                className={`mx-css-grid-preview-item ${runtimeItem.className || ""}`}
                                 style={itemStyles}
                                 data-item-index={index}
                                 data-item-name={itemName}
                                 data-placement-type={effectivePlacementType}
                             >
-                                {/* Render content or placeholder - NO BADGES */}
+                                {/* Render content or placeholder */}
                                 {ContentRenderer ? (
                                     <div className="mx-css-grid-preview-content">
                                         <ContentRenderer>
@@ -768,7 +736,7 @@ export const preview: React.FC<PreviewProps> = (props) => {
 };
 
 /**
- * Get preview CSS styles - Clean version without badges
+ * Get preview CSS styles
  */
 export function getPreviewCss(): string {
     return `
@@ -819,7 +787,6 @@ export function getPreviewCss(): string {
             box-sizing: border-box;
             width: 100%;
             position: relative;
-            /* Grid properties are set via inline styles */
             transition: all 0.3s ease;
         }
 
