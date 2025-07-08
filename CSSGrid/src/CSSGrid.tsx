@@ -24,8 +24,7 @@ import {
 } from "./utils/gridHelpers";
 import { 
     BreakpointSize, 
-    getActiveBreakpoint, 
-    getActiveBreakpointClasses,
+    getActiveBreakpoint,
     BREAKPOINT_CONFIGS 
 } from "./utils/CSSGridTypes";
 import "./ui/CSSGrid.css";
@@ -33,13 +32,7 @@ import "./ui/CSSGrid.css";
 /**
  * CSS Grid Widget for Mendix
  * 
- * Production-grade implementation with:
- * - Container-level responsive breakpoints
- * - Per-item responsive placement
- * - Named grid areas with validation
- * - Auto-placement with configurable flow
- * - Virtualization for performance
- * - Full accessibility support
+ * Cleaned up implementation with minimal, purposeful classes
  * 
  * @param props - Widget properties from Mendix
  * @returns React element representing the CSS Grid
@@ -257,17 +250,12 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         };
 
         // Handle gap properties with proper priority
-        // 1. If general gap is defined, use it
-        // 2. Otherwise, use individual row/column gaps
-        // 3. If nothing is defined, default to 0
         if (activeConfig.gap !== undefined) {
             styles.gap = activeConfig.gap;
         } else if (activeConfig.rowGap !== undefined || activeConfig.columnGap !== undefined) {
-            // Use individual gaps
             styles.rowGap = activeConfig.rowGap || "0";
             styles.columnGap = activeConfig.columnGap || "0";
         } else {
-            // No gaps defined, set default
             styles.gap = "0";
         }
 
@@ -534,7 +522,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     }, [setupVirtualization]);
 
     /**
-     * Render individual grid items with optimization
+     * Render individual grid items with minimal classes
      */
     const renderGridItems = useCallback(() => {
         const shouldVirtualize = enableVirtualization && items.length >= (virtualizeThreshold || 100);
@@ -556,16 +544,24 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 ...getGridItemPlacement(activePlacement, useNamedAreas)
             };
 
-            // Get dynamic class value if it exists
-            const dynamicClassName = runtimeItem.dynamicClass?.value || "";
+            // Build minimal item classes
+            const itemClasses = ['mx-grid-item'];
             
-            const itemClassName = [
-                "mx-css-grid-item", 
-                runtimeItem.className,
-                dynamicClassName,
-                runtimeItem.enableResponsive ? `${widgetId}-item-${index}` : null,
-                runtimeItem.enableResponsive ? `mx-css-grid-item--responsive` : null
-            ].filter(Boolean).join(" ");
+            // Only add responsive class if item has breakpoint overrides
+            if (runtimeItem.enableResponsive) {
+                itemClasses.push(`${widgetId}-item-${index}`);
+            }
+            
+            // Add user's custom classes
+            if (runtimeItem.className) {
+                itemClasses.push(runtimeItem.className);
+            }
+            
+            // Add dynamic classes from expressions
+            const dynamicClass = runtimeItem.dynamicClass?.value;
+            if (dynamicClass) {
+                itemClasses.push(...dynamicClass.split(' ').filter(Boolean));
+            }
             
             // Render placeholder for non-visible virtualized items
             if (shouldVirtualize && !isVisible) {
@@ -573,7 +569,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                     <div
                         key={`grid-item-${index}`}
                         data-grid-index={index}
-                        className={`${itemClassName} mx-css-grid-placeholder`}
+                        className={`${itemClasses.join(' ')} mx-grid-item--placeholder`}
                         style={itemStyles}
                         aria-hidden="true"
                     />
@@ -592,8 +588,8 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                     key={`grid-item-${index}`}
                     data-grid-index={index}
                     data-item-name={runtimeItem.itemName || undefined}
-                    data-breakpoint={activeBreakpointSize}
-                    className={itemClassName}
+                    data-placement={activePlacement.placementType}
+                    className={itemClasses.join(' ')}
                     style={itemStyles}
                     {...itemAriaAttrs}
                 >
@@ -601,31 +597,39 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 </div>
             );
         });
-    }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized, getActiveItemPlacement, widgetId, activeBreakpointSize, useNamedAreas]);
+    }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized, 
+        getActiveItemPlacement, widgetId, useNamedAreas]);
 
     /**
-     * Container class names with responsive identifier
+     * Container class names - minimal approach
      */
     const containerClassName = useMemo(() => {
-        const classes = ["mx-css-grid", widgetId, className];
+        const classes = [
+            'mx-css-grid',
+            widgetId,
+            `mx-grid-${activeBreakpointSize}`, // Current breakpoint only
+            className // User's custom class
+        ].filter(Boolean);
         
-        // Add state classes
+        return classes.join(' ');
+    }, [widgetId, activeBreakpointSize, className]);
+
+    /**
+     * Container data attributes for optional metadata
+     */
+    const containerDataAttributes = useMemo(() => {
+        const attrs: Record<string, string | number | undefined> = {
+            'data-breakpoint': activeBreakpointSize,
+            'data-item-count': items.length
+        };
+        
+        // Only add virtualization flag if actually virtualized
         if (enableVirtualization && items.length >= (virtualizeThreshold || 100)) {
-            classes.push("mx-css-grid--virtualized");
-        }
-        if (enableBreakpoints) {
-            classes.push("mx-css-grid--responsive");
-        }
-        if (useNamedAreas) {
-            classes.push("mx-css-grid--named-areas");
+            attrs['data-virtualized'] = 'true';
         }
         
-        // Add dynamic breakpoint classes
-        const breakpointClasses = getActiveBreakpointClasses(currentWidth);
-        classes.push(...breakpointClasses);
-        
-        return classes.filter(Boolean).join(" ");
-    }, [className, widgetId, enableVirtualization, items.length, virtualizeThreshold, enableBreakpoints, useNamedAreas, currentWidth]);
+        return attrs;
+    }, [activeBreakpointSize, items.length, enableVirtualization, virtualizeThreshold]);
 
     /**
      * Determine appropriate ARIA role
@@ -645,8 +649,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             aria-label={ariaLabel}
             aria-labelledby={ariaLabelledBy}
             aria-describedby={ariaDescribedBy}
-            data-breakpoint-size={activeBreakpointSize}
-            data-item-count={items.length}
+            {...containerDataAttributes}
         >
             {renderGridItems()}
         </div>

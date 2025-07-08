@@ -37,11 +37,8 @@ const generateAreaColors = (areas: string[]): Record<string, string> => {
 /**
  * CSS Grid Editor Preview Component
  * 
- * Provides visual feedback in Mendix Studio Pro with:
- * - Grid lines visualization
- * - Grid areas highlighting
- * - Gap visualization
- * - Responsive indicators
+ * Provides visual feedback in Mendix Studio Pro
+ * Uses the same minimal class approach as the main component
  */
 export const preview: React.FC<CSSGridPreviewProps> = (props) => {
     // Cast to runtime type to handle conditional properties
@@ -183,17 +180,12 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
         };
 
         // Handle gap properties with proper priority
-        // 1. If general gap is defined, use it
-        // 2. Otherwise, use individual row/column gaps
-        // 3. If nothing is defined, default to 0
         if (actualGaps.gap !== undefined) {
             styles.gap = actualGaps.gap;
         } else if (actualGaps.rowGap !== undefined || actualGaps.columnGap !== undefined) {
-            // Use individual gaps
             styles.rowGap = actualGaps.rowGap || "0";
             styles.columnGap = actualGaps.columnGap || "0";
         } else {
-            // No gaps defined, set default
             styles.gap = "0";
         }
 
@@ -215,8 +207,6 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
 
     /**
      * Measure grid tracks and gaps after DOM updates
-     * Uses double requestAnimationFrame to ensure browser layout is complete
-     * This is necessary because gap changes need a full layout recalculation
      */
     const measureGrid = useCallback(() => {
         if (!gridRef.current || !containerRef.current) return;
@@ -304,7 +294,6 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
     }, [measureGrid]);
 
     // Re-measure when grid properties change
-    // Double RAF ensures the browser has completed layout updates before measuring
     useEffect(() => {
         // Force layout recalculation before measuring
         if (gridRef.current) {
@@ -318,17 +307,6 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
         }
     }, [gridTemplateColumns, gridTemplateRows, gap, rowGap, columnGap, measureGrid]);
 
-    // Helper to get responsive breakpoints for items
-    const getItemResponsiveBreakpoints = useCallback((item: RuntimeGridItemPreview): string[] => {
-        if (!item.enableResponsive) return [];
-        
-        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
-        return breakpoints.filter(bp => {
-            const key = `${bp}Enabled` as keyof RuntimeGridItemPreview;
-            return item[key];
-        });
-    }, []);
-
     // Check if responsive is enabled for container
     const hasResponsiveContainer = useMemo(() => {
         if (!enableBreakpoints) return false;
@@ -341,10 +319,6 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
 
     /**
      * Render debug overlays using SVG
-     * Provides visual debugging tools for grid structure:
-     * - Grid lines: Shows the grid track boundaries
-     * - Grid gaps: Highlights the space between grid cells
-     * - Grid areas: Shows named area regions (rendered separately)
      */
     const renderDebugOverlays = () => {
         if (!gridMetrics || (!showGridLines && !showGridGaps)) return null;
@@ -371,15 +345,10 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
                 height={height}
                 viewBox={`0 0 ${width} ${height}`}
             >
-                {/* Render gap visualization between grid tracks
-                    Gaps appear as semi-transparent red rectangles between grid cells
-                    Column gaps: vertical rectangles between columns
-                    Row gaps: horizontal rectangles between rows */}
+                {/* Render gap visualization */}
                 {showGridGaps && gaps.column > 0 && tracks.columns.length > 1 && (
                     <g className="grid-gaps-column">
                         {tracks.columns.slice(1, -1).map((_, i) => {
-                            // Calculate gap position: appears before each grid line except the first
-                            // Account for cumulative gap widths in multi-column grids
                             const trackPos = tracks.columns[i + 1];
                             const xPos = trackPos + (gaps.column * i);
                             return (
@@ -399,8 +368,6 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
                 {showGridGaps && gaps.row > 0 && tracks.rows.length > 1 && (
                     <g className="grid-gaps-row">
                         {tracks.rows.slice(1, -1).map((_, i) => {
-                            // Calculate gap position: appears before each grid line except the first
-                            // Account for cumulative gap heights in multi-row grids
                             const trackPos = tracks.rows[i + 1];
                             const yPos = trackPos + (gaps.row * i);
                             return (
@@ -417,12 +384,10 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
                     </g>
                 )}
 
-                {/* Render grid lines for visualizing the grid structure
-                    Lines appear at the boundaries of each grid track
-                    For gaps: lines are drawn on both sides of the gap */}
+                {/* Render grid lines */}
                 {showGridLines && (
                     <g className="grid-lines">
-                        {/* Vertical lines (column boundaries) */}
+                        {/* Vertical lines */}
                         {tracks.columns.map((x, i) => {
                             const xPos = x + (gaps.column * Math.max(0, i - 1));
                             const xPosAfterGap = x + (gaps.column * i);
@@ -477,7 +442,7 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
                             );
                         })}
                         
-                        {/* Horizontal lines (row boundaries) */}
+                        {/* Horizontal lines */}
                         {tracks.rows.map((y, i) => {
                             const yPos = y + (gaps.row * Math.max(0, i - 1));
                             const yPosAfterGap = y + (gaps.row * i);
@@ -616,6 +581,14 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
         );
     };
 
+    // Container classes - minimal approach
+    const containerClasses = useMemo(() => {
+        return [
+            'mx-css-grid-preview',
+            className
+        ].filter(Boolean).join(' ');
+    }, [className]);
+
     return (
         <div 
             ref={containerRef}
@@ -638,7 +611,7 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
             {/* Main grid container */}
             <div 
                 ref={gridRef}
-                className={`mx-css-grid-preview ${className}`}
+                className={containerClasses}
                 style={containerStyles}
                 data-columns={gridDimensions.columnCount}
                 data-rows={gridDimensions.rowCount}
@@ -690,14 +663,19 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
                          `Item ${index + 1}`);
 
                     // Check if item has responsive settings
-                    const itemBreakpoints = getItemResponsiveBreakpoints(runtimeItem);
-                    const hasResponsive = itemBreakpoints.length > 0;
+                    const hasResponsive = runtimeItem.enableResponsive || false;
                     
                     // Build caption for Selectable
                     const itemCaption = `${itemName}${hasResponsive ? ' 📱' : ''}`;
 
                     // Get content renderer
                     const ContentRenderer = runtimeItem.content?.renderer;
+                    
+                    // Build minimal item classes
+                    const itemClasses = [
+                        'mx-css-grid-preview-item',
+                        runtimeItem.className
+                    ].filter(Boolean).join(' ');
                     
                     return (
                         <Selectable
@@ -706,7 +684,7 @@ export const preview: React.FC<CSSGridPreviewProps> = (props) => {
                             caption={itemCaption}
                         >
                             <div
-                                className={`mx-css-grid-preview-item ${runtimeItem.className || ""}`}
+                                className={itemClasses}
                                 style={itemStyles}
                                 data-item-index={index}
                                 data-item-name={itemName}
