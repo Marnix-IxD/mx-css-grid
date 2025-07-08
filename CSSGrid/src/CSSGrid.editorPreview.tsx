@@ -1,4 +1,4 @@
-import { createElement, CSSProperties, Fragment } from "react";
+import { createElement, CSSProperties, useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { Selectable } from "mendix/preview/Selectable";
 import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
 import { getGridItemPlacement, parseGridTemplate, parseGridAreas } from "./utils/gridHelpers";
@@ -103,7 +103,6 @@ type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerPrope
     showGridLines?: boolean;
     showGridAreas?: boolean;
     showGridGaps?: boolean;
-    showLineNumbers?: boolean;
 };
 type PreviewProps = ResponsiveContainerPreview & {
     readOnly?: boolean;
@@ -113,34 +112,34 @@ type PreviewProps = ResponsiveContainerPreview & {
 };
 
 /**
- * Generate vibrant colors for areas
+ * Generate vibrant colors for areas with better visibility
  */
-const generateAreaColors = (areaCount: number): Record<string, string> => {
+const generateAreaColors = (areas: string[]): Record<string, string> => {
     const baseColors = [
-        'rgba(255, 182, 193, 0.5)', // Light Pink
-        'rgba(255, 218, 185, 0.5)', // Peach Puff
-        'rgba(221, 160, 221, 0.5)', // Plum
-        'rgba(176, 224, 230, 0.5)', // Powder Blue
-        'rgba(152, 251, 152, 0.5)', // Pale Green
-        'rgba(255, 255, 224, 0.5)', // Light Yellow
-        'rgba(230, 230, 250, 0.5)', // Lavender
-        'rgba(255, 228, 225, 0.5)', // Misty Rose
-        'rgba(240, 248, 255, 0.5)', // Alice Blue
-        'rgba(245, 245, 220, 0.5)', // Beige
+        'rgba(59, 130, 246, 0.2)',   // Blue
+        'rgba(239, 68, 68, 0.2)',    // Red
+        'rgba(16, 185, 129, 0.2)',   // Green
+        'rgba(245, 158, 11, 0.2)',   // Yellow
+        'rgba(139, 92, 246, 0.2)',   // Purple
+        'rgba(236, 72, 153, 0.2)',   // Pink
+        'rgba(14, 165, 233, 0.2)',   // Sky
+        'rgba(168, 85, 247, 0.2)',   // Violet
+        'rgba(251, 146, 60, 0.2)',   // Orange
+        'rgba(6, 182, 212, 0.2)',    // Cyan
     ];
     
-    return Array.from({ length: areaCount }, (_, i) => {
-        const color = baseColors[i % baseColors.length];
-        return { [`area-${i}`]: color };
-    }).reduce((acc, curr) => ({ ...acc, ...curr }), {});
+    const colorMap: Record<string, string> = {};
+    areas.forEach((area, index) => {
+        colorMap[area] = baseColors[index % baseColors.length];
+    });
+    
+    return colorMap;
 };
 
 /**
  * CSS Grid Editor Preview Component
  * 
- * Provides an accurate visual representation of the CSS Grid configuration
- * in Mendix Studio Pro's design mode with proper Selectable item support.
- * Enhanced with non-intrusive debug visualization features.
+ * Simplified version with only content and dropzones
  */
 export const preview: React.FC<PreviewProps> = (props) => {
     const {
@@ -167,13 +166,25 @@ export const preview: React.FC<PreviewProps> = (props) => {
         showGridLines = false,
         showGridAreas = false,
         showGridGaps = false,
-        showLineNumbers = false,
         class: className = "",
         style: customStyle = ""
     } = props;
 
+    // Refs
+    const containerRef = useRef<HTMLDivElement>(null);
+    const gridRef = useRef<HTMLDivElement>(null);
+    const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+    // State for grid measurements
+    const [gridMetrics, setGridMetrics] = useState<{
+        tracks: { columns: number[]; rows: number[] };
+        gaps: { column: number; row: number };
+        containerBox: DOMRect | null;
+        gridBox: DOMRect | null;
+    } | null>(null);
+
     // Parse custom style string into React CSSProperties
-    const parseInlineStyles = (styleStr: string): CSSProperties => {
+    const parseInlineStyles = useCallback((styleStr: string): CSSProperties => {
         const styles: CSSProperties = {};
         if (!styleStr) return styles;
 
@@ -186,10 +197,10 @@ export const preview: React.FC<PreviewProps> = (props) => {
         });
 
         return styles;
-    };
+    }, []);
 
     // Map Mendix enumeration values to CSS values
-    const mapEnumToCSS = (value: string, type: 'flow' | 'align' | 'justify'): string => {
+    const mapEnumToCSS = useCallback((value: string, type: 'flow' | 'align' | 'justify'): string => {
         if (type === 'flow') {
             const flowMap: Record<string, string> = {
                 'row': 'row',
@@ -210,98 +221,163 @@ export const preview: React.FC<PreviewProps> = (props) => {
         }
         
         return value;
-    };
+    }, []);
 
     // Parse grid dimensions
-    const columnCount = parseGridTemplate(gridTemplateColumns || "1fr 1fr").length;
-    const rowCount = parseGridTemplate(gridTemplateRows || "auto").length;
-    
-    // Parse grid areas if using named areas
-    const parsedAreas = useNamedAreas && gridTemplateAreas ? parseGridAreas(gridTemplateAreas) : null;
-    const uniqueAreas = parsedAreas ? 
-        Array.from(new Set(parsedAreas.flat().filter(area => area !== "."))) : [];
-    const areaColors = generateAreaColors(uniqueAreas.length);
-    const areaColorMap: Record<string, string> = {};
-    uniqueAreas.forEach((area, index) => {
-        areaColorMap[area] = areaColors[`area-${index}`];
-    });
-
-    // Calculate actual gap values with proper precedence
-    // If 'gap' is set, it overrides both rowGap and columnGap
-    const hasGap = gap && gap !== '0';
-    const actualRowGap = hasGap ? gap : (rowGap || '0');
-    const actualColumnGap = hasGap ? gap : (columnGap || '0');
-    const hasAnyGap = actualRowGap !== '0' || actualColumnGap !== '0';
-
-    // Build container styles that match actual CSS Grid behavior
-    const containerStyles: CSSProperties = {
-        display: "grid",
-        gridTemplateColumns: gridTemplateColumns || "1fr 1fr",
-        gridTemplateRows: gridTemplateRows || "auto",
-        gridAutoFlow: mapEnumToCSS(autoFlow, 'flow'),
-        gridAutoColumns: autoColumns,
-        gridAutoRows: autoRows,
-        justifyItems: justifyItems,
-        alignItems: alignItems,
-        justifyContent: mapEnumToCSS(justifyContent, 'justify'),
-        alignContent: mapEnumToCSS(alignContent, 'align'),
-        width: "100%",
-        boxSizing: "border-box",
-        position: "relative",
-        ...parseInlineStyles(customStyle)
-    };
-
-    // Apply gap properties - prioritize general gap over specific gaps
-    if (gap) {
-        containerStyles.gap = gap;
-    } else {
-        if (rowGap) containerStyles.rowGap = rowGap;
-        if (columnGap) containerStyles.columnGap = columnGap;
-    }
-
-    // Apply size constraints
-    if (minWidth) containerStyles.minWidth = minWidth;
-    if (maxWidth) {
-        containerStyles.maxWidth = maxWidth;
-        containerStyles.marginLeft = "auto";
-        containerStyles.marginRight = "auto";
-    }
-    if (minHeight) containerStyles.minHeight = minHeight;
-    if (maxHeight) containerStyles.maxHeight = maxHeight;
-
-    // Apply grid template areas if enabled
-    if (useNamedAreas && gridTemplateAreas) {
-        containerStyles.gridTemplateAreas = gridTemplateAreas;
+    const gridDimensions = useMemo(() => {
+        const columns = parseGridTemplate(gridTemplateColumns || "1fr");
+        const rows = parseGridTemplate(gridTemplateRows || "auto");
+        const areas = useNamedAreas && gridTemplateAreas ? parseGridAreas(gridTemplateAreas) : null;
+        const uniqueAreas = areas ? Array.from(new Set(areas.flat().filter(area => area !== "."))) : [];
         
-        // If no explicit columns/rows are set, try to infer from the areas
-        if (!gridTemplateColumns) {
-            // Parse the first line to count columns (simple approach)
-            const firstLine = gridTemplateAreas.trim().split('\n')[0];
-            // Remove quotes if present and count areas
-            const cleanLine = firstLine.replace(/['"]/g, '').trim();
-            const areaCount = cleanLine.split(/\s+/).length;
-            containerStyles.gridTemplateColumns = `repeat(${areaCount}, 1fr)`;
-        }
-        if (!gridTemplateRows) {
-            // Count lines
-            const lineCount = gridTemplateAreas.trim().split('\n').filter(line => line.trim()).length;
-            containerStyles.gridTemplateRows = `repeat(${lineCount}, auto)`;
-        }
-    }
+        return {
+            columnCount: columns.length,
+            rowCount: rows.length,
+            parsedAreas: areas,
+            uniqueAreas,
+            areaColorMap: generateAreaColors(uniqueAreas)
+        };
+    }, [gridTemplateColumns, gridTemplateRows, gridTemplateAreas, useNamedAreas]);
 
-    // Helper to get breakpoint info
-    const getActiveBreakpoints = (): string[] => {
-        if (!enableBreakpoints) return [];
+    // Calculate actual gap values
+    const actualGaps = useMemo(() => {
+        // Priority: gap > individual gaps > 0
+        const effectiveGap = gap || undefined;
+        const effectiveRowGap = effectiveGap || rowGap || "0";
+        const effectiveColumnGap = effectiveGap || columnGap || "0";
         
-        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
-        return breakpoints.filter(bp => {
-            const key = `${bp}Enabled` as keyof ResponsiveContainerPreview;
-            return props[key];
+        return {
+            gap: effectiveGap,
+            rowGap: effectiveRowGap,
+            columnGap: effectiveColumnGap
+        };
+    }, [gap, rowGap, columnGap]);
+
+    // Build container styles
+    const containerStyles = useMemo<CSSProperties>(() => {
+        const styles: CSSProperties = {
+            display: "grid",
+            gridTemplateColumns: gridTemplateColumns || "1fr",
+            gridTemplateRows: gridTemplateRows || "auto",
+            gap: actualGaps.gap,
+            rowGap: !actualGaps.gap ? actualGaps.rowGap : undefined,
+            columnGap: !actualGaps.gap ? actualGaps.columnGap : undefined,
+            gridAutoFlow: mapEnumToCSS(autoFlow, 'flow'),
+            gridAutoColumns: autoColumns,
+            gridAutoRows: autoRows,
+            justifyItems: justifyItems,
+            alignItems: alignItems,
+            justifyContent: mapEnumToCSS(justifyContent, 'justify'),
+            alignContent: mapEnumToCSS(alignContent, 'align'),
+            minHeight: minHeight,
+            maxHeight: maxHeight,
+            minWidth: minWidth,
+            maxWidth: maxWidth,
+            width: "100%",
+            boxSizing: "border-box",
+            position: "relative",
+            ...parseInlineStyles(customStyle)
+        };
+
+        // Add named areas if enabled
+        if (useNamedAreas && gridTemplateAreas) {
+            styles.gridTemplateAreas = gridTemplateAreas;
+        }
+
+        // Center the grid if max-width is set
+        if (maxWidth) {
+            styles.marginLeft = "auto";
+            styles.marginRight = "auto";
+        }
+
+        return styles;
+    }, [gridTemplateColumns, gridTemplateRows, actualGaps, autoFlow, autoColumns,
+        autoRows, justifyItems, alignItems, justifyContent, alignContent, minHeight, maxHeight,
+        minWidth, maxWidth, useNamedAreas, gridTemplateAreas, customStyle, parseInlineStyles, mapEnumToCSS]);
+
+    // Measure grid tracks and gaps
+    const measureGrid = useCallback(() => {
+        if (!gridRef.current || !containerRef.current) return;
+
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+            if (!gridRef.current || !containerRef.current) return;
+
+            const gridEl = gridRef.current;
+            const computedStyle = window.getComputedStyle(gridEl);
+            const containerBox = containerRef.current.getBoundingClientRect();
+            const gridBox = gridEl.getBoundingClientRect();
+            
+            // Get the actual computed gap values
+            const computedColumnGap = parseFloat(computedStyle.columnGap) || 0;
+            const computedRowGap = parseFloat(computedStyle.rowGap) || 0;
+            
+            // Parse track sizes from computed style
+            const columnTracks = computedStyle.gridTemplateColumns.split(' ').map(parseFloat).filter(n => !isNaN(n));
+            const rowTracks = computedStyle.gridTemplateRows.split(' ').map(parseFloat).filter(n => !isNaN(n));
+            
+            // Calculate cumulative positions WITHOUT gaps
+            // The positions represent the grid lines, not including gaps
+            let columnPositions = [0];
+            let currentX = 0;
+            columnTracks.forEach((size) => {
+                currentX += size;
+                columnPositions.push(currentX);
+            });
+            
+            let rowPositions = [0];
+            let currentY = 0;
+            rowTracks.forEach((size) => {
+                currentY += size;
+                rowPositions.push(currentY);
+            });
+            
+            setGridMetrics({
+                tracks: {
+                    columns: columnPositions,
+                    rows: rowPositions
+                },
+                gaps: {
+                    column: computedColumnGap,
+                    row: computedRowGap
+                },
+                containerBox,
+                gridBox
+            });
         });
-    };
+    }, []);
 
-    // Helper to get item responsive status
-    const getItemResponsiveBreakpoints = (item: ResponsiveItemPreview): string[] => {
+    // Setup ResizeObserver
+    useEffect(() => {
+        if (!gridRef.current) return;
+
+        resizeObserverRef.current = new ResizeObserver(() => {
+            measureGrid();
+        });
+
+        resizeObserverRef.current.observe(gridRef.current);
+        
+        // Also observe the container for dimension changes
+        if (containerRef.current) {
+            resizeObserverRef.current.observe(containerRef.current);
+        }
+
+        measureGrid(); // Initial measurement
+
+        return () => {
+            if (resizeObserverRef.current) {
+                resizeObserverRef.current.disconnect();
+            }
+        };
+    }, [measureGrid]);
+
+    // Re-measure when grid properties change
+    useEffect(() => {
+        measureGrid();
+    }, [gridTemplateColumns, gridTemplateRows, gap, rowGap, columnGap, measureGrid]);
+
+    // Helper to get responsive breakpoints for items
+    const getItemResponsiveBreakpoints = useCallback((item: ResponsiveItemPreview): string[] => {
         if (!item.enableResponsive) return [];
         
         const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
@@ -309,355 +385,390 @@ export const preview: React.FC<PreviewProps> = (props) => {
             const key = `${bp}Enabled` as keyof ResponsiveItemPreview;
             return item[key];
         });
+    }, []);
+
+    // Check if responsive is enabled for container
+    const hasResponsiveContainer = useMemo(() => {
+        if (!enableBreakpoints) return false;
+        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
+        return breakpoints.some(bp => {
+            const key = `${bp}Enabled` as keyof ResponsiveContainerPreview;
+            return props[key];
+        });
+    }, [enableBreakpoints, props]);
+
+    // Render debug overlays using SVG - FIXED GAP POSITIONING
+    const renderDebugOverlays = () => {
+        if (!gridMetrics || (!showGridLines && !showGridGaps)) return null;
+
+        const { tracks, gaps, gridBox } = gridMetrics;
+        if (!gridBox) return null;
+
+        const width = gridBox.width;
+        const height = gridBox.height;
+
+        return (
+            <svg
+                className="mx-css-grid-preview-debug-svg"
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none',
+                    zIndex: 100
+                }}
+                width={width}
+                height={height}
+                viewBox={`0 0 ${width} ${height}`}
+            >
+                {/* Grid Gaps - FIXED TO APPEAR ON CORRECT SIDE */}
+                {showGridGaps && gaps.column > 0 && tracks.columns.length > 1 && (
+                    <g className="grid-gaps-column">
+                        {tracks.columns.slice(1, -1).map((_, i) => {
+                            // Gap should appear BEFORE the grid line (to the left)
+                            // Position is the track position plus all previous gaps MINUS the gap width
+                            const trackPos = tracks.columns[i + 1];
+                            const xPos = trackPos + (gaps.column * i);
+                            return (
+                                <rect
+                                    key={`gap-col-${i}`}
+                                    x={xPos}
+                                    y={0}
+                                    width={gaps.column}
+                                    height={height}
+                                    fill="rgba(255, 0, 61, 0.15)"
+                                />
+                            );
+                        })}
+                    </g>
+                )}
+
+                {showGridGaps && gaps.row > 0 && tracks.rows.length > 1 && (
+                    <g className="grid-gaps-row">
+                        {tracks.rows.slice(1, -1).map((_, i) => {
+                            // Gap should appear ABOVE the grid line
+                            // Position is the track position plus all previous gaps MINUS the gap height
+                            const trackPos = tracks.rows[i + 1];
+                            const yPos = trackPos + (gaps.row * i);
+                            return (
+                                <rect
+                                    key={`gap-row-${i}`}
+                                    x={0}
+                                    y={yPos}
+                                    width={width}
+                                    height={gaps.row}
+                                    fill="rgba(255, 0, 61, 0.15)"
+                                />
+                            );
+                        })}
+                    </g>
+                )}
+
+                {/* Grid Lines - with 1px width */}
+                {showGridLines && (
+                    <g className="grid-lines">
+                        {/* Vertical lines */}
+                        {tracks.columns.map((x, i) => {
+                            // For lines after the first, we need to account for gaps
+                            const xPosBeforeGap = i > 0 ? x + (gaps.column * (i - 1)) : x;
+                            const xPosAfterGap = x + (gaps.column * i);
+                            
+                            return (
+                                <g key={`v-${i}`}>
+                                    {/* Line before gap (or only line for first/last) */}
+                                    {(i === 0 || i === tracks.columns.length - 1 || gaps.column > 0) && (
+                                        <line
+                                            x1={i === 0 ? x : xPosBeforeGap}
+                                            y1={0}
+                                            x2={i === 0 ? x : xPosBeforeGap}
+                                            y2={height}
+                                            stroke="#ff003d"
+                                            strokeWidth="1"
+                                            opacity="0.6"
+                                        />
+                                    )}
+                                    {/* Line after gap (for middle lines when there's a gap) */}
+                                    {i > 0 && i < tracks.columns.length - 1 && gaps.column > 0 && (
+                                        <line
+                                            x1={xPosAfterGap}
+                                            y1={0}
+                                            x2={xPosAfterGap}
+                                            y2={height}
+                                            stroke="#ff003d"
+                                            strokeWidth="1"
+                                            opacity="0.6"
+                                        />
+                                    )}
+                                    {/* Last line */}
+                                    {i === tracks.columns.length - 1 && i > 0 && (
+                                        <line
+                                            x1={xPosAfterGap}
+                                            y1={0}
+                                            x2={xPosAfterGap}
+                                            y2={height}
+                                            stroke="#ff003d"
+                                            strokeWidth="1"
+                                            opacity="0.6"
+                                        />
+                                    )}
+                                </g>
+                            );
+                        })}
+                        
+                        {/* Horizontal lines */}
+                        {tracks.rows.map((y, i) => {
+                            // For lines after the first, we need to account for gaps
+                            const yPosBeforeGap = i > 0 ? y + (gaps.row * (i - 1)) : y;
+                            const yPosAfterGap = y + (gaps.row * i);
+                            
+                            return (
+                                <g key={`h-${i}`}>
+                                    {/* Line before gap (or only line for first/last) */}
+                                    {(i === 0 || i === tracks.rows.length - 1 || gaps.row > 0) && (
+                                        <line
+                                            x1={0}
+                                            y1={i === 0 ? y : yPosBeforeGap}
+                                            x2={width}
+                                            y2={i === 0 ? y : yPosBeforeGap}
+                                            stroke="#ff003d"
+                                            strokeWidth="1"
+                                            opacity="0.6"
+                                        />
+                                    )}
+                                    {/* Line after gap (for middle lines when there's a gap) */}
+                                    {i > 0 && i < tracks.rows.length - 1 && gaps.row > 0 && (
+                                        <line
+                                            x1={0}
+                                            y1={yPosAfterGap}
+                                            x2={width}
+                                            y2={yPosAfterGap}
+                                            stroke="#ff003d"
+                                            strokeWidth="1"
+                                            opacity="0.6"
+                                        />
+                                    )}
+                                    {/* Last line */}
+                                    {i === tracks.rows.length - 1 && i > 0 && (
+                                        <line
+                                            x1={0}
+                                            y1={yPosAfterGap}
+                                            x2={width}
+                                            y2={yPosAfterGap}
+                                            stroke="#ff003d"
+                                            strokeWidth="1"
+                                            opacity="0.6"
+                                        />
+                                    )}
+                                </g>
+                            );
+                        })}
+                    </g>
+                )}
+            </svg>
+        );
     };
 
-    // Add class for debug mode
-    const debugClasses = [
-        showGridLines && 'mx-css-grid-preview--show-lines',
-        showGridAreas && 'mx-css-grid-preview--show-areas',
-        showGridGaps && 'mx-css-grid-preview--show-gaps',
-        showLineNumbers && 'mx-css-grid-preview--show-numbers'
-    ].filter(Boolean).join(' ');
+    // Render grid areas overlay with absolute positioned labels
+    const renderGridAreasOverlay = () => {
+        if (!showGridAreas || !useNamedAreas || !gridDimensions.parsedAreas) return null;
 
-    // Create a wrapper for the entire grid to handle debug overlays
+        const { parsedAreas, areaColorMap } = gridDimensions;
+        const processedAreas = new Set<string>();
+
+        return parsedAreas.map((row, rowIndex) => 
+            row.map((cell, colIndex) => {
+                if (cell === '.' || processedAreas.has(cell)) return null;
+                
+                // Find the full extent of this area
+                let minRow = rowIndex, maxRow = rowIndex;
+                let minCol = colIndex, maxCol = colIndex;
+                
+                // Scan for area boundaries
+                for (let r = 0; r < parsedAreas.length; r++) {
+                    for (let c = 0; c < parsedAreas[r].length; c++) {
+                        if (parsedAreas[r][c] === cell) {
+                            minRow = Math.min(minRow, r);
+                            maxRow = Math.max(maxRow, r);
+                            minCol = Math.min(minCol, c);
+                            maxCol = Math.max(maxCol, c);
+                        }
+                    }
+                }
+                
+                processedAreas.add(cell);
+                
+                return (
+                    <div
+                        key={`area-${cell}`}
+                        className="mx-css-grid-preview-area-overlay"
+                        style={{
+                            gridRow: `${minRow + 1} / ${maxRow + 2}`,
+                            gridColumn: `${minCol + 1} / ${maxCol + 2}`,
+                            backgroundColor: areaColorMap[cell],
+                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            pointerEvents: 'none',
+                            position: 'relative',
+                            zIndex: -1 // Place behind content
+                        }}
+                    >
+                        {/* Absolutely positioned label */}
+                        <div 
+                            className="mx-css-grid-preview-area-label-container"
+                            style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                zIndex: 1000,
+                                pointerEvents: 'none'
+                            }}
+                        >
+                            <span 
+                                className="mx-css-grid-preview-area-label"
+                                style={{
+                                    display: 'inline-block',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: 'white',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    background: 'rgba(59, 130, 246, 0.9)',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
+                                }}
+                            >
+                                {cell.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                );
+            })
+        );
+    };
+
     return (
-        <div className={`mx-css-grid-preview-wrapper ${className} ${showLineNumbers ? 'show-line-numbers' : ''}`}>
-            {/* Show responsive indicator */}
-            {enableBreakpoints && getActiveBreakpoints().length > 0 && (
+        <div 
+            ref={containerRef}
+            className="mx-css-grid-preview-wrapper"
+            style={{
+                position: 'relative',
+                width: '100%'
+            }}
+        >
+            {/* Responsive indicator */}
+            {hasResponsiveContainer && (
                 <div className="mx-css-grid-preview-info">
                     <span className="mx-css-grid-preview-info-icon">📱</span>
                     <span className="mx-css-grid-preview-info-text">
-                        Responsive: {getActiveBreakpoints().join(', ')}
+                        Responsive Grid
                     </span>
                 </div>
             )}
             
-            {/* Line numbers - positioned outside the grid */}
-            {showLineNumbers && (
-                <div className="mx-css-grid-preview-line-numbers-container">
-                    {/* Column line numbers */}
-                    {Array.from({ length: columnCount + 1 }, (_, index) => {
-                        // Calculate position based on grid structure
-                        let leftPosition: string;
-                        if (index === 0) {
-                            leftPosition = '40px'; // Align with grid start
-                        } else if (index === columnCount) {
-                            leftPosition = 'calc(100% - 10px)'; // Align with grid end
-                        } else {
-                            // Position based on column fraction
-                            leftPosition = `calc(40px + ${(index / columnCount) * 100}% - 10px)`;
-                        }
-                        
-                        return (
-                            <div
-                                key={`col-num-${index}`}
-                                className="mx-css-grid-preview-line-number mx-css-grid-preview-line-number--column"
-                                style={{
-                                    position: 'absolute',
-                                    top: '10px',
-                                    left: leftPosition
-                                }}
-                            >
-                                {index + 1}
-                            </div>
-                        );
-                    })}
-                    
-                    {/* Row line numbers */}
-                    {Array.from({ length: rowCount + 1 }, (_, index) => {
-                        // Calculate position based on grid structure
-                        let topPosition: string;
-                        if (index === 0) {
-                            topPosition = '40px'; // Align with grid start
-                        } else if (index === rowCount) {
-                            topPosition = 'calc(100% - 10px)'; // Align with grid end
-                        } else {
-                            // Position based on row fraction
-                            topPosition = `calc(40px + ${(index / rowCount) * 100}% - 10px)`;
-                        }
-                        
-                        return (
-                            <div
-                                key={`row-num-${index}`}
-                                className="mx-css-grid-preview-line-number mx-css-grid-preview-line-number--row"
-                                style={{
-                                    position: 'absolute',
-                                    left: '10px',
-                                    top: topPosition
-                                }}
-                            >
-                                {index + 1}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-            
-            {/* Main grid container that determines the actual size */}
+            {/* Main grid container with actual content */}
             <div 
-                className={`mx-css-grid-preview ${debugClasses}`}
+                ref={gridRef}
+                className={`mx-css-grid-preview ${className}`}
                 style={containerStyles}
-                data-columns={columnCount}
-                data-rows={rowCount}
+                data-columns={gridDimensions.columnCount}
+                data-rows={gridDimensions.rowCount}
             >
-                {/* Debug overlay using HTML table */}
-                {(showGridLines || showGridAreas || showGridGaps) && (
-                    <div 
-                        className="mx-css-grid-preview-debug-table-container"
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            pointerEvents: 'none',
-                            zIndex: showGridAreas ? 0 : 10 // Areas go below content, lines above
-                        }}
-                    >
-                        <table 
-                            className="mx-css-grid-preview-debug-table"
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                borderCollapse: 'separate',
-                                borderSpacing: 0,
-                                tableLayout: 'fixed'
-                            }}
-                        >
-                            <tbody>
-                                {/* Create rows */}
-                                {Array.from({ length: rowCount }, (_, rowIndex) => {
-                                    // Calculate if this row should show gaps
-                                    const isLastRow = rowIndex === rowCount - 1;
-                                    const hasRowGapAfter = !isLastRow && hasAnyGap && actualRowGap !== '0';
-                                    
-                                    return (
-                                        <Fragment key={`row-${rowIndex}`}>
-                                            {/* Main content row */}
-                                            <tr className="mx-css-grid-preview-debug-row">
-                                                {Array.from({ length: columnCount }, (_, colIndex) => {
-                                                    const isLastCol = colIndex === columnCount - 1;
-                                                    const hasColGapAfter = !isLastCol && hasAnyGap && actualColumnGap !== '0';
-                                                    
-                                                    // Determine area color for this cell
-                                                    let cellBackgroundColor = 'transparent';
-                                                    let areaName = '';
-                                                    
-                                                    if (showGridAreas) {
-                                                        if (useNamedAreas && parsedAreas) {
-                                                            // Find which area this cell belongs to
-                                                            const cellArea = parsedAreas[rowIndex]?.[colIndex];
-                                                            if (cellArea && cellArea !== '.') {
-                                                                cellBackgroundColor = areaColorMap[cellArea] || 'transparent';
-                                                                areaName = cellArea.toUpperCase();
-                                                            }
-                                                        } else {
-                                                            // Use default coloring for non-named grids
-                                                            const colorIndex = (rowIndex * columnCount + colIndex) % 10;
-                                                            cellBackgroundColor = areaColors[`area-${colorIndex}`];
-                                                            areaName = `${rowIndex + 1},${colIndex + 1}`;
-                                                        }
-                                                    }
-                                                    
-                                                    return (
-                                                        <Fragment key={`cell-${rowIndex}-${colIndex}`}>
-                                                            {/* Main cell */}
-                                                            <td 
-                                                                className="mx-css-grid-preview-debug-cell"
-                                                                style={{
-                                                                    border: showGridLines ? '2px solid #ff003d' : 'none',
-                                                                    backgroundColor: cellBackgroundColor,
-                                                                    position: 'relative',
-                                                                    padding: 0,
-                                                                    verticalAlign: 'middle',
-                                                                    textAlign: 'center'
-                                                                }}
-                                                            >
-                                                                {showGridAreas && areaName && (
-                                                                    <span className="mx-css-grid-preview-area-label">
-                                                                        {areaName}
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            
-                                                            {/* Column gap cell */}
-                                                            {hasColGapAfter && (
-                                                                <td 
-                                                                    className="mx-css-grid-preview-debug-gap-col"
-                                                                    style={{
-                                                                        width: actualColumnGap,
-                                                                        backgroundColor: showGridGaps ? 'rgba(255, 255, 0, 0.3)' : 'transparent',
-                                                                        border: 'none',
-                                                                        position: 'relative',
-                                                                        padding: 0
-                                                                    }}
-                                                                >
-                                                                    {showGridGaps && (
-                                                                        <span className="mx-css-grid-preview-gap-label mx-css-grid-preview-gap-label--column-table">
-                                                                            {actualColumnGap}
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                            )}
-                                                        </Fragment>
-                                                    );
-                                                })}
-                                            </tr>
-                                            
-                                            {/* Row gap row */}
-                                            {hasRowGapAfter && (
-                                                <tr className="mx-css-grid-preview-debug-gap-row">
-                                                    {Array.from({ length: columnCount }, (_, colIndex) => {
-                                                        const isLastCol = colIndex === columnCount - 1;
-                                                        const hasColGapAfter = !isLastCol && hasAnyGap && actualColumnGap !== '0';
-                                                        
-                                                        return (
-                                                            <Fragment key={`gap-row-${rowIndex}-${colIndex}`}>
-                                                                <td 
-                                                                    style={{
-                                                                        height: actualRowGap,
-                                                                        backgroundColor: showGridGaps ? 'rgba(255, 255, 0, 0.3)' : 'transparent',
-                                                                        border: 'none',
-                                                                        position: 'relative',
-                                                                        padding: 0
-                                                                    }}
-                                                                >
-                                                                    {showGridGaps && colIndex === Math.floor(columnCount / 2) && (
-                                                                        <span className="mx-css-grid-preview-gap-label mx-css-grid-preview-gap-label--row-table">
-                                                                            {actualRowGap}
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                                
-                                                                {/* Gap intersection cell */}
-                                                                {hasColGapAfter && (
-                                                                    <td 
-                                                                        style={{
-                                                                            width: actualColumnGap,
-                                                                            height: actualRowGap,
-                                                                            backgroundColor: showGridGaps ? 'rgba(255, 165, 0, 0.3)' : 'transparent',
-                                                                            border: 'none',
-                                                                            padding: 0
-                                                                        }}
-                                                                    />
-                                                                )}
-                                                            </Fragment>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            )}
-                                        </Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                {/* Grid areas overlay - render as grid children */}
+                {renderGridAreasOverlay()}
                 
-                {/* Grid items - render as direct children of the grid */}
+                {/* Debug overlays */}
+                {renderDebugOverlays()}
+                
+                {/* Grid items */}
                 {items.map((item, index) => {
-                        const responsiveItem = item as ResponsiveItemPreview;
-                        
-                        // Check if item should use area placement
-                        const effectivePlacementType = (useNamedAreas && responsiveItem.gridArea && responsiveItem.gridArea.trim()) 
-                            ? "area" 
-                            : responsiveItem.placementType;
-                        
-                        // Get placement styles for the item using the helper
-                        const itemPlacement = getGridItemPlacement({
-                            placementType: effectivePlacementType,
-                            gridArea: responsiveItem.gridArea,
-                            columnStart: responsiveItem.columnStart,
-                            columnEnd: responsiveItem.columnEnd,
-                            rowStart: responsiveItem.rowStart,
-                            rowEnd: responsiveItem.rowEnd
-                        }, useNamedAreas);
+                    const responsiveItem = item as ResponsiveItemPreview;
+                    
+                    // Check if item should use area placement
+                    const effectivePlacementType = (useNamedAreas && responsiveItem.gridArea?.trim()) 
+                        ? "area" 
+                        : responsiveItem.placementType;
+                    
+                    // Get placement styles for the item
+                    const itemPlacement = getGridItemPlacement({
+                        placementType: effectivePlacementType,
+                        gridArea: responsiveItem.gridArea,
+                        columnStart: responsiveItem.columnStart,
+                        columnEnd: responsiveItem.columnEnd,
+                        rowStart: responsiveItem.rowStart,
+                        rowEnd: responsiveItem.rowEnd
+                    }, useNamedAreas);
 
-                        // Build item styles - ensure grid placement is applied correctly
-                        const itemStyles: CSSProperties = {
-                            position: "relative",
-                            minHeight: "40px",
-                            boxSizing: "border-box",
-                            width: "100%",
-                            height: "100%",
-                            // Apply placement styles from helper function
-                            ...itemPlacement,
-                            // Then apply alignment and z-index
-                            justifySelf: responsiveItem.justifySelf !== "auto" ? responsiveItem.justifySelf : undefined,
-                            alignSelf: responsiveItem.alignSelf !== "auto" ? responsiveItem.alignSelf : undefined,
-                            zIndex: responsiveItem.zIndex || undefined
-                        };
+                    // Build item styles
+                    const itemStyles: CSSProperties = {
+                        position: "relative",
+                        minHeight: "40px",
+                        boxSizing: "border-box",
+                        width: "100%",
+                        height: "100%",
+                        ...itemPlacement,
+                        justifySelf: responsiveItem.justifySelf !== "auto" ? responsiveItem.justifySelf : undefined,
+                        alignSelf: responsiveItem.alignSelf !== "auto" ? responsiveItem.alignSelf : undefined,
+                        zIndex: responsiveItem.zIndex || undefined
+                    };
 
-                        // Item name for display and caption
-                        const itemName = responsiveItem.itemName || 
-                            (responsiveItem.placementType === "area" && responsiveItem.gridArea ? 
-                             responsiveItem.gridArea : 
-                             `Item ${index + 1}`);
+                    // Item name for display
+                    const itemName = responsiveItem.itemName || 
+                        (effectivePlacementType === "area" && responsiveItem.gridArea ? 
+                         responsiveItem.gridArea : 
+                         `Item ${index + 1}`);
 
-                        // Check if item has responsive settings
-                        const itemBreakpoints = getItemResponsiveBreakpoints(responsiveItem);
-                        const hasResponsive = itemBreakpoints.length > 0;
-                        
-                        // Build caption for Selectable
-                        const itemCaption = `${itemName}${hasResponsive ? ' 📱' : ''}`;
+                    // Check if item has responsive settings
+                    const itemBreakpoints = getItemResponsiveBreakpoints(responsiveItem);
+                    const hasResponsive = itemBreakpoints.length > 0;
+                    
+                    // Build caption for Selectable
+                    const itemCaption = `${itemName}${hasResponsive ? ' 📱' : ''}`;
 
-                        // Get content renderer
-                        const ContentRenderer = responsiveItem.content?.renderer;
-                        
-                        return (
-                            <Selectable
-                                key={`grid-item-${index}`}
-                                object={responsiveItem}
-                                caption={itemCaption}
+                    // Get content renderer
+                    const ContentRenderer = responsiveItem.content?.renderer;
+                    
+                    return (
+                        <Selectable
+                            key={`grid-item-${index}`}
+                            object={responsiveItem}
+                            caption={itemCaption}
+                        >
+                            <div
+                                className={`mx-css-grid-preview-item ${responsiveItem.className || ""}`}
+                                style={itemStyles}
+                                data-item-index={index}
+                                data-item-name={itemName}
+                                data-placement-type={effectivePlacementType}
                             >
-                                <div
-                                    className={`mx-css-grid-preview-item ${responsiveItem.className || ""}`}
-                                    style={itemStyles}
-                                    data-item-index={index}
-                                    data-item-name={itemName}
-                                >
-                                    {/* Area indicator for named areas */}
-                                    {useNamedAreas && responsiveItem.placementType === "area" && responsiveItem.gridArea && (
-                                        <div className="mx-css-grid-preview-area-badge">
-                                            {responsiveItem.gridArea}
-                                        </div>
-                                    )}
-                                    
-                                    {/* Responsive indicator */}
-                                    {hasResponsive && (
-                                        <div 
-                                            className="mx-css-grid-preview-responsive-badge"
-                                            title={`Responsive: ${itemBreakpoints.join(', ')}`}
-                                        >
-                                            📱
-                                        </div>
-                                    )}
-                                    
-                                    {/* Render content or placeholder */}
-                                    {ContentRenderer ? (
-                                        <div className="mx-css-grid-preview-content">
-                                            <ContentRenderer>
-                                                <div style={{ width: "100%", height: "100%" }} />
-                                            </ContentRenderer>
-                                        </div>
-                                    ) : (
-                                        <div className="mx-css-grid-preview-empty">
-                                            <span className="mx-css-grid-preview-empty-text">
-                                                {itemName}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            </Selectable>
-                        );
-                    })}
-                </div>
+                                {/* Render content or placeholder - NO BADGES */}
+                                {ContentRenderer ? (
+                                    <div className="mx-css-grid-preview-content">
+                                        <ContentRenderer>
+                                            <div style={{ width: "100%", height: "100%" }} />
+                                        </ContentRenderer>
+                                    </div>
+                                ) : (
+                                    <div className="mx-css-grid-preview-empty">
+                                        <span className="mx-css-grid-preview-empty-text">
+                                            {itemName}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </Selectable>
+                    );
+                })}
             </div>
+        </div>
     );
 };
 
 /**
- * Get preview CSS styles with enhanced debug visualization support
+ * Get preview CSS styles - Clean version without badges
  */
 export function getPreviewCss(): string {
     return `
@@ -666,54 +777,25 @@ export function getPreviewCss(): string {
             position: relative;
             width: 100%;
             box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        /* When showing line numbers, add padding */
-        .mx-css-grid-preview-wrapper:has(.mx-css-grid-preview-line-numbers-container) {
-            padding-top: 40px;
-            padding-left: 40px;
+        /* Remove all ::before and ::after pseudo elements that might add content */
+        .mx-css-grid-preview *::before,
+        .mx-css-grid-preview *::after {
+            content: none !important;
+            display: none !important;
         }
 
-        /* Fallback for browsers without :has() support */
-        .mx-css-grid-preview-wrapper.show-line-numbers {
-            padding-top: 40px;
-            padding-left: 40px;
-        }
-
-        /* Line numbers container */
-        .mx-css-grid-preview-line-numbers-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            pointer-events: none;
-        }
-
-        /* Main grid container */
-        .mx-css-grid-preview {
-            box-sizing: border-box;
-            width: 100%;
-            position: relative;
-            /* Grid properties are set via inline styles */
-        }
-
-        /* Debug overlay layer - positioned absolutely inside grid */
-        .mx-css-grid-preview-debug-layer {
-            pointer-events: none;
-            /* Inherits grid properties from parent */
-        }
-
-        /* Info bar for responsive grids */
+        /* Responsive indicator */
         .mx-css-grid-preview-info {
             position: absolute;
-            top: -24px;
-            right: 0;
+            top: 4px;
+            right: 4px;
             display: flex;
             align-items: center;
             gap: 4px;
             font-size: 11px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #666;
             background: rgba(255, 255, 255, 0.95);
             padding: 2px 8px;
@@ -738,221 +820,28 @@ export function getPreviewCss(): string {
             width: 100%;
             position: relative;
             /* Grid properties are set via inline styles */
+            transition: all 0.3s ease;
         }
 
-        /* Grid lines visualization using internal borders technique */
-        .mx-css-grid-preview-lines-grid {
+        /* Debug SVG overlay */
+        .mx-css-grid-preview-debug-svg {
             pointer-events: none;
         }
 
-        .mx-css-grid-preview-line-cell {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Internal borders using pseudo-elements */
-        .mx-css-grid-preview-line-cell::before,
-        .mx-css-grid-preview-line-cell::after {
-            content: '';
-            position: absolute;
-            background-color: #ff003d; /* Red color like in Vector.jpg */
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Vertical lines (right border) */
-        .mx-css-grid-preview-line-cell::before {
-            top: 0;
-            right: 0;
-            width: 2px;
-            height: 100%;
-        }
-
-        /* Horizontal lines (bottom border) */
-        .mx-css-grid-preview-line-cell::after {
-            bottom: 0;
-            left: 0;
-            height: 2px;
-            width: 100%;
-        }
-
-        /* For each row, hide the right border of the last column */
-        .mx-css-grid-preview-lines-grid[data-columns="1"] .mx-css-grid-preview-line-cell::before,
-        .mx-css-grid-preview-lines-grid[data-columns="2"] .mx-css-grid-preview-line-cell:nth-child(2n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="3"] .mx-css-grid-preview-line-cell:nth-child(3n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="4"] .mx-css-grid-preview-line-cell:nth-child(4n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="5"] .mx-css-grid-preview-line-cell:nth-child(5n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="6"] .mx-css-grid-preview-line-cell:nth-child(6n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="7"] .mx-css-grid-preview-line-cell:nth-child(7n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="8"] .mx-css-grid-preview-line-cell:nth-child(8n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="9"] .mx-css-grid-preview-line-cell:nth-child(9n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="10"] .mx-css-grid-preview-line-cell:nth-child(10n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="11"] .mx-css-grid-preview-line-cell:nth-child(11n)::before,
-        .mx-css-grid-preview-lines-grid[data-columns="12"] .mx-css-grid-preview-line-cell:nth-child(12n)::before {
-            display: none;
-        }
-
-        /* Hide bottom border on last row items - use last N cells where N is column count */
-        .mx-css-grid-preview-lines-grid[data-columns="1"] .mx-css-grid-preview-line-cell:last-child::after,
-        .mx-css-grid-preview-lines-grid[data-columns="2"] .mx-css-grid-preview-line-cell:nth-last-child(-n+2)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="3"] .mx-css-grid-preview-line-cell:nth-last-child(-n+3)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="4"] .mx-css-grid-preview-line-cell:nth-last-child(-n+4)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="5"] .mx-css-grid-preview-line-cell:nth-last-child(-n+5)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="6"] .mx-css-grid-preview-line-cell:nth-last-child(-n+6)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="7"] .mx-css-grid-preview-line-cell:nth-last-child(-n+7)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="8"] .mx-css-grid-preview-line-cell:nth-last-child(-n+8)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="9"] .mx-css-grid-preview-line-cell:nth-last-child(-n+9)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="10"] .mx-css-grid-preview-line-cell:nth-last-child(-n+10)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="11"] .mx-css-grid-preview-line-cell:nth-last-child(-n+11)::after,
-        .mx-css-grid-preview-lines-grid[data-columns="12"] .mx-css-grid-preview-line-cell:nth-last-child(-n+12)::after {
-            display: none;
-        }
-
-        /* External border for the entire grid */
-        .mx-css-grid-preview-lines-grid::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border: 2px solid #ff003d;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        /* Grid gap visualization */
-        .mx-css-grid-preview-gaps-overlay {
-            pointer-events: none;
-        }
-
-        .mx-css-grid-preview-gap-cell {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Gap labels */
-        .mx-css-grid-preview-gap-label {
-            position: absolute;
-            background-color: rgba(255, 255, 255, 0.95);
-            color: #333;
-            font-size: 10px;
-            font-family: "SF Mono", Monaco, "Courier New", monospace;
-            font-weight: 600;
-            padding: 2px 4px;
-            border-radius: 2px;
-            white-space: nowrap;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-            z-index: 5;
-        }
-
-        /* Column gap label positioning */
-        .mx-css-grid-preview-gap-label--column {
-            top: 50%;
-            right: 0;
-            transform: translate(50%, -50%);
-        }
-
-        /* Row gap label positioning */
-        .mx-css-grid-preview-gap-label--row {
-            bottom: 0;
-            left: 50%;
-            transform: translate(-50%, 50%);
-        }
-
-        /* Line numbers - positioned outside the grid */
-        .mx-css-grid-preview-line-numbers {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .mx-css-grid-preview-line-number {
-            position: absolute;
-            font-size: 10px;
-            font-family: "SF Mono", Monaco, "Courier New", monospace;
-            font-weight: 600;
-            pointer-events: none;
-            z-index: 1000;
-            padding: 2px 4px;
-            border-radius: 2px;
-            line-height: 1;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .mx-css-grid-preview-line-number--column {
-            background-color: rgba(255, 0, 61, 0.8);
-            color: white;
-        }
-
-        .mx-css-grid-preview-line-number--row {
-            background-color: rgba(183, 0, 255, 0.8);
-            color: white;
-        }
-
-        /* Area blocks for visualization */
-        .mx-css-grid-preview-area-block {
-            width: 100%;
-            height: 100%;
-            min-height: 40px;
-            box-sizing: border-box;
-            opacity: 0.7;
+        /* Grid area overlay */
+        .mx-css-grid-preview-area-overlay {
             transition: opacity 0.2s ease;
         }
 
-        .mx-css-grid-preview-area-block:hover {
-            opacity: 0.9;
+        /* Area label container - absolutely positioned */
+        .mx-css-grid-preview-area-label-container {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            z-index: 1000 !important;
+            pointer-events: none !important;
         }
-
-        .mx-css-grid-preview-area-label {
-            font-size: 10px;
-            font-weight: 600;
-            color: rgba(0, 0, 0, 0.7);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 2px 6px;
-            border-radius: 3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 90%;
-        }
-
-        /* Ensure the wrapper has proper positioning context */
-        .mx-css-grid-preview-wrapper {
-            position: relative;
-            padding-top: 40px; /* Space for line numbers */
-            padding-left: 40px; /* Space for line numbers */
-        }
-
-        /* Adjust the main grid positioning */
-        .mx-css-grid-preview-wrapper .mx-css-grid-preview {
-            position: relative;
-        }
-
-        /* Debug layer should not interfere with content */
-        .mx-css-grid-preview-debug-layer {
-            pointer-events: none;
-            z-index: 1; /* Below content but above background */
-        }
-
-        /* Ensure content is above debug visualizations */
-        .mx-css-grid-preview-item {
-            position: relative;
-            z-index: 10; /* Above debug layer */
-        }
-
-
 
         /* Grid items */
         .mx-css-grid-preview-item {
@@ -963,46 +852,13 @@ export function getPreviewCss(): string {
             width: 100%;
             height: 100%;
             overflow: hidden;
-            z-index: 1; /* Above area backgrounds */
-            /* Grid placement properties are set via inline styles */
+            z-index: 1;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        /* Area name badge */
-        .mx-css-grid-preview-area-badge {
-            position: absolute;
-            top: 4px;
-            left: 4px;
-            font-size: 10px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace;
-            font-weight: 600;
-            padding: 2px 6px;
-            background: rgba(59, 130, 246, 0.9);
-            color: white;
-            border-radius: 3px;
-            pointer-events: none;
-            z-index: 10;
-            line-height: 1;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Responsive badge */
-        .mx-css-grid-preview-responsive-badge {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 3px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            z-index: 10;
-            cursor: help;
+        .mx-css-grid-preview-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         /* Content wrapper */
@@ -1023,14 +879,13 @@ export function getPreviewCss(): string {
             justify-content: center;
             background: rgba(0, 0, 0, 0.02);
             border: 1px dashed rgba(0, 0, 0, 0.1);
-            border-radius: 2px;
+            border-radius: 4px;
             transition: all 0.2s ease;
             position: relative;
             z-index: 2;
         }
 
         .mx-css-grid-preview-empty-text {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 11px;
             color: #999;
             font-weight: 500;
@@ -1047,10 +902,20 @@ export function getPreviewCss(): string {
             color: #3b82f6;
         }
 
+        /* Special styling for auto-flow items */
+        .mx-css-grid-preview-item[data-placement-type="auto"] .mx-css-grid-preview-empty {
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(251, 191, 36, 0.02) 10px,
+                rgba(251, 191, 36, 0.02) 20px
+            );
+        }
+
         /* Ensure Mendix Selectable component doesn't interfere */
         .mx-selectable {
             display: contents !important;
-            /* This allows grid item to participate directly in grid layout */
         }
 
         /* Ensure Mendix widgets fill their containers */
@@ -1078,7 +943,7 @@ export function getPreviewCss(): string {
 
         /* Visual feedback for overlapping items (high z-index) */
         .mx-css-grid-preview-item[style*="z-index"] {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         /* Grid preview in structure mode should be more compact */
@@ -1086,62 +951,24 @@ export function getPreviewCss(): string {
             min-height: 60px;
         }
 
-        /* Remove any default padding/margins that might interfere */
-        .mx-css-grid-preview,
-        .mx-css-grid-preview-item {
-            padding: 0;
-            margin: 0;
-        }
-
         /* Ensure proper stacking context */
         .mx-css-grid {
             isolation: isolate;
         }
 
-        /* Animation for configuration changes */
-        .mx-css-grid-preview-item {
-            transition: transform 0.2s ease, opacity 0.2s ease;
+        /* Smooth transitions */
+        .mx-css-grid-preview,
+        .mx-css-grid-preview-item,
+        .mx-css-grid-preview-area-overlay {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Special styling for auto-flow items */
-        .mx-css-grid-preview-item[data-placement="auto"] .mx-css-grid-preview-empty {
-            background: repeating-linear-gradient(
-                45deg,
-                transparent,
-                transparent 10px,
-                rgba(0, 0, 0, 0.01) 10px,
-                rgba(0, 0, 0, 0.01) 20px
-            );
-        }
-
-        /* Ensure area badges are visible above content */
-        .mx-css-grid-preview-area-badge,
-        .mx-css-grid-preview-responsive-badge {
-            pointer-events: none;
-        }
-
-        /* Handle long area names */
-        .mx-css-grid-preview-area-badge {
-            max-width: calc(100% - 32px);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        /* CSS variables for dynamic grid lines */
-        .mx-css-grid-preview[data-columns] {
-            --columns: attr(data-columns number, 2);
-        }
-        
-        .mx-css-grid-preview[data-rows] {
-            --rows: attr(data-rows number, 2);
-        }
-
-        /* Debug mode specific adjustments */
-        .mx-css-grid-preview-debug-layer + .mx-css-grid-preview {
-            /* Ensure the actual grid is on top of debug layer for interaction */
-            position: relative;
-            z-index: 20;
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .mx-css-grid-preview-info {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
         }
     `;
 }

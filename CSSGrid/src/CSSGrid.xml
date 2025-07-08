@@ -1401,11 +1401,6 @@ Recommended range: -999 to 999</description>
             <category>Debug</category>
             <description>Visualize the gaps between grid cells with a subtle background</description>
         </property>
-        <property key="showLineNumbers" type="boolean" defaultValue="false">
-            <caption>Show Line Numbers</caption>
-            <category>Debug</category>
-            <description>Display line numbers at the edges of the grid for easier coordinate reference</description>
-        </property>
 
         <!-- Accessibility Properties -->
         <property key="ariaLabel" type="string" required="false">

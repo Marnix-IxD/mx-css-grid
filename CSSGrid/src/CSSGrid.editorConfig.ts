@@ -88,7 +88,6 @@ type ResponsiveContainerProperties = {
     showGridLines?: boolean;
     showGridAreas?: boolean;
     showGridGaps?: boolean;
-    showLineNumbers?: boolean;
     
     // XS breakpoint
     xsEnabled?: boolean;
