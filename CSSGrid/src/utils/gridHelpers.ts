@@ -15,8 +15,17 @@ import {
 } from "../types/ConditionalTypes";
 
 /**
+ * Helper to normalize empty strings to undefined
+ * This prevents empty strings from creating invalid CSS
+ */
+function normalizeValue(value: string | undefined): string | undefined {
+    if (!value || value.trim() === "") return undefined;
+    return value;
+}
+
+/**
  * Parse CSS grid template string and expand repeat() functions
- * Modified to avoid complex regex patterns for Mendix compatibility
+ * Modified to avoid complex regex patterns and split() for Mendix compatibility
  * 
  * @param template - Grid template string (e.g., "1fr 2fr 1fr" or "repeat(3, 1fr)")
  * @returns Array of grid track values
@@ -60,8 +69,12 @@ export function parseGridTemplate(template: string): string[] {
         
         if (isNaN(count) || count < 1) break;
         
-        // Build repeated string
-        const repeated = Array(count).fill(valueStr).join(" ");
+        // Build repeated string without using Array.fill().join()
+        let repeated = "";
+        for (let i = 0; i < count; i++) {
+            if (i > 0) repeated += " ";
+            repeated += valueStr;
+        }
         
         // Replace in template
         expandedTemplate = 
@@ -70,7 +83,7 @@ export function parseGridTemplate(template: string): string[] {
             expandedTemplate.substring(closeParen + 1);
     }
 
-    // Split by spaces not inside parentheses - using simple state machine
+    // Parse by spaces not inside parentheses - using simple state machine
     const parts: string[] = [];
     let current = "";
     let depth = 0;
@@ -104,6 +117,7 @@ export function parseGridTemplate(template: string): string[] {
 /**
  * Parse grid template areas string into a 2D array
  * NO AUTOMATIC QUOTE ADDITION - uses the value exactly as provided
+ * Modified to avoid split() for Mendix Studio Pro compatibility
  * 
  * @param areas - Grid template areas string
  * @returns 2D array of area names or null if invalid
@@ -143,10 +157,27 @@ export function parseGridAreas(areas: string): string[][] | null {
             }
         }
         
-        // Parse the quoted lines into grid
+        // Parse the quoted lines into grid without using split
         const grid: string[][] = [];
         for (const line of quotedLines) {
-            const cells = line.trim().split(/\s+/);
+            const cells: string[] = [];
+            let currentCell = '';
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === ' ' || char === '\t') {
+                    if (currentCell) {
+                        cells.push(currentCell);
+                        currentCell = '';
+                    }
+                } else {
+                    currentCell += char;
+                }
+            }
+            if (currentCell) {
+                cells.push(currentCell);
+            }
+            
             if (cells.length > 0) {
                 grid.push(cells);
             }
@@ -155,12 +186,45 @@ export function parseGridAreas(areas: string): string[][] | null {
         return grid.length > 0 ? grid : null;
     } else {
         // Parse unquoted format (legacy support)
-        // Split by newlines
-        const lines = areas.split('\n').filter(line => line.trim());
+        // Parse by newlines without using split()
+        const lines: string[] = [];
+        let currentLine = '';
+        
+        for (let i = 0; i < areas.length; i++) {
+            const char = areas[i];
+            if (char === '\n') {
+                if (currentLine.trim()) {
+                    lines.push(currentLine.trim());
+                }
+                currentLine = '';
+            } else if (char !== '\r') {
+                currentLine += char;
+            }
+        }
+        if (currentLine.trim()) {
+            lines.push(currentLine.trim());
+        }
         
         const grid: string[][] = [];
         for (const line of lines) {
-            const cells = line.trim().split(/\s+/);
+            const cells: string[] = [];
+            let currentCell = '';
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === ' ' || char === '\t') {
+                    if (currentCell) {
+                        cells.push(currentCell);
+                        currentCell = '';
+                    }
+                } else {
+                    currentCell += char;
+                }
+            }
+            if (currentCell) {
+                cells.push(currentCell);
+            }
+            
             if (cells.length > 0) {
                 grid.push(cells);
             }
@@ -172,6 +236,7 @@ export function parseGridAreas(areas: string): string[][] | null {
 
 /**
  * Generate CSS for container responsive breakpoints
+ * Uses mobile-first approach with proper normalization
  * 
  * @param props - Container props with responsive settings
  * @param className - CSS class name for the grid container
@@ -189,7 +254,7 @@ export function generateContainerBreakpointStyles(
 
     const cssRules: string[] = [];
     
-    // Define breakpoint configurations
+    // Define breakpoint configurations in mobile-first order
     const breakpoints = [
         { key: 'xs', minWidth: 0, maxWidth: 639 },
         { key: 'sm', minWidth: 640, maxWidth: 767 },
@@ -199,6 +264,7 @@ export function generateContainerBreakpointStyles(
         { key: 'xxl', minWidth: 1920, maxWidth: undefined }
     ] as const;
     
+    // Process each breakpoint
     breakpoints.forEach(bp => {
         const enabledKey = `${bp.key}Enabled` as keyof RuntimeGridContainer;
         if (!props[enabledKey]) {
@@ -207,7 +273,7 @@ export function generateContainerBreakpointStyles(
         
         const rules: string[] = [];
         
-        // Get breakpoint-specific values
+        // Get breakpoint-specific values with normalization
         const columnsKey = `${bp.key}Columns` as keyof RuntimeGridContainer;
         const rowsKey = `${bp.key}Rows` as keyof RuntimeGridContainer;
         const areasKey = `${bp.key}Areas` as keyof RuntimeGridContainer;
@@ -226,41 +292,43 @@ export function generateContainerBreakpointStyles(
         const minWidthKey = `${bp.key}MinWidth` as keyof RuntimeGridContainer;
         const maxWidthKey = `${bp.key}MaxWidth` as keyof RuntimeGridContainer;
         
-        const columns = props[columnsKey] as string | undefined;
-        const rows = props[rowsKey] as string | undefined;
-        const areas = props[areasKey] as string | undefined;
-        const gap = props[gapKey] as string | undefined;
-        const rowGap = props[rowGapKey] as string | undefined;
-        const columnGap = props[columnGapKey] as string | undefined;
+        // Normalize all values to prevent empty strings in CSS
+        const columns = normalizeValue(props[columnsKey] as string | undefined);
+        const rows = normalizeValue(props[rowsKey] as string | undefined);
+        const areas = normalizeValue(props[areasKey] as string | undefined);
+        const gap = normalizeValue(props[gapKey] as string | undefined);
+        const rowGap = normalizeValue(props[rowGapKey] as string | undefined);
+        const columnGap = normalizeValue(props[columnGapKey] as string | undefined);
         const autoFlow = props[autoFlowKey] as string | undefined;
-        const autoRows = props[autoRowsKey] as string | undefined;
-        const autoColumns = props[autoColumnsKey] as string | undefined;
+        const autoRows = normalizeValue(props[autoRowsKey] as string | undefined);
+        const autoColumns = normalizeValue(props[autoColumnsKey] as string | undefined);
         const justifyItems = props[justifyItemsKey] as string | undefined;
         const alignItems = props[alignItemsKey] as string | undefined;
         const justifyContent = props[justifyContentKey] as string | undefined;
         const alignContent = props[alignContentKey] as string | undefined;
-        const minHeight = props[minHeightKey] as string | undefined;
-        const maxHeight = props[maxHeightKey] as string | undefined;
-        const minWidth = props[minWidthKey] as string | undefined;
-        const maxWidth = props[maxWidthKey] as string | undefined;
+        const minHeight = normalizeValue(props[minHeightKey] as string | undefined);
+        const maxHeight = normalizeValue(props[maxHeightKey] as string | undefined);
+        const minWidth = normalizeValue(props[minWidthKey] as string | undefined);
+        const maxWidth = normalizeValue(props[maxWidthKey] as string | undefined);
         
         if (columns) {
-            rules.push(`grid-template-columns: ${columns} !important;`);
+            rules.push(`grid-template-columns: ${columns};`);
         }
         if (rows) {
-            rules.push(`grid-template-rows: ${rows} !important;`);
+            rules.push(`grid-template-rows: ${rows};`);
         }
         if (gap) {
-            rules.push(`gap: ${gap} !important;`);
-        }
-        if (rowGap && !gap) {
-            rules.push(`row-gap: ${rowGap} !important;`);
-        }
-        if (columnGap && !gap) {
-            rules.push(`column-gap: ${columnGap} !important;`);
+            rules.push(`gap: ${gap};`);
+        } else {
+            if (rowGap) {
+                rules.push(`row-gap: ${rowGap};`);
+            }
+            if (columnGap) {
+                rules.push(`column-gap: ${columnGap};`);
+            }
         }
         if (areas && useNamedAreas) {
-            rules.push(`grid-template-areas: ${areas} !important;`);
+            rules.push(`grid-template-areas: ${areas};`);
         }
         if (autoFlow) {
             // Map enumeration values to CSS
@@ -270,19 +338,19 @@ export function generateContainerBreakpointStyles(
                 'dense': 'dense',
                 'columnDense': 'column dense'
             };
-            rules.push(`grid-auto-flow: ${flowMapping[autoFlow] || autoFlow} !important;`);
+            rules.push(`grid-auto-flow: ${flowMapping[autoFlow] || autoFlow};`);
         }
         if (autoRows) {
-            rules.push(`grid-auto-rows: ${autoRows} !important;`);
+            rules.push(`grid-auto-rows: ${autoRows};`);
         }
         if (autoColumns) {
-            rules.push(`grid-auto-columns: ${autoColumns} !important;`);
+            rules.push(`grid-auto-columns: ${autoColumns};`);
         }
         if (justifyItems) {
-            rules.push(`justify-items: ${justifyItems} !important;`);
+            rules.push(`justify-items: ${justifyItems};`);
         }
         if (alignItems) {
-            rules.push(`align-items: ${alignItems} !important;`);
+            rules.push(`align-items: ${alignItems};`);
         }
         if (justifyContent) {
             const contentMapping: Record<string, string> = {
@@ -290,7 +358,7 @@ export function generateContainerBreakpointStyles(
                 'spaceAround': 'space-around',
                 'spaceEvenly': 'space-evenly'
             };
-            rules.push(`justify-content: ${contentMapping[justifyContent] || justifyContent} !important;`);
+            rules.push(`justify-content: ${contentMapping[justifyContent] || justifyContent};`);
         }
         if (alignContent) {
             const contentMapping: Record<string, string> = {
@@ -298,44 +366,44 @@ export function generateContainerBreakpointStyles(
                 'spaceAround': 'space-around',
                 'spaceEvenly': 'space-evenly'
             };
-            rules.push(`align-content: ${contentMapping[alignContent] || alignContent} !important;`);
+            rules.push(`align-content: ${contentMapping[alignContent] || alignContent};`);
         }
         if (minHeight) {
-            rules.push(`min-height: ${minHeight} !important;`);
+            rules.push(`min-height: ${minHeight};`);
         }
         if (maxHeight) {
-            rules.push(`max-height: ${maxHeight} !important;`);
+            rules.push(`max-height: ${maxHeight};`);
         }
         if (minWidth) {
-            rules.push(`min-width: ${minWidth} !important;`);
+            rules.push(`min-width: ${minWidth};`);
         }
         if (maxWidth) {
-            rules.push(`max-width: ${maxWidth} !important;`);
-            rules.push(`margin-left: auto !important;`);
-            rules.push(`margin-right: auto !important;`);
+            rules.push(`max-width: ${maxWidth};`);
+            rules.push(`margin-left: auto;`);
+            rules.push(`margin-right: auto;`);
         }
         
         if (rules.length > 0) {
-            let mediaQuery: string;
-            if (bp.maxWidth !== undefined) {
-                mediaQuery = `
-                    @media (min-width: ${bp.minWidth}px) and (max-width: ${bp.maxWidth}px) {
-                        ${className} {
-                            ${rules.join("\n                            ")}
-                        }
+            // For XS breakpoint, apply styles directly without media query
+            // This ensures XS styles are the base and get overridden by larger breakpoints
+            if (bp.key === 'xs') {
+                cssRules.push(`
+                    ${className} {
+                        ${rules.join("\n                        ")}
                     }
-                `;
+                `);
             } else {
-                // For xxl, only min-width
-                mediaQuery = `
+                // For other breakpoints, use min-width media query
+                // This creates a proper cascade where larger breakpoints override smaller ones
+                const mediaQuery = `
                     @media (min-width: ${bp.minWidth}px) {
                         ${className} {
                             ${rules.join("\n                            ")}
                         }
                     }
                 `;
+                cssRules.push(mediaQuery);
             }
-            cssRules.push(mediaQuery);
         }
     });
     
@@ -343,7 +411,8 @@ export function generateContainerBreakpointStyles(
 }
 
 /**
- * Generate CSS for per-item responsive breakpoints with new system
+ * Generate CSS for per-item responsive breakpoints
+ * Uses mobile-first approach with normalization
  * 
  * @param items - Array of grid items with breakpoint configurations
  * @param widgetId - Unique widget identifier for CSS scoping
@@ -355,7 +424,7 @@ export function generateItemBreakpointStyles(
 ): string {
     const cssRules: string[] = [];
     
-    // Define breakpoint configurations
+    // Define breakpoint configurations in mobile-first order
     const breakpoints = [
         { key: 'xs', minWidth: 0, maxWidth: 639 },
         { key: 'sm', minWidth: 640, maxWidth: 767 },
@@ -386,15 +455,15 @@ export function generateItemBreakpointStyles(
             const placementTypeKey = `${bp.key}PlacementType` as keyof RuntimeGridItem;
             const placementType = item[placementTypeKey] as string || 'auto';
             
-            // Apply placement based on type
+            // Apply placement based on type with normalization
             if (placementType === "area") {
                 const areaKey = `${bp.key}GridArea` as keyof RuntimeGridItem;
-                const areaValue = item[areaKey] as string | undefined;
+                const areaValue = normalizeValue(item[areaKey] as string | undefined);
                 if (areaValue) {
-                    rules.push(`grid-area: ${areaValue} !important;`);
+                    rules.push(`grid-area: ${areaValue};`);
                     // Clear coordinate-based placement
-                    rules.push(`grid-column: auto !important;`);
-                    rules.push(`grid-row: auto !important;`);
+                    rules.push(`grid-column: auto;`);
+                    rules.push(`grid-row: auto;`);
                 }
             } else if (placementType === "coordinates") {
                 const colStartKey = `${bp.key}ColumnStart` as keyof RuntimeGridItem;
@@ -402,77 +471,74 @@ export function generateItemBreakpointStyles(
                 const rowStartKey = `${bp.key}RowStart` as keyof RuntimeGridItem;
                 const rowEndKey = `${bp.key}RowEnd` as keyof RuntimeGridItem;
                 
-                const colStart = item[colStartKey] as string | undefined;
-                const colEnd = item[colEndKey] as string | undefined;
-                const rowStart = item[rowStartKey] as string | undefined;
-                const rowEnd = item[rowEndKey] as string | undefined;
+                const colStart = normalizeValue(item[colStartKey] as string | undefined);
+                const colEnd = normalizeValue(item[colEndKey] as string | undefined);
+                const rowStart = normalizeValue(item[rowStartKey] as string | undefined);
+                const rowEnd = normalizeValue(item[rowEndKey] as string | undefined);
                 
                 if (colStart && colStart !== "auto") {
-                    rules.push(`grid-column-start: ${colStart} !important;`);
+                    rules.push(`grid-column-start: ${colStart};`);
                 }
                 if (colEnd && colEnd !== "auto") {
-                    rules.push(`grid-column-end: ${colEnd} !important;`);
+                    rules.push(`grid-column-end: ${colEnd};`);
                 }
                 if (rowStart && rowStart !== "auto") {
-                    rules.push(`grid-row-start: ${rowStart} !important;`);
+                    rules.push(`grid-row-start: ${rowStart};`);
                 }
                 if (rowEnd && rowEnd !== "auto") {
-                    rules.push(`grid-row-end: ${rowEnd} !important;`);
+                    rules.push(`grid-row-end: ${rowEnd};`);
                 }
                 // Clear area placement
-                rules.push(`grid-area: auto !important;`);
+                rules.push(`grid-area: auto;`);
             } else if (placementType === "span") {
                 const colStartKey = `${bp.key}ColumnStart` as keyof RuntimeGridItem;
                 const rowStartKey = `${bp.key}RowStart` as keyof RuntimeGridItem;
                 
-                const colStart = item[colStartKey] as string | undefined;
-                const rowStart = item[rowStartKey] as string | undefined;
+                const colStart = normalizeValue(item[colStartKey] as string | undefined);
+                const rowStart = normalizeValue(item[rowStartKey] as string | undefined);
                 
                 if (colStart && colStart !== "auto") {
                     if (colStart.includes("span")) {
-                        rules.push(`grid-column: ${colStart} !important;`);
+                        rules.push(`grid-column: ${colStart};`);
                     } else {
-                        rules.push(`grid-column-start: ${colStart} !important;`);
+                        rules.push(`grid-column-start: ${colStart};`);
                     }
                 }
                 if (rowStart && rowStart !== "auto") {
                     if (rowStart.includes("span")) {
-                        rules.push(`grid-row: ${rowStart} !important;`);
+                        rules.push(`grid-row: ${rowStart};`);
                     } else {
-                        rules.push(`grid-row-start: ${rowStart} !important;`);
+                        rules.push(`grid-row-start: ${rowStart};`);
                     }
                 }
                 // Clear area placement
-                rules.push(`grid-area: auto !important;`);
+                rules.push(`grid-area: auto;`);
             } else if (placementType === "auto") {
                 // Reset to auto placement
-                rules.push(`grid-area: auto !important;`);
-                rules.push(`grid-column: auto !important;`);
-                rules.push(`grid-row: auto !important;`);
+                rules.push(`grid-area: auto;`);
+                rules.push(`grid-column: auto;`);
+                rules.push(`grid-row: auto;`);
             }
             
             if (rules.length > 0) {
-                // Create media query with min and max width for precise control
-                let mediaQuery: string;
-                if (bp.maxWidth !== undefined) {
-                    mediaQuery = `
-                        @media (min-width: ${bp.minWidth}px) and (max-width: ${bp.maxWidth}px) {
-                            ${itemClassName} {
-                                ${rules.join("\n                                ")}
-                            }
+                // For XS breakpoint, apply styles directly without media query
+                if (bp.key === 'xs') {
+                    cssRules.push(`
+                        ${itemClassName} {
+                            ${rules.join("\n                            ")}
                         }
-                    `;
+                    `);
                 } else {
-                    // For xxl, only min-width
-                    mediaQuery = `
+                    // For other breakpoints, use min-width media query
+                    const mediaQuery = `
                         @media (min-width: ${bp.minWidth}px) {
                             ${itemClassName} {
                                 ${rules.join("\n                                ")}
                             }
                         }
                     `;
+                    cssRules.push(mediaQuery);
                 }
-                cssRules.push(mediaQuery);
             }
         });
     });
@@ -491,51 +557,61 @@ export function generateItemBreakpointStyles(
 export function getGridItemPlacement(item: GridItemPlacement, useNamedAreas: boolean = false): CSSProperties {
     const placement: CSSProperties = {};
 
-    switch (item.placementType) {
+    // Normalize values before processing
+    const normalizedItem = {
+        ...item,
+        gridArea: normalizeValue(item.gridArea),
+        columnStart: normalizeValue(item.columnStart),
+        columnEnd: normalizeValue(item.columnEnd),
+        rowStart: normalizeValue(item.rowStart),
+        rowEnd: normalizeValue(item.rowEnd)
+    };
+
+    switch (normalizedItem.placementType) {
         case "area":
-            if (item.gridArea && useNamedAreas) {
-                placement.gridArea = item.gridArea;
+            if (normalizedItem.gridArea && useNamedAreas) {
+                placement.gridArea = normalizedItem.gridArea;
                 // Don't set other properties - let them be auto
             }
             break;
 
         case "coordinates":
             // Always apply coordinate placement regardless of useNamedAreas
-            if (item.columnStart && item.columnStart !== "auto") {
-                placement.gridColumnStart = item.columnStart;
+            if (normalizedItem.columnStart && normalizedItem.columnStart !== "auto") {
+                placement.gridColumnStart = normalizedItem.columnStart;
             }
-            if (item.columnEnd && item.columnEnd !== "auto") {
-                placement.gridColumnEnd = item.columnEnd;
+            if (normalizedItem.columnEnd && normalizedItem.columnEnd !== "auto") {
+                placement.gridColumnEnd = normalizedItem.columnEnd;
             }
-            if (item.rowStart && item.rowStart !== "auto") {
-                placement.gridRowStart = item.rowStart;
+            if (normalizedItem.rowStart && normalizedItem.rowStart !== "auto") {
+                placement.gridRowStart = normalizedItem.rowStart;
             }
-            if (item.rowEnd && item.rowEnd !== "auto") {
-                placement.gridRowEnd = item.rowEnd;
+            if (normalizedItem.rowEnd && normalizedItem.rowEnd !== "auto") {
+                placement.gridRowEnd = normalizedItem.rowEnd;
             }
             break;
 
         case "span":
             // Always apply span placement regardless of useNamedAreas
             // Handle span syntax in column
-            if (item.columnStart && item.columnStart !== "auto") {
-                if (item.columnStart.includes("span")) {
-                    placement.gridColumn = item.columnStart;
-                } else if (item.columnEnd && item.columnEnd !== "auto") {
-                    placement.gridColumn = `${item.columnStart} / ${item.columnEnd}`;
+            if (normalizedItem.columnStart && normalizedItem.columnStart !== "auto") {
+                if (normalizedItem.columnStart.includes("span")) {
+                    placement.gridColumn = normalizedItem.columnStart;
+                } else if (normalizedItem.columnEnd && normalizedItem.columnEnd !== "auto") {
+                    placement.gridColumn = `${normalizedItem.columnStart} / ${normalizedItem.columnEnd}`;
                 } else {
-                    placement.gridColumnStart = item.columnStart;
+                    placement.gridColumnStart = normalizedItem.columnStart;
                 }
             }
 
             // Handle span syntax in row
-            if (item.rowStart && item.rowStart !== "auto") {
-                if (item.rowStart.includes("span")) {
-                    placement.gridRow = item.rowStart;
-                } else if (item.rowEnd && item.rowEnd !== "auto") {
-                    placement.gridRow = `${item.rowStart} / ${item.rowEnd}`;
+            if (normalizedItem.rowStart && normalizedItem.rowStart !== "auto") {
+                if (normalizedItem.rowStart.includes("span")) {
+                    placement.gridRow = normalizedItem.rowStart;
+                } else if (normalizedItem.rowEnd && normalizedItem.rowEnd !== "auto") {
+                    placement.gridRow = `${normalizedItem.rowStart} / ${normalizedItem.rowEnd}`;
                 } else {
-                    placement.gridRowStart = item.rowStart;
+                    placement.gridRowStart = normalizedItem.rowStart;
                 }
             }
             break;

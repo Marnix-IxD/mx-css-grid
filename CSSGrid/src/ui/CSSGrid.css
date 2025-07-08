@@ -1,18 +1,9 @@
 /**
- * CSS Grid Widget Styles - Minimal Approach
+ * CSS Grid Widget Styles - Production Grade
  * 
- * Only essential styles, letting inline styles and user classes
- * handle the majority of the styling needs
+ * Uses CSS custom properties (CSS variables) for responsive behavior
+ * No duplicate rules, proper mobile-first approach
  */
-
-/* CSS Custom Properties for theming */
-:root {
-    --mx-grid-focus-color: #0066cc;
-    --mx-grid-focus-width: 2px;
-    --mx-grid-focus-offset: 2px;
-    --mx-grid-animation-duration: 0.3s;
-    --mx-grid-animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
-}
 
 /* Base grid container */
 .mx-css-grid {
@@ -20,13 +11,158 @@
     width: 100%;
     position: relative;
     contain: layout style;
-    
-    /* Grid-specific custom properties with inherit defaults */
-    --mx-grid-item-font-size: inherit;
-    --mx-grid-item-line-height: inherit;
-    --mx-grid-item-color: inherit;
-    --mx-grid-item-padding: 0;
-    --mx-grid-item-margin: 0;
+}
+
+/* Responsive grid uses CSS custom properties */
+.mx-css-grid.mx-css-grid--responsive {
+    /* Base configuration */
+    grid-template-columns: var(--grid-columns, 1fr);
+    grid-template-rows: var(--grid-rows, auto);
+    grid-template-areas: var(--grid-areas, none);
+    gap: var(--grid-gap, var(--grid-row-gap, 0) var(--grid-column-gap, 0));
+    grid-auto-flow: var(--grid-auto-flow, row);
+    grid-auto-rows: var(--grid-auto-rows, auto);
+    grid-auto-columns: var(--grid-auto-columns, auto);
+    justify-items: var(--grid-justify-items, stretch);
+    align-items: var(--grid-align-items, stretch);
+    justify-content: var(--grid-justify-content, start);
+    align-content: var(--grid-align-content, stretch);
+    min-height: var(--grid-min-height);
+    max-height: var(--grid-max-height);
+    min-width: var(--grid-min-width);
+    max-width: var(--grid-max-width);
+}
+
+/* Center grid when max-width is set */
+.mx-css-grid.mx-css-grid--responsive[style*="--grid-max-width"] {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Extra Small Breakpoint (< 640px) - Mobile First Base */
+@media (max-width: 639px) {
+    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-xs {
+        grid-template-columns: var(--grid-xs-columns, var(--grid-columns, 1fr));
+        grid-template-rows: var(--grid-xs-rows, var(--grid-rows, auto));
+        grid-template-areas: var(--grid-xs-areas, var(--grid-areas, none));
+        gap: var(--grid-xs-gap, var(--grid-xs-row-gap, var(--grid-row-gap, 0)) var(--grid-xs-column-gap, var(--grid-column-gap, 0)));
+        grid-auto-flow: var(--grid-xs-auto-flow, var(--grid-auto-flow, row));
+        grid-auto-rows: var(--grid-xs-auto-rows, var(--grid-auto-rows, auto));
+        grid-auto-columns: var(--grid-xs-auto-columns, var(--grid-auto-columns, auto));
+        justify-items: var(--grid-xs-justify-items, var(--grid-justify-items, stretch));
+        align-items: var(--grid-xs-align-items, var(--grid-align-items, stretch));
+        justify-content: var(--grid-xs-justify-content, var(--grid-justify-content, start));
+        align-content: var(--grid-xs-align-content, var(--grid-align-content, stretch));
+        min-height: var(--grid-xs-min-height, var(--grid-min-height));
+        max-height: var(--grid-xs-max-height, var(--grid-max-height));
+        min-width: var(--grid-xs-min-width, var(--grid-min-width));
+        max-width: var(--grid-xs-max-width, var(--grid-max-width));
+    }
+}
+
+/* Small Breakpoint (640px - 767px) */
+@media (min-width: 640px) and (max-width: 767px) {
+    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-sm {
+        grid-template-columns: var(--grid-sm-columns, var(--grid-columns, 1fr));
+        grid-template-rows: var(--grid-sm-rows, var(--grid-rows, auto));
+        grid-template-areas: var(--grid-sm-areas, var(--grid-areas, none));
+        gap: var(--grid-sm-gap, var(--grid-sm-row-gap, var(--grid-row-gap, 0)) var(--grid-sm-column-gap, var(--grid-column-gap, 0)));
+        grid-auto-flow: var(--grid-sm-auto-flow, var(--grid-auto-flow, row));
+        grid-auto-rows: var(--grid-sm-auto-rows, var(--grid-auto-rows, auto));
+        grid-auto-columns: var(--grid-sm-auto-columns, var(--grid-auto-columns, auto));
+        justify-items: var(--grid-sm-justify-items, var(--grid-justify-items, stretch));
+        align-items: var(--grid-sm-align-items, var(--grid-align-items, stretch));
+        justify-content: var(--grid-sm-justify-content, var(--grid-justify-content, start));
+        align-content: var(--grid-sm-align-content, var(--grid-align-content, stretch));
+        min-height: var(--grid-sm-min-height, var(--grid-min-height));
+        max-height: var(--grid-sm-max-height, var(--grid-max-height));
+        min-width: var(--grid-sm-min-width, var(--grid-min-width));
+        max-width: var(--grid-sm-max-width, var(--grid-max-width));
+    }
+}
+
+/* Medium Breakpoint (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-md {
+        grid-template-columns: var(--grid-md-columns, var(--grid-columns, 1fr));
+        grid-template-rows: var(--grid-md-rows, var(--grid-rows, auto));
+        grid-template-areas: var(--grid-md-areas, var(--grid-areas, none));
+        gap: var(--grid-md-gap, var(--grid-md-row-gap, var(--grid-row-gap, 0)) var(--grid-md-column-gap, var(--grid-column-gap, 0)));
+        grid-auto-flow: var(--grid-md-auto-flow, var(--grid-auto-flow, row));
+        grid-auto-rows: var(--grid-md-auto-rows, var(--grid-auto-rows, auto));
+        grid-auto-columns: var(--grid-md-auto-columns, var(--grid-auto-columns, auto));
+        justify-items: var(--grid-md-justify-items, var(--grid-justify-items, stretch));
+        align-items: var(--grid-md-align-items, var(--grid-align-items, stretch));
+        justify-content: var(--grid-md-justify-content, var(--grid-justify-content, start));
+        align-content: var(--grid-md-align-content, var(--grid-align-content, stretch));
+        min-height: var(--grid-md-min-height, var(--grid-min-height));
+        max-height: var(--grid-md-max-height, var(--grid-max-height));
+        min-width: var(--grid-md-min-width, var(--grid-min-width));
+        max-width: var(--grid-md-max-width, var(--grid-max-width));
+    }
+}
+
+/* Large Breakpoint (1024px - 1439px) */
+@media (min-width: 1024px) and (max-width: 1439px) {
+    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-lg {
+        grid-template-columns: var(--grid-lg-columns, var(--grid-columns, 1fr));
+        grid-template-rows: var(--grid-lg-rows, var(--grid-rows, auto));
+        grid-template-areas: var(--grid-lg-areas, var(--grid-areas, none));
+        gap: var(--grid-lg-gap, var(--grid-lg-row-gap, var(--grid-row-gap, 0)) var(--grid-lg-column-gap, var(--grid-column-gap, 0)));
+        grid-auto-flow: var(--grid-lg-auto-flow, var(--grid-auto-flow, row));
+        grid-auto-rows: var(--grid-lg-auto-rows, var(--grid-auto-rows, auto));
+        grid-auto-columns: var(--grid-lg-auto-columns, var(--grid-auto-columns, auto));
+        justify-items: var(--grid-lg-justify-items, var(--grid-justify-items, stretch));
+        align-items: var(--grid-lg-align-items, var(--grid-align-items, stretch));
+        justify-content: var(--grid-lg-justify-content, var(--grid-justify-content, start));
+        align-content: var(--grid-lg-align-content, var(--grid-align-content, stretch));
+        min-height: var(--grid-lg-min-height, var(--grid-min-height));
+        max-height: var(--grid-lg-max-height, var(--grid-max-height));
+        min-width: var(--grid-lg-min-width, var(--grid-min-width));
+        max-width: var(--grid-lg-max-width, var(--grid-max-width));
+    }
+}
+
+/* Extra Large Breakpoint (1440px - 1919px) */
+@media (min-width: 1440px) and (max-width: 1919px) {
+    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-xl {
+        grid-template-columns: var(--grid-xl-columns, var(--grid-columns, 1fr));
+        grid-template-rows: var(--grid-xl-rows, var(--grid-rows, auto));
+        grid-template-areas: var(--grid-xl-areas, var(--grid-areas, none));
+        gap: var(--grid-xl-gap, var(--grid-xl-row-gap, var(--grid-row-gap, 0)) var(--grid-xl-column-gap, var(--grid-column-gap, 0)));
+        grid-auto-flow: var(--grid-xl-auto-flow, var(--grid-auto-flow, row));
+        grid-auto-rows: var(--grid-xl-auto-rows, var(--grid-auto-rows, auto));
+        grid-auto-columns: var(--grid-xl-auto-columns, var(--grid-auto-columns, auto));
+        justify-items: var(--grid-xl-justify-items, var(--grid-justify-items, stretch));
+        align-items: var(--grid-xl-align-items, var(--grid-align-items, stretch));
+        justify-content: var(--grid-xl-justify-content, var(--grid-justify-content, start));
+        align-content: var(--grid-xl-align-content, var(--grid-align-content, stretch));
+        min-height: var(--grid-xl-min-height, var(--grid-min-height));
+        max-height: var(--grid-xl-max-height, var(--grid-max-height));
+        min-width: var(--grid-xl-min-width, var(--grid-min-width));
+        max-width: var(--grid-xl-max-width, var(--grid-max-width));
+    }
+}
+
+/* 2X Large Breakpoint (>= 1920px) */
+@media (min-width: 1920px) {
+    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-xxl {
+        grid-template-columns: var(--grid-xxl-columns, var(--grid-columns, 1fr));
+        grid-template-rows: var(--grid-xxl-rows, var(--grid-rows, auto));
+        grid-template-areas: var(--grid-xxl-areas, var(--grid-areas, none));
+        gap: var(--grid-xxl-gap, var(--grid-xxl-row-gap, var(--grid-row-gap, 0)) var(--grid-xxl-column-gap, var(--grid-column-gap, 0)));
+        grid-auto-flow: var(--grid-xxl-auto-flow, var(--grid-auto-flow, row));
+        grid-auto-rows: var(--grid-xxl-auto-rows, var(--grid-auto-rows, auto));
+        grid-auto-columns: var(--grid-xxl-auto-columns, var(--grid-auto-columns, auto));
+        justify-items: var(--grid-xxl-justify-items, var(--grid-justify-items, stretch));
+        align-items: var(--grid-xxl-align-items, var(--grid-align-items, stretch));
+        justify-content: var(--grid-xxl-justify-content, var(--grid-justify-content, start));
+        align-content: var(--grid-xxl-align-content, var(--grid-align-content, stretch));
+        min-height: var(--grid-xxl-min-height, var(--grid-min-height));
+        max-height: var(--grid-xxl-max-height, var(--grid-max-height));
+        min-width: var(--grid-xxl-min-width, var(--grid-min-width));
+        max-width: var(--grid-xxl-max-width, var(--grid-max-width));
+    }
 }
 
 /* Grid item base styles */
@@ -36,13 +172,83 @@
     min-height: 0; /* Prevent grid blowout */
     position: relative;
     contain: layout style;
-    
-    /* Apply custom properties */
-    font-size: var(--mx-grid-item-font-size);
-    line-height: var(--mx-grid-item-line-height);
-    color: var(--mx-grid-item-color);
-    padding: var(--mx-grid-item-padding);
-    margin: var(--mx-grid-item-margin);
+}
+
+/* Responsive grid items use CSS custom properties */
+.mx-grid-item--responsive {
+    /* Base placement */
+    grid-area: var(--item-area);
+    grid-column-start: var(--item-col-start);
+    grid-column-end: var(--item-col-end);
+    grid-row-start: var(--item-row-start);
+    grid-row-end: var(--item-row-end);
+}
+
+/* XS Breakpoint for responsive items */
+@media (max-width: 639px) {
+    .mx-css-grid--responsive .mx-grid-item--responsive {
+        /* Use XS variables with fallback to base */
+        grid-area: var(--item-xs-area, var(--item-area));
+        grid-column-start: var(--item-xs-col-start, var(--item-col-start));
+        grid-column-end: var(--item-xs-col-end, var(--item-col-end));
+        grid-row-start: var(--item-xs-row-start, var(--item-row-start));
+        grid-row-end: var(--item-xs-row-end, var(--item-row-end));
+    }
+}
+
+/* SM Breakpoint for responsive items */
+@media (min-width: 640px) and (max-width: 767px) {
+    .mx-css-grid--responsive .mx-grid-item--responsive {
+        grid-area: var(--item-sm-area, var(--item-area));
+        grid-column-start: var(--item-sm-col-start, var(--item-col-start));
+        grid-column-end: var(--item-sm-col-end, var(--item-col-end));
+        grid-row-start: var(--item-sm-row-start, var(--item-row-start));
+        grid-row-end: var(--item-sm-row-end, var(--item-row-end));
+    }
+}
+
+/* MD Breakpoint for responsive items */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .mx-css-grid--responsive .mx-grid-item--responsive {
+        grid-area: var(--item-md-area, var(--item-area));
+        grid-column-start: var(--item-md-col-start, var(--item-col-start));
+        grid-column-end: var(--item-md-col-end, var(--item-col-end));
+        grid-row-start: var(--item-md-row-start, var(--item-row-start));
+        grid-row-end: var(--item-md-row-end, var(--item-row-end));
+    }
+}
+
+/* LG Breakpoint for responsive items */
+@media (min-width: 1024px) and (max-width: 1439px) {
+    .mx-css-grid--responsive .mx-grid-item--responsive {
+        grid-area: var(--item-lg-area, var(--item-area));
+        grid-column-start: var(--item-lg-col-start, var(--item-col-start));
+        grid-column-end: var(--item-lg-col-end, var(--item-col-end));
+        grid-row-start: var(--item-lg-row-start, var(--item-row-start));
+        grid-row-end: var(--item-lg-row-end, var(--item-row-end));
+    }
+}
+
+/* XL Breakpoint for responsive items */
+@media (min-width: 1440px) and (max-width: 1919px) {
+    .mx-css-grid--responsive .mx-grid-item--responsive {
+        grid-area: var(--item-xl-area, var(--item-area));
+        grid-column-start: var(--item-xl-col-start, var(--item-col-start));
+        grid-column-end: var(--item-xl-col-end, var(--item-col-end));
+        grid-row-start: var(--item-xl-row-start, var(--item-row-start));
+        grid-row-end: var(--item-xl-row-end, var(--item-row-end));
+    }
+}
+
+/* XXL Breakpoint for responsive items */
+@media (min-width: 1920px) {
+    .mx-css-grid--responsive .mx-grid-item--responsive {
+        grid-area: var(--item-xxl-area, var(--item-area));
+        grid-column-start: var(--item-xxl-col-start, var(--item-col-start));
+        grid-column-end: var(--item-xxl-col-end, var(--item-col-end));
+        grid-row-start: var(--item-xxl-row-start, var(--item-row-start));
+        grid-row-end: var(--item-xxl-row-end, var(--item-row-end));
+    }
 }
 
 /* Placeholder for virtualized items */
@@ -51,18 +257,18 @@
     pointer-events: none;
 }
 
-/* Current breakpoint indicators - used by responsive CSS */
-.mx-grid-xs { --breakpoint: xs; }
-.mx-grid-sm { --breakpoint: sm; }
-.mx-grid-md { --breakpoint: md; }
-.mx-grid-lg { --breakpoint: lg; }
-.mx-grid-xl { --breakpoint: xl; }
-.mx-grid-xxl { --breakpoint: xxl; }
+/* Current breakpoint indicators */
+.mx-grid-xs { --current-breakpoint: xs; }
+.mx-grid-sm { --current-breakpoint: sm; }
+.mx-grid-md { --current-breakpoint: md; }
+.mx-grid-lg { --current-breakpoint: lg; }
+.mx-grid-xl { --current-breakpoint: xl; }
+.mx-grid-xxl { --current-breakpoint: xxl; }
 
-/* Focus styles with visible focus indicator */
+/* Focus styles */
 .mx-css-grid:focus-visible {
-    outline: var(--mx-grid-focus-width) solid var(--mx-grid-focus-color);
-    outline-offset: var(--mx-grid-focus-offset);
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
     box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
 }
 
@@ -94,90 +300,11 @@
     contain: strict;
 }
 
-/* Loading state */
-.mx-css-grid.loading {
-    position: relative;
-    pointer-events: none;
-    opacity: 0.6;
-}
-
-.mx-css-grid.loading::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(0, 0, 0, 0.1);
-    border-top-color: var(--mx-grid-focus-color);
-    border-radius: 50%;
-    animation: mx-css-grid-spin 0.8s linear infinite;
-}
-
-@keyframes mx-css-grid-spin {
-    to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
-/* Container queries for component-level responsiveness */
-@supports (container-type: inline-size) {
-    .mx-css-grid {
-        container-type: inline-size;
-        container-name: grid;
-    }
-    
-    /* 
-     * Container query responsive overrides
-     * These only change the CSS custom properties, allowing easy overrides
-     */
-    @container grid (max-width: 480px) {
-        .mx-css-grid {
-            --mx-grid-item-font-size-xs: var(--mx-grid-item-font-size);
-        }
-    }
-    
-    @container grid (min-width: 481px) and (max-width: 768px) {
-        .mx-css-grid {
-            --mx-grid-item-font-size-sm: var(--mx-grid-item-font-size);
-        }
-    }
-    
-    @container grid (min-width: 769px) and (max-width: 1024px) {
-        .mx-css-grid {
-            --mx-grid-item-font-size-md: var(--mx-grid-item-font-size);
-        }
-    }
-    
-    @container grid (min-width: 1025px) {
-        .mx-css-grid {
-            --mx-grid-item-font-size-lg: var(--mx-grid-item-font-size);
-        }
-    }
-}
-
 /* Accessibility improvements */
 .mx-css-grid[role="grid"] .mx-grid-item:focus {
-    outline: var(--mx-grid-focus-width) solid var(--mx-grid-focus-color);
-    outline-offset: calc(var(--mx-grid-focus-offset) * -1);
+    outline: 2px solid #0066cc;
+    outline-offset: -2px;
     z-index: 1;
-}
-
-/* Skip links for large grids */
-.mx-css-grid-skip-link {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: var(--mx-grid-focus-color);
-    color: white;
-    padding: 8px;
-    text-decoration: none;
-    border-radius: 0 0 4px 0;
-    transform: translateY(0);
-    transition: transform 0.2s;
-}
-
-.mx-css-grid-skip-link:focus {
-    transform: translateY(40px);
 }
 
 /* High contrast mode support */
@@ -198,18 +325,6 @@
         transition: none !important;
         animation: none !important;
     }
-    
-    .mx-css-grid.loading::after {
-        animation-duration: 2s;
-    }
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .mx-css-grid.loading::after {
-        border-color: rgba(255, 255, 255, 0.1);
-        border-top-color: var(--mx-grid-focus-color);
-    }
 }
 
 /* Print styles */
@@ -224,15 +339,6 @@
         page-break-inside: avoid;
     }
     
-    /* Remove loading states */
-    .mx-css-grid.loading {
-        opacity: 1 !important;
-    }
-    
-    .mx-css-grid.loading::after {
-        display: none !important;
-    }
-    
     /* Ensure focus indicators don't print */
     .mx-css-grid:focus,
     .mx-grid-item:focus {
@@ -241,34 +347,12 @@
     }
 }
 
-/* Utility: Full-width grid breaking out of container */
-.mx-css-grid.full-width {
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-}
-
-/* Z-index management */
-.mx-grid-item[style*="z-index"] {
-    position: relative;
-}
-
 /* Ensure proper stacking context */
 .mx-css-grid {
     isolation: isolate;
 }
 
-/* Error states */
-.mx-css-grid.error {
-    border: 2px solid #dc2626;
-    background-color: #fef2f2;
-}
-
-.mx-css-grid.error::before {
-    content: "Grid configuration error";
-    display: block;
-    padding: 8px;
-    background-color: #dc2626;
-    color: white;
-    font-size: 12px;
-    font-weight: bold;
+/* Z-index management */
+.mx-grid-item[style*="z-index"] {
+    position: relative;
 }

@@ -679,6 +679,52 @@ function isValidSpanValue(value: string): boolean {
 }
 
 /**
+ * Get all defined areas across all breakpoints
+ * 
+ * @param values - Widget property values
+ * @returns Set of all defined area names
+ */
+function getAllDefinedAreas(values: ResponsiveContainerPreview): Set<string> {
+    const allAreas = new Set<string>();
+    
+    // Add base areas
+    if (values.useNamedAreas && values.gridTemplateAreas) {
+        const validation = validateGridTemplateAreas(values.gridTemplateAreas);
+        if (validation.valid && validation.lines) {
+            validation.lines.flat().forEach(area => {
+                if (area !== ".") {
+                    allAreas.add(area);
+                }
+            });
+        }
+    }
+    
+    // Add areas from enabled breakpoints
+    if (values.enableBreakpoints) {
+        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
+        
+        breakpoints.forEach(bp => {
+            const enabledKey = `${bp}Enabled` as keyof ResponsiveContainerPreview;
+            const areasKey = `${bp}Areas` as keyof ResponsiveContainerPreview;
+            
+            if (values[enabledKey] && values[areasKey]) {
+                const areas = values[areasKey] as string;
+                const validation = validateGridTemplateAreas(areas);
+                if (validation.valid && validation.lines) {
+                    validation.lines.flat().forEach(area => {
+                        if (area !== ".") {
+                            allAreas.add(area);
+                        }
+                    });
+                }
+            }
+        });
+    }
+    
+    return allAreas;
+}
+
+/**
  * Validates the CSS Grid configuration
  * 
  * @param values - Widget property values
@@ -687,6 +733,9 @@ function isValidSpanValue(value: string): boolean {
 export const check: CheckFunction = (values) => {
     const errors: ValidationError[] = [];
     const containerValues = values as ResponsiveContainerPreview;
+    
+    // Get all defined areas across all breakpoints
+    const allDefinedAreas = getAllDefinedAreas(containerValues);
     
     // Validate grid template based on useNamedAreas
     if (values.useNamedAreas) {
@@ -710,12 +759,11 @@ export const check: CheckFunction = (values) => {
             } else if (validation.lines) {
                 // Validate area names
                 const invalidAreas: string[] = [];
-                const allAreas = validation.lines.flat();
-                const uniqueAreas = new Set<string>();
+                const baseAreas = new Set<string>();
                 
-                for (const area of allAreas) {
+                for (const area of validation.lines.flat()) {
                     if (area !== ".") {
-                        uniqueAreas.add(area);
+                        baseAreas.add(area);
                         if (!isValidAreaName(area)) {
                             invalidAreas.push(area);
                         }
@@ -730,14 +778,13 @@ export const check: CheckFunction = (values) => {
                     });
                 }
                 
-                // Check items using areas
-                const definedAreas = Array.from(uniqueAreas);
+                // Check items using areas - now check against ALL defined areas
                 values.items?.forEach((item, index) => {
-                    if (item.placementType === "area" && item.gridArea && !definedAreas.includes(item.gridArea)) {
+                    if (item.placementType === "area" && item.gridArea && !allDefinedAreas.has(item.gridArea)) {
                         errors.push({
                             property: `items[${index}].gridArea`,
                             severity: "warning",
-                            message: `Item ${index + 1}: Grid area "${item.gridArea}" is not defined in Grid Template Areas. Available areas: ${definedAreas.join(", ")}`
+                            message: `Item ${index + 1}: Grid area "${item.gridArea}" is not defined in any Grid Template Areas. Available areas: ${Array.from(allDefinedAreas).join(", ")}`
                         });
                     }
                 });
@@ -1025,6 +1072,16 @@ export const check: CheckFunction = (values) => {
                                 severity: "error",
                                 message: `Item ${index + 1} ${breakpointLabels[size]}: Grid area is required when using area placement`
                             });
+                        } else {
+                            // Check if the area is defined in ANY breakpoint configuration
+                            const areaName = (responsiveItem[areaKey] as string).trim();
+                            if (!allDefinedAreas.has(areaName)) {
+                                errors.push({
+                                    property: `items[${index}].${areaKey}`,
+                                    severity: "warning",
+                                    message: `Item ${index + 1} ${breakpointLabels[size]}: Grid area "${areaName}" is not defined in any Grid Template Areas configuration. Available areas: ${Array.from(allDefinedAreas).join(", ")}`
+                                });
+                            }
                         }
                     } else if (placementType === "coordinates") {
                         const colStartKey = `${size}ColumnStart` as keyof ResponsiveItemPreview;
