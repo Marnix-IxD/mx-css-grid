@@ -1,7 +1,7 @@
 {
   "name": "cssgrid",
   "widgetName": "CSSGrid",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A CSS Grid implementation for Mendix Studio Pro 10.24+",
   "copyright": "@The Orange Force B.V.",
   "author": "Marnix Valentijn Puijker",
