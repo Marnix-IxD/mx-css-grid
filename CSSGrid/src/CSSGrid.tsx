@@ -33,13 +33,13 @@ import {
 import "./ui/CSSGrid.css";
 
 /**
- * CSS Grid Widget for Mendix - Production Grade Implementation
+ * CSS Grid Widget for Mendix - Semantic CSS Variable Implementation
  * 
  * Key principles:
- * 1. Use CSS custom properties (CSS variables) for responsive values
- * 2. Keep styles with the component using inline styles
- * 3. Use data attributes for responsive behavior hooks
- * 4. No global style injection
+ * 1. Use semantic names for items (based on itemName or gridArea)
+ * 2. Only create CSS variables for properties that differ from defaults
+ * 3. Use simple overrides at breakpoints instead of complex fallbacks
+ * 4. Keep all other functionality intact (virtualization, accessibility, etc.)
  * 
  * @param props - Widget properties from Mendix
  * @returns React element representing the CSS Grid
@@ -80,6 +80,15 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     // Cast to runtime type to handle conditional properties
     const runtimeProps = props as RuntimeGridContainer;
 
+    // Constants for configuration
+    const DEFAULT_VIRTUALIZATION_THRESHOLD = 100;
+    const RESIZE_DEBOUNCE_DELAY = 150;
+    const VIRTUALIZATION_ROOT_MARGIN = "100px";
+    const VIRTUALIZATION_THRESHOLD_RATIO = 0.01;
+    const VIRTUALIZATION_BUFFER_SIZE = 5;
+    const INITIAL_RENDER_DELAY = 0;
+    const LARGE_GRID_THRESHOLD = 10;
+
     // Refs for DOM access
     const containerRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<IntersectionObserver | null>(null);
@@ -94,6 +103,9 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     /**
      * Helper to normalize empty strings to undefined
      * This prevents empty strings from creating invalid CSS
+     * 
+     * @param value - String value to normalize
+     * @returns Normalized value or undefined
      */
     const normalizeValue = useCallback((value: string | undefined): string | undefined => {
         if (!value || value.trim() === "") return undefined;
@@ -102,6 +114,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Map enumeration values to CSS properties
+     * Converts Mendix enumeration values to valid CSS values
      */
     const cssEnumMappings = useMemo(() => ({
         autoFlow: {
@@ -132,6 +145,9 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Get all defined areas across all configurations
+     * Collects area names from base config and all enabled breakpoints
+     * 
+     * @returns Set of all unique area names
      */
     const getAllDefinedAreas = useCallback((): Set<string> => {
         const allAreas = new Set<string>();
@@ -172,45 +188,61 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     }, [useNamedAreas, gridTemplateAreas, enableBreakpoints, runtimeProps]);
 
     /**
+     * Get placement information for debugging
+     * Returns info about base and responsive placements
+     */
+    const getPlacementInfo = useCallback((item: RuntimeGridItem): string => {
+        const info: string[] = [item.placementType];
+        
+        if (item.enableResponsive && enableBreakpoints) {
+            BREAKPOINT_CONFIGS.forEach(config => {
+                const enabledKey = `${config.size}Enabled` as keyof RuntimeGridItem;
+                const placementTypeKey = `${config.size}PlacementType` as keyof RuntimeGridItem;
+                
+                if (item[enabledKey]) {
+                    const placementType = item[placementTypeKey] as string;
+                    if (placementType && placementType !== item.placementType) {
+                        info.push(`${config.size}:${placementType}`);
+                    }
+                }
+            });
+        }
+        
+        return info.join(',');
+    }, [enableBreakpoints]);
+
+    /**
+     * Generate a semantic CSS variable name for an item
+     * Prioritizes: itemName > gridArea > index
+     */
+    const getItemVariableName = useCallback((item: RuntimeGridItem, index: number): string => {
+        if (item.itemName) {
+            // Sanitize item name for CSS: lowercase, replace spaces with hyphens
+            return item.itemName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        }
+        if (item.gridArea && useNamedAreas) {
+            return item.gridArea.toLowerCase();
+        }
+        return `item-${index}`;
+    }, [useNamedAreas]);
+
+    /**
      * Build CSS custom properties for responsive values
-     * This allows us to use CSS media queries in the stylesheet while keeping values dynamic
+     * Only includes variables that differ from defaults
+     * 
+     * @returns Object containing CSS custom properties
      */
     const buildResponsiveCSSVariables = useCallback((): Record<string, string | undefined> => {
         const cssVars: Record<string, string | undefined> = {};
 
-        // Helper to check if a value is a CSS default that can be omitted
-        const isDefaultValue = (prop: string, value: any): boolean => {
-            if (!value) return true;
-            
-            switch (prop) {
-                case 'rows':
-                case 'autoRows':
-                case 'autoColumns':
-                    return value === 'auto';
-                case 'justifyItems':
-                case 'alignItems':
-                    return value === 'stretch';
-                case 'justifyContent':
-                case 'alignContent':
-                    return value === 'start' || value === 'stretch';
-                case 'autoFlow':
-                    return value === 'row';
-                case 'rowGap':
-                case 'columnGap':
-                    return value === '0';
-                default:
-                    return false;
-            }
-        };
-
         // Base configuration - only set non-default values
-        const baseColumns = normalizeValue(gridTemplateColumns) || '1fr';
-        if (baseColumns !== '1fr') {
+        const baseColumns = normalizeValue(gridTemplateColumns);
+        if (baseColumns && baseColumns !== '1fr') {
             cssVars['--grid-columns'] = baseColumns;
         }
         
         const baseRows = normalizeValue(gridTemplateRows);
-        if (baseRows && !isDefaultValue('rows', baseRows)) {
+        if (baseRows && baseRows !== 'auto') {
             cssVars['--grid-rows'] = baseRows;
         }
         
@@ -222,53 +254,53 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         if (normalizedGap) {
             cssVars['--grid-gap'] = normalizedGap;
         } else {
-            if (normalizedRowGap && !isDefaultValue('rowGap', normalizedRowGap)) {
+            if (normalizedRowGap) {
                 cssVars['--grid-row-gap'] = normalizedRowGap;
             }
-            if (normalizedColumnGap && !isDefaultValue('columnGap', normalizedColumnGap)) {
+            if (normalizedColumnGap) {
                 cssVars['--grid-column-gap'] = normalizedColumnGap;
             }
         }
         
         // Only set non-default values
         const mappedAutoFlow = cssEnumMappings.autoFlow[autoFlow || 'row'] || autoFlow;
-        if (mappedAutoFlow && !isDefaultValue('autoFlow', autoFlow)) {
+        if (mappedAutoFlow && mappedAutoFlow !== 'row') {
             cssVars['--grid-auto-flow'] = mappedAutoFlow;
         }
         
         const normalizedAutoRows = normalizeValue(autoRows);
-        if (normalizedAutoRows && !isDefaultValue('autoRows', normalizedAutoRows)) {
+        if (normalizedAutoRows && normalizedAutoRows !== 'auto') {
             cssVars['--grid-auto-rows'] = normalizedAutoRows;
         }
         
         const normalizedAutoColumns = normalizeValue(autoColumns);
-        if (normalizedAutoColumns && !isDefaultValue('autoColumns', normalizedAutoColumns)) {
+        if (normalizedAutoColumns && normalizedAutoColumns !== 'auto') {
             cssVars['--grid-auto-columns'] = normalizedAutoColumns;
         }
         
-        if (justifyItems && !isDefaultValue('justifyItems', justifyItems)) {
+        if (justifyItems && justifyItems !== 'stretch') {
             cssVars['--grid-justify-items'] = justifyItems;
         }
         
-        if (alignItems && !isDefaultValue('alignItems', alignItems)) {
+        if (alignItems && alignItems !== 'stretch') {
             cssVars['--grid-align-items'] = alignItems;
         }
         
         const mappedJustifyContent = cssEnumMappings.justifyContent[justifyContent || 'start'] || justifyContent;
-        if (mappedJustifyContent && !isDefaultValue('justifyContent', justifyContent)) {
+        if (mappedJustifyContent && mappedJustifyContent !== 'start') {
             cssVars['--grid-justify-content'] = mappedJustifyContent;
         }
         
         const mappedAlignContent = cssEnumMappings.alignContent[alignContent || 'stretch'] || alignContent;
-        if (mappedAlignContent && !isDefaultValue('alignContent', alignContent)) {
+        if (mappedAlignContent && mappedAlignContent !== 'stretch') {
             cssVars['--grid-align-content'] = mappedAlignContent;
         }
         
         // Size constraints are always set if defined
-        cssVars['--grid-min-height'] = normalizeValue(minHeight);
-        cssVars['--grid-max-height'] = normalizeValue(maxHeight);
-        cssVars['--grid-min-width'] = normalizeValue(minWidth);
-        cssVars['--grid-max-width'] = normalizeValue(maxWidth);
+        if (normalizeValue(minHeight)) cssVars['--grid-min-height'] = normalizeValue(minHeight);
+        if (normalizeValue(maxHeight)) cssVars['--grid-max-height'] = normalizeValue(maxHeight);
+        if (normalizeValue(minWidth)) cssVars['--grid-min-width'] = normalizeValue(minWidth);
+        if (normalizeValue(maxWidth)) cssVars['--grid-max-width'] = normalizeValue(maxWidth);
         
         if (useNamedAreas) {
             const normalizedAreas = normalizeValue(gridTemplateAreas);
@@ -290,81 +322,61 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                     
                     // Set CSS variables for each breakpoint - only non-defaults
                     const bpColumns = getBreakpointValue('Columns');
-                    const bpRows = getBreakpointValue('Rows');
-                    const bpGap = getBreakpointValue('Gap');
-                    const bpRowGap = getBreakpointValue('RowGap');
-                    const bpColumnGap = getBreakpointValue('ColumnGap');
-                    const bpAutoFlow = runtimeProps[`${config.size}AutoFlow` as keyof RuntimeGridContainer] as AutoFlowEnum | undefined;
-                    const bpAutoRows = getBreakpointValue('AutoRows');
-                    const bpAutoColumns = getBreakpointValue('AutoColumns');
-                    const bpJustifyItems = runtimeProps[`${config.size}JustifyItems` as keyof RuntimeGridContainer] as JustifyItemsEnum | undefined;
-                    const bpAlignItems = runtimeProps[`${config.size}AlignItems` as keyof RuntimeGridContainer] as AlignItemsEnum | undefined;
-                    const bpJustifyContent = runtimeProps[`${config.size}JustifyContent` as keyof RuntimeGridContainer] as JustifyContentEnum | undefined;
-                    const bpAlignContent = runtimeProps[`${config.size}AlignContent` as keyof RuntimeGridContainer] as AlignContentEnum | undefined;
-                    const bpMinHeight = getBreakpointValue('MinHeight');
-                    const bpMaxHeight = getBreakpointValue('MaxHeight');
-                    const bpMinWidth = getBreakpointValue('MinWidth');
-                    const bpMaxWidth = getBreakpointValue('MaxWidth');
-                    
-                    // Always set columns if defined (common override)
                     if (bpColumns) cssVars[`--grid-${config.size}-columns`] = bpColumns;
                     
-                    if (bpRows && !isDefaultValue('rows', bpRows)) {
-                        cssVars[`--grid-${config.size}-rows`] = bpRows;
-                    }
+                    const bpRows = getBreakpointValue('Rows');
+                    if (bpRows) cssVars[`--grid-${config.size}-rows`] = bpRows;
                     
+                    const bpGap = getBreakpointValue('Gap');
                     if (bpGap) {
                         cssVars[`--grid-${config.size}-gap`] = bpGap;
                     } else {
-                        if (bpRowGap && !isDefaultValue('rowGap', bpRowGap)) {
-                            cssVars[`--grid-${config.size}-row-gap`] = bpRowGap;
-                        }
-                        if (bpColumnGap && !isDefaultValue('columnGap', bpColumnGap)) {
-                            cssVars[`--grid-${config.size}-column-gap`] = bpColumnGap;
-                        }
+                        const bpRowGap = getBreakpointValue('RowGap');
+                        const bpColumnGap = getBreakpointValue('ColumnGap');
+                        if (bpRowGap) cssVars[`--grid-${config.size}-row-gap`] = bpRowGap;
+                        if (bpColumnGap) cssVars[`--grid-${config.size}-column-gap`] = bpColumnGap;
                     }
                     
+                    const bpAutoFlow = runtimeProps[`${config.size}AutoFlow` as keyof RuntimeGridContainer] as AutoFlowEnum | undefined;
                     if (bpAutoFlow) {
                         const mapped = cssEnumMappings.autoFlow[bpAutoFlow] || bpAutoFlow;
-                        if (!isDefaultValue('autoFlow', bpAutoFlow)) {
-                            cssVars[`--grid-${config.size}-auto-flow`] = mapped;
-                        }
+                        cssVars[`--grid-${config.size}-auto-flow`] = mapped;
                     }
                     
-                    if (bpAutoRows && !isDefaultValue('autoRows', bpAutoRows)) {
-                        cssVars[`--grid-${config.size}-auto-rows`] = bpAutoRows;
-                    }
+                    const bpAutoRows = getBreakpointValue('AutoRows');
+                    if (bpAutoRows) cssVars[`--grid-${config.size}-auto-rows`] = bpAutoRows;
                     
-                    if (bpAutoColumns && !isDefaultValue('autoColumns', bpAutoColumns)) {
-                        cssVars[`--grid-${config.size}-auto-columns`] = bpAutoColumns;
-                    }
+                    const bpAutoColumns = getBreakpointValue('AutoColumns');
+                    if (bpAutoColumns) cssVars[`--grid-${config.size}-auto-columns`] = bpAutoColumns;
                     
-                    if (bpJustifyItems && !isDefaultValue('justifyItems', bpJustifyItems)) {
-                        cssVars[`--grid-${config.size}-justify-items`] = bpJustifyItems;
-                    }
+                    const bpJustifyItems = runtimeProps[`${config.size}JustifyItems` as keyof RuntimeGridContainer] as JustifyItemsEnum | undefined;
+                    if (bpJustifyItems) cssVars[`--grid-${config.size}-justify-items`] = bpJustifyItems;
                     
-                    if (bpAlignItems && !isDefaultValue('alignItems', bpAlignItems)) {
-                        cssVars[`--grid-${config.size}-align-items`] = bpAlignItems;
-                    }
+                    const bpAlignItems = runtimeProps[`${config.size}AlignItems` as keyof RuntimeGridContainer] as AlignItemsEnum | undefined;
+                    if (bpAlignItems) cssVars[`--grid-${config.size}-align-items`] = bpAlignItems;
                     
+                    const bpJustifyContent = runtimeProps[`${config.size}JustifyContent` as keyof RuntimeGridContainer] as JustifyContentEnum | undefined;
                     if (bpJustifyContent) {
                         const mapped = cssEnumMappings.justifyContent[bpJustifyContent] || bpJustifyContent;
-                        if (!isDefaultValue('justifyContent', bpJustifyContent)) {
-                            cssVars[`--grid-${config.size}-justify-content`] = mapped;
-                        }
+                        cssVars[`--grid-${config.size}-justify-content`] = mapped;
                     }
                     
+                    const bpAlignContent = runtimeProps[`${config.size}AlignContent` as keyof RuntimeGridContainer] as AlignContentEnum | undefined;
                     if (bpAlignContent) {
                         const mapped = cssEnumMappings.alignContent[bpAlignContent] || bpAlignContent;
-                        if (!isDefaultValue('alignContent', bpAlignContent)) {
-                            cssVars[`--grid-${config.size}-align-content`] = mapped;
-                        }
+                        cssVars[`--grid-${config.size}-align-content`] = mapped;
                     }
                     
-                    // Size constraints always set if defined
+                    const bpMinHeight = getBreakpointValue('MinHeight');
                     if (bpMinHeight) cssVars[`--grid-${config.size}-min-height`] = bpMinHeight;
+                    
+                    const bpMaxHeight = getBreakpointValue('MaxHeight');
                     if (bpMaxHeight) cssVars[`--grid-${config.size}-max-height`] = bpMaxHeight;
+                    
+                    const bpMinWidth = getBreakpointValue('MinWidth');
                     if (bpMinWidth) cssVars[`--grid-${config.size}-min-width`] = bpMinWidth;
+                    
+                    const bpMaxWidth = getBreakpointValue('MaxWidth');
                     if (bpMaxWidth) cssVars[`--grid-${config.size}-max-width`] = bpMaxWidth;
                     
                     if (useNamedAreas) {
@@ -383,6 +395,96 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         gap, rowGap, columnGap, useNamedAreas, autoFlow, autoRows, autoColumns,
         justifyItems, alignItems, justifyContent, alignContent, minHeight, maxHeight,
         minWidth, maxWidth, runtimeProps, cssEnumMappings, normalizeValue]);
+
+    /**
+     * Build CSS variables for an individual item
+     * Only includes variables needed for the placement type
+     */
+    const buildItemCSSVariables = useCallback((item: RuntimeGridItem): Record<string, string> => {
+        const cssVars: Record<string, string> = {};
+        
+        // Base placement variables based on type
+        if (item.placementType === "area" && item.gridArea) {
+            cssVars[`--area`] = item.gridArea;
+        } else if (item.placementType === "coordinates") {
+            if (item.columnStart && item.columnStart !== "auto") {
+                cssVars[`--col-start`] = item.columnStart;
+            }
+            if (item.columnEnd && item.columnEnd !== "auto") {
+                cssVars[`--col-end`] = item.columnEnd;
+            }
+            if (item.rowStart && item.rowStart !== "auto") {
+                cssVars[`--row-start`] = item.rowStart;
+            }
+            if (item.rowEnd && item.rowEnd !== "auto") {
+                cssVars[`--row-end`] = item.rowEnd;
+            }
+        } else if (item.placementType === "span") {
+            if (item.columnStart && item.columnStart !== "auto") {
+                cssVars[`--col-span`] = item.columnStart;
+            }
+            if (item.rowStart && item.rowStart !== "auto") {
+                cssVars[`--row-span`] = item.rowStart;
+            }
+        }
+
+        // Responsive overrides (only variables that change)
+        if (item.enableResponsive && enableBreakpoints) {
+            BREAKPOINT_CONFIGS.forEach(config => {
+                const enabledKey = `${config.size}Enabled` as keyof RuntimeGridItem;
+                if (!item[enabledKey]) return;
+
+                const placementTypeKey = `${config.size}PlacementType` as keyof RuntimeGridItem;
+                const placementType = item[placementTypeKey] as string;
+
+                if (placementType === "area") {
+                    const areaKey = `${config.size}GridArea` as keyof RuntimeGridItem;
+                    const area = item[areaKey] as string;
+                    if (area && area !== item.gridArea) {
+                        cssVars[`--${config.size}-area`] = area;
+                    }
+                } else if (placementType === "coordinates") {
+                    const colStartKey = `${config.size}ColumnStart` as keyof RuntimeGridItem;
+                    const colEndKey = `${config.size}ColumnEnd` as keyof RuntimeGridItem;
+                    const rowStartKey = `${config.size}RowStart` as keyof RuntimeGridItem;
+                    const rowEndKey = `${config.size}RowEnd` as keyof RuntimeGridItem;
+                    
+                    const colStart = item[colStartKey] as string;
+                    const colEnd = item[colEndKey] as string;
+                    const rowStart = item[rowStartKey] as string;
+                    const rowEnd = item[rowEndKey] as string;
+
+                    if (colStart && colStart !== "auto") {
+                        cssVars[`--${config.size}-col-start`] = colStart;
+                    }
+                    if (colEnd && colEnd !== "auto") {
+                        cssVars[`--${config.size}-col-end`] = colEnd;
+                    }
+                    if (rowStart && rowStart !== "auto") {
+                        cssVars[`--${config.size}-row-start`] = rowStart;
+                    }
+                    if (rowEnd && rowEnd !== "auto") {
+                        cssVars[`--${config.size}-row-end`] = rowEnd;
+                    }
+                } else if (placementType === "span") {
+                    const colStartKey = `${config.size}ColumnStart` as keyof RuntimeGridItem;
+                    const rowStartKey = `${config.size}RowStart` as keyof RuntimeGridItem;
+                    
+                    const colStart = item[colStartKey] as string;
+                    const rowStart = item[rowStartKey] as string;
+
+                    if (colStart && colStart !== "auto") {
+                        cssVars[`--${config.size}-col-span`] = colStart;
+                    }
+                    if (rowStart && rowStart !== "auto") {
+                        cssVars[`--${config.size}-row-span`] = rowStart;
+                    }
+                }
+            });
+        }
+
+        return cssVars;
+    }, [enableBreakpoints]);
 
     /**
      * Build container styles
@@ -452,6 +554,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Handle responsive breakpoint changes
+     * Debounced to prevent excessive updates during resize
      */
     useEffect(() => {
         const updateBreakpoint = () => {
@@ -466,7 +569,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             if (resizeTimeoutRef.current) {
                 clearTimeout(resizeTimeoutRef.current);
             }
-            resizeTimeoutRef.current = setTimeout(updateBreakpoint, 150);
+            resizeTimeoutRef.current = setTimeout(updateBreakpoint, RESIZE_DEBOUNCE_DELAY);
         };
 
         updateBreakpoint();
@@ -517,6 +620,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Get active placement for responsive items
+     * Determines which placement configuration to use based on current breakpoint
      */
     const getActiveItemPlacement = useCallback((item: RuntimeGridItem): GridItemPlacement => {
         if (!item.enableResponsive) {
@@ -565,63 +669,12 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     }, [currentWidth, normalizeValue]);
 
     /**
-     * Build CSS variables for responsive items
-     */
-    const buildItemCSSVariables = useCallback((item: RuntimeGridItem, index: number): Record<string, string> => {
-        const cssVars: Record<string, string> = {};
-        
-        if (!item.enableResponsive || !enableBreakpoints) {
-            return cssVars;
-        }
-
-        // Add base placement as CSS variables
-        const basePlacement = {
-            placementType: item.placementType,
-            gridArea: normalizeValue(item.gridArea),
-            columnStart: normalizeValue(item.columnStart),
-            columnEnd: normalizeValue(item.columnEnd),
-            rowStart: normalizeValue(item.rowStart),
-            rowEnd: normalizeValue(item.rowEnd)
-        };
-
-        // Set base variables
-        cssVars[`--item-${index}-placement`] = basePlacement.placementType;
-        if (basePlacement.gridArea) cssVars[`--item-${index}-area`] = basePlacement.gridArea;
-        if (basePlacement.columnStart) cssVars[`--item-${index}-col-start`] = basePlacement.columnStart;
-        if (basePlacement.columnEnd) cssVars[`--item-${index}-col-end`] = basePlacement.columnEnd;
-        if (basePlacement.rowStart) cssVars[`--item-${index}-row-start`] = basePlacement.rowStart;
-        if (basePlacement.rowEnd) cssVars[`--item-${index}-row-end`] = basePlacement.rowEnd;
-
-        // Add breakpoint-specific variables
-        BREAKPOINT_CONFIGS.forEach(config => {
-            const enabledKey = `${config.size}Enabled` as keyof RuntimeGridItem;
-            
-            if (item[enabledKey]) {
-                const placementType = item[`${config.size}PlacementType` as keyof RuntimeGridItem] as string;
-                const gridArea = normalizeValue(item[`${config.size}GridArea` as keyof RuntimeGridItem] as string);
-                const colStart = normalizeValue(item[`${config.size}ColumnStart` as keyof RuntimeGridItem] as string);
-                const colEnd = normalizeValue(item[`${config.size}ColumnEnd` as keyof RuntimeGridItem] as string);
-                const rowStart = normalizeValue(item[`${config.size}RowStart` as keyof RuntimeGridItem] as string);
-                const rowEnd = normalizeValue(item[`${config.size}RowEnd` as keyof RuntimeGridItem] as string);
-                
-                if (placementType) cssVars[`--item-${index}-${config.size}-placement`] = placementType;
-                if (gridArea) cssVars[`--item-${index}-${config.size}-area`] = gridArea;
-                if (colStart) cssVars[`--item-${index}-${config.size}-col-start`] = colStart;
-                if (colEnd) cssVars[`--item-${index}-${config.size}-col-end`] = colEnd;
-                if (rowStart) cssVars[`--item-${index}-${config.size}-row-start`] = rowStart;
-                if (rowEnd) cssVars[`--item-${index}-${config.size}-row-end`] = rowEnd;
-            }
-        });
-
-        return cssVars;
-    }, [enableBreakpoints, normalizeValue]);
-
-    /**
      * Virtualization setup
+     * Optimizes performance for grids with many items by only rendering visible ones
      */
     const setupVirtualization = useCallback(() => {
         const shouldVirtualize = enableVirtualization && 
-                               items.length >= (virtualizeThreshold || 100) && 
+                               items.length >= (virtualizeThreshold || DEFAULT_VIRTUALIZATION_THRESHOLD) && 
                                containerRef.current;
 
         if (!shouldVirtualize) {
@@ -651,12 +704,11 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                             newSet.add(index);
                             changed = true;
                         } else if (!isVisible) {
-                            const buffer = 5;
                             const sortedIndices = Array.from(newSet).sort((a, b) => a - b);
                             const minVisible = sortedIndices[0] || 0;
                             const maxVisible = sortedIndices[sortedIndices.length - 1] || 0;
                             
-                            if (index < minVisible - buffer || index > maxVisible + buffer) {
+                            if (index < minVisible - VIRTUALIZATION_BUFFER_SIZE || index > maxVisible + VIRTUALIZATION_BUFFER_SIZE) {
                                 newSet.delete(index);
                                 changed = true;
                             }
@@ -668,8 +720,8 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             },
             {
                 root: containerRef.current,
-                rootMargin: "100px",
-                threshold: 0.01
+                rootMargin: VIRTUALIZATION_ROOT_MARGIN,
+                threshold: VIRTUALIZATION_THRESHOLD_RATIO
             }
         );
 
@@ -689,7 +741,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         const timeoutId = setTimeout(() => {
             setIsInitialized(true);
             setupVirtualization();
-        }, 0);
+        }, INITIAL_RENDER_DELAY);
 
         return () => {
             clearTimeout(timeoutId);
@@ -701,15 +753,17 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Render grid items
+     * Creates grid items with proper placement, styling, and responsive behavior
      */
     const renderGridItems = useCallback(() => {
-        const shouldVirtualize = enableVirtualization && items.length >= (virtualizeThreshold || 100);
+        const shouldVirtualize = enableVirtualization && items.length >= (virtualizeThreshold || DEFAULT_VIRTUALIZATION_THRESHOLD);
         const allDefinedAreas = getAllDefinedAreas();
         const activeConfig = getActiveGridConfig();
 
         return items.map((item, index) => {
             const isVisible = !shouldVirtualize || visibleItems.has(index) || !isInitialized;
             const runtimeItem = item as RuntimeGridItem;
+            const itemName = getItemVariableName(runtimeItem, index);
             
             // Build base styles
             let itemStyles: CSSProperties = {
@@ -720,14 +774,14 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             
             // Handle placement based on responsive settings
             if (runtimeItem.enableResponsive && enableBreakpoints) {
-                // Add CSS variables for responsive items
-                const itemCssVars = buildItemCSSVariables(runtimeItem, index);
+                // Responsive items use CSS variables
+                const itemCssVars = buildItemCSSVariables(runtimeItem);
                 itemStyles = {
                     ...itemStyles,
                     ...itemCssVars
                 } as CSSProperties;
             } else {
-                // Non-responsive items or responsive disabled
+                // Non-responsive items get direct CSS properties
                 let placement = getActiveItemPlacement(runtimeItem);
                 
                 // Validate area placement
@@ -761,10 +815,21 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             // Build item classes
             const itemClasses = ['mx-grid-item'];
             
-            // Add responsive class if item has responsive settings
+            // Add base placement class when responsive
             if (runtimeItem.enableResponsive && enableBreakpoints) {
-                itemClasses.push('mx-grid-item--responsive');
-                itemClasses.push(`mx-grid-item--${index}`);
+                // Base placement class
+                itemClasses.push(`mx-grid-item--placement-${runtimeItem.placementType}`);
+                
+                // Add responsive placement classes for each enabled breakpoint
+                BREAKPOINT_CONFIGS.forEach(config => {
+                    const enabledKey = `${config.size}Enabled` as keyof RuntimeGridItem;
+                    const placementTypeKey = `${config.size}PlacementType` as keyof RuntimeGridItem;
+                    
+                    if (runtimeItem[enabledKey]) {
+                        const placementType = runtimeItem[placementTypeKey] as string || runtimeItem.placementType;
+                        itemClasses.push(`mx-grid-item--${config.size}-placement-${placementType}`);
+                    }
+                });
             }
             
             if (runtimeItem.className) {
@@ -795,13 +860,16 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 itemAriaAttrs.role = "region";
                 itemAriaAttrs["aria-label"] = `Grid area: ${runtimeItem.gridArea}`;
             }
+            
+            const hasResponsive = runtimeItem.enableResponsive || false;
 
             return (
                 <div
                     key={`grid-item-${index}`}
                     data-grid-index={index}
-                    data-item-name={runtimeItem.itemName || undefined}
-                    data-placement={runtimeItem.placementType}
+                    data-grid-item={itemName}
+                    data-placement={getPlacementInfo(runtimeItem)}
+                    data-responsive={hasResponsive}
                     className={itemClasses.join(' ')}
                     style={itemStyles}
                     {...itemAriaAttrs}
@@ -812,10 +880,11 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         });
     }, [items, visibleItems, enableVirtualization, virtualizeThreshold, isInitialized, 
         enableBreakpoints, useNamedAreas, getAllDefinedAreas, getActiveGridConfig,
-        getActiveItemPlacement, buildItemCSSVariables]);
+        getActiveItemPlacement, getItemVariableName, buildItemCSSVariables, getPlacementInfo]);
 
     /**
      * Container class names
+     * Builds the complete class list for the grid container
      */
     const containerClassName = useMemo(() => {
         const classes = [
@@ -842,6 +911,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Container data attributes
+     * Provides metadata about the grid state
      */
     const containerDataAttributes = useMemo(() => {
         const attrs: Record<string, string | number | undefined> = {
@@ -849,7 +919,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             'data-item-count': items.length
         };
         
-        if (enableVirtualization && items.length >= (virtualizeThreshold || 100)) {
+        if (enableVirtualization && items.length >= (virtualizeThreshold || DEFAULT_VIRTUALIZATION_THRESHOLD)) {
             attrs['data-virtualized'] = 'true';
         }
         
@@ -862,10 +932,11 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     /**
      * Determine appropriate ARIA role
+     * Uses semantic roles for better accessibility
      */
     const containerRole = useMemo(() => {
         if (role) return role;
-        return items.length > 10 || useNamedAreas ? "grid" : "group";
+        return items.length > LARGE_GRID_THRESHOLD || useNamedAreas ? "grid" : "group";
     }, [role, items.length, useNamedAreas]);
 
     return (

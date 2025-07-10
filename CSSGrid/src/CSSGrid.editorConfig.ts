@@ -214,6 +214,17 @@ type ResponsiveContainerProperties = {
 type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
 type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerProperties;
 
+// Constants for breakpoint configuration
+const BREAKPOINT_SIZES = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
+const BREAKPOINT_LABELS = {
+    xs: 'Extra Small (<640px)',
+    sm: 'Small (640-768px)',
+    md: 'Medium (768-1024px)',
+    lg: 'Large (1024-1440px)',
+    xl: 'Extra Large (1440-1920px)',
+    xxl: '2X Large (>1920px)'
+} as const;
+
 /**
  * Dynamically configure which properties are visible based on other property values
  * This significantly reduces UI clutter by showing only relevant options
@@ -224,6 +235,7 @@ export function getProperties(
 ): Properties {
     // Start with default properties
     let properties = defaultProperties;
+    const containerValues = values as ResponsiveContainerPreview;
 
     // 1. Grid Layout conditional properties
     // REMOVED the hiding of gridTemplateColumns and gridTemplateRows when useNamedAreas is true
@@ -241,38 +253,35 @@ export function getProperties(
     // 3. Container breakpoint properties
     if (!values.enableBreakpoints) {
         // Hide all breakpoint-related properties
-        const breakpointProps: Array<keyof CSSGridPreviewProps> = [
-            "xsEnabled", "xsColumns", "xsRows", "xsAreas", "xsGap", "xsRowGap", "xsColumnGap",
-            "xsAutoFlow", "xsAutoRows", "xsAutoColumns", "xsJustifyItems", "xsAlignItems",
-            "xsJustifyContent", "xsAlignContent", "xsMinHeight", "xsMaxHeight", "xsMinWidth", "xsMaxWidth",
-            
-            "smEnabled", "smColumns", "smRows", "smAreas", "smGap", "smRowGap", "smColumnGap",
-            "smAutoFlow", "smAutoRows", "smAutoColumns", "smJustifyItems", "smAlignItems",
-            "smJustifyContent", "smAlignContent", "smMinHeight", "smMaxHeight", "smMinWidth", "smMaxWidth",
-            
-            "mdEnabled", "mdColumns", "mdRows", "mdAreas", "mdGap", "mdRowGap", "mdColumnGap",
-            "mdAutoFlow", "mdAutoRows", "mdAutoColumns", "mdJustifyItems", "mdAlignItems",
-            "mdJustifyContent", "mdAlignContent", "mdMinHeight", "mdMaxHeight", "mdMinWidth", "mdMaxWidth",
-            
-            "lgEnabled", "lgColumns", "lgRows", "lgAreas", "lgGap", "lgRowGap", "lgColumnGap",
-            "lgAutoFlow", "lgAutoRows", "lgAutoColumns", "lgJustifyItems", "lgAlignItems",
-            "lgJustifyContent", "lgAlignContent", "lgMinHeight", "lgMaxHeight", "lgMinWidth", "lgMaxWidth",
-            
-            "xlEnabled", "xlColumns", "xlRows", "xlAreas", "xlGap", "xlRowGap", "xlColumnGap",
-            "xlAutoFlow", "xlAutoRows", "xlAutoColumns", "xlJustifyItems", "xlAlignItems",
-            "xlJustifyContent", "xlAlignContent", "xlMinHeight", "xlMaxHeight", "xlMinWidth", "xlMaxWidth",
-            
-            "xxlEnabled", "xxlColumns", "xxlRows", "xxlAreas", "xxlGap", "xxlRowGap", "xxlColumnGap",
-            "xxlAutoFlow", "xxlAutoRows", "xxlAutoColumns", "xxlJustifyItems", "xxlAlignItems",
-            "xxlJustifyContent", "xxlAlignContent", "xxlMinHeight", "xxlMaxHeight", "xxlMinWidth", "xxlMaxWidth"
-        ];
+        const breakpointProps: Array<keyof CSSGridPreviewProps> = [];
+        
+        BREAKPOINT_SIZES.forEach(bp => {
+            breakpointProps.push(
+                `${bp}Enabled` as keyof CSSGridPreviewProps,
+                `${bp}Columns` as keyof CSSGridPreviewProps,
+                `${bp}Rows` as keyof CSSGridPreviewProps,
+                `${bp}Areas` as keyof CSSGridPreviewProps,
+                `${bp}Gap` as keyof CSSGridPreviewProps,
+                `${bp}RowGap` as keyof CSSGridPreviewProps,
+                `${bp}ColumnGap` as keyof CSSGridPreviewProps,
+                `${bp}AutoFlow` as keyof CSSGridPreviewProps,
+                `${bp}AutoRows` as keyof CSSGridPreviewProps,
+                `${bp}AutoColumns` as keyof CSSGridPreviewProps,
+                `${bp}JustifyItems` as keyof CSSGridPreviewProps,
+                `${bp}AlignItems` as keyof CSSGridPreviewProps,
+                `${bp}JustifyContent` as keyof CSSGridPreviewProps,
+                `${bp}AlignContent` as keyof CSSGridPreviewProps,
+                `${bp}MinHeight` as keyof CSSGridPreviewProps,
+                `${bp}MaxHeight` as keyof CSSGridPreviewProps,
+                `${bp}MinWidth` as keyof CSSGridPreviewProps,
+                `${bp}MaxWidth` as keyof CSSGridPreviewProps
+            );
+        });
         
         hidePropertiesIn(properties, values, breakpointProps);
     } else {
         // Hide detailed breakpoint properties if the breakpoint is not enabled
-        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
-        
-        breakpoints.forEach(bp => {
+        BREAKPOINT_SIZES.forEach(bp => {
             const enabledKey = `${bp}Enabled` as keyof CSSGridPreviewProps;
             if (!values[enabledKey]) {
                 const propsToHide: Array<keyof CSSGridPreviewProps> = [
@@ -339,28 +348,43 @@ export function getProperties(
                     break;
             }
             
-            // Hide all responsive properties if not enabled for this item
-            if (!item.enableResponsive) {
-                const responsiveProps: Array<keyof ItemsPreviewType> = [
-                    "xsEnabled", "xsPlacementType", "xsGridArea", "xsColumnStart", "xsColumnEnd", "xsRowStart", "xsRowEnd",
-                    "smEnabled", "smPlacementType", "smGridArea", "smColumnStart", "smColumnEnd", "smRowStart", "smRowEnd",
-                    "mdEnabled", "mdPlacementType", "mdGridArea", "mdColumnStart", "mdColumnEnd", "mdRowStart", "mdRowEnd",
-                    "lgEnabled", "lgPlacementType", "lgGridArea", "lgColumnStart", "lgColumnEnd", "lgRowStart", "lgRowEnd",
-                    "xlEnabled", "xlPlacementType", "xlGridArea", "xlColumnStart", "xlColumnEnd", "xlRowStart", "xlRowEnd",
-                    "xxlEnabled", "xxlPlacementType", "xxlGridArea", "xxlColumnStart", "xxlColumnEnd", "xxlRowStart", "xxlRowEnd"
-                ] as Array<keyof ItemsPreviewType>;
+            // Hide all responsive properties if not enabled for this item OR if container responsiveness is disabled
+            if (!item.enableResponsive || !values.enableBreakpoints) {
+                const responsiveProps: Array<keyof ItemsPreviewType> = [];
+                
+                BREAKPOINT_SIZES.forEach(bp => {
+                    responsiveProps.push(
+                        `${bp}Enabled` as keyof ItemsPreviewType,
+                        `${bp}PlacementType` as keyof ItemsPreviewType,
+                        `${bp}GridArea` as keyof ItemsPreviewType,
+                        `${bp}ColumnStart` as keyof ItemsPreviewType,
+                        `${bp}ColumnEnd` as keyof ItemsPreviewType,
+                        `${bp}RowStart` as keyof ItemsPreviewType,
+                        `${bp}RowEnd` as keyof ItemsPreviewType
+                    );
+                });
                 
                 hideNestedPropertiesIn(properties, values, "items", index, responsiveProps);
             } else {
                 // Hide detailed responsive properties based on enabled breakpoints and placement types
-                const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
-                
-                breakpoints.forEach(bp => {
+                BREAKPOINT_SIZES.forEach(bp => {
                     const enabledKey = `${bp}Enabled` as keyof ItemsPreviewType;
                     const placementTypeKey = `${bp}PlacementType` as keyof ItemsPreviewType;
                     
-                    if (!item[enabledKey]) {
-                        // Hide all properties for this breakpoint
+                    // Check if container has this breakpoint enabled
+                    const containerBreakpointEnabledKey = `${bp}Enabled` as keyof ResponsiveContainerPreview;
+                    const isContainerBreakpointEnabled = containerValues[containerBreakpointEnabledKey];
+                    
+                    // Hide all breakpoint properties if container doesn't have this breakpoint enabled
+                    if (!isContainerBreakpointEnabled) {
+                        const propsToHide: Array<keyof ItemsPreviewType> = [
+                            `${bp}Enabled`, `${bp}PlacementType`, `${bp}GridArea`, 
+                            `${bp}ColumnStart`, `${bp}ColumnEnd`, 
+                            `${bp}RowStart`, `${bp}RowEnd`
+                        ] as Array<keyof ItemsPreviewType>;
+                        hideNestedPropertiesIn(properties, values, "items", index, propsToHide);
+                    } else if (!item[enabledKey]) {
+                        // Hide all properties for this breakpoint if not enabled
                         const propsToHide: Array<keyof ItemsPreviewType> = [
                             `${bp}PlacementType`, `${bp}GridArea`, 
                             `${bp}ColumnStart`, `${bp}ColumnEnd`, 
@@ -534,7 +558,7 @@ function hasValidNumericValue(value: string): boolean {
  * Now expects standard CSS format with quotes
  * 
  * @param areas - Grid template areas string
- * @returns true if valid, false otherwise
+ * @returns validation result with parsed lines and error message if invalid
  */
 function validateGridTemplateAreas(areas: string): { valid: boolean; lines?: string[][]; error?: string } {
     if (!areas || areas.trim() === "") {
@@ -719,9 +743,7 @@ function getAllDefinedAreas(values: ResponsiveContainerPreview): Set<string> {
     
     // Add areas from enabled breakpoints
     if (values.enableBreakpoints) {
-        const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
-        
-        breakpoints.forEach(bp => {
+        BREAKPOINT_SIZES.forEach(bp => {
             const enabledKey = `${bp}Enabled` as keyof ResponsiveContainerPreview;
             const areasKey = `${bp}Areas` as keyof ResponsiveContainerPreview;
             
@@ -855,19 +877,9 @@ export const check: CheckFunction = (values) => {
     
     // Validate container responsive settings
     if (containerValues.enableBreakpoints) {
-        const breakpointSizes = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
-        const breakpointLabels = {
-            xs: 'Extra Small (<640px)',
-            sm: 'Small (640-768px)',
-            md: 'Medium (768-1024px)',
-            lg: 'Large (1024-1440px)',
-            xl: 'Extra Large (1440-1920px)',
-            xxl: '2X Large (>1920px)'
-        };
-        
         let hasAnyBreakpoint = false;
         
-        breakpointSizes.forEach(size => {
+        BREAKPOINT_SIZES.forEach(size => {
             const enabledKey = `${size}Enabled` as keyof ResponsiveContainerPreview;
             if (containerValues[enabledKey]) {
                 hasAnyBreakpoint = true;
@@ -883,7 +895,7 @@ export const check: CheckFunction = (values) => {
                     errors.push({
                         property: columnsKey,
                         severity: "warning",
-                        message: `${breakpointLabels[size]}: Grid columns may have invalid syntax`
+                        message: `${BREAKPOINT_LABELS[size]}: Grid columns may have invalid syntax`
                     });
                 }
                 
@@ -894,13 +906,13 @@ export const check: CheckFunction = (values) => {
                         errors.push({
                             property: areasKey,
                             severity: "error",
-                            message: `${breakpointLabels[size]}: ${validation.error}`
+                            message: `${BREAKPOINT_LABELS[size]}: ${validation.error}`
                         });
                     }
                 } else if (!values.useNamedAreas && areas) {
                     errors.push({
                         severity: "info",
-                        message: `${breakpointLabels[size]}: Template areas property is ignored when 'Use Named Areas' is disabled`
+                        message: `${BREAKPOINT_LABELS[size]}: Template areas property is ignored when 'Use Named Areas' is disabled`
                     });
                 }
                 
@@ -909,7 +921,7 @@ export const check: CheckFunction = (values) => {
                     errors.push({
                         property: columnsKey,
                         severity: "info",
-                        message: `${breakpointLabels[size]}: Consider defining grid columns even when using named areas to control column sizes`
+                        message: `${BREAKPOINT_LABELS[size]}: Consider defining grid columns even when using named areas to control column sizes`
                     });
                 }
             }
@@ -1043,31 +1055,23 @@ export const check: CheckFunction = (values) => {
         }
         
         // Validate z-index
+        const Z_INDEX_MIN = -999;
+        const Z_INDEX_MAX = 999;
         if (responsiveItem.zIndex !== null && responsiveItem.zIndex !== undefined) {
-            if (responsiveItem.zIndex < -999 || responsiveItem.zIndex > 999) {
+            if (responsiveItem.zIndex < Z_INDEX_MIN || responsiveItem.zIndex > Z_INDEX_MAX) {
                 errors.push({
                     property: `items[${index}].zIndex`,
                     severity: "warning",
-                    message: `Item ${index + 1}: Z-index should be between -999 and 999 for best compatibility`
+                    message: `Item ${index + 1}: Z-index should be between ${Z_INDEX_MIN} and ${Z_INDEX_MAX} for best compatibility`
                 });
             }
         }
 
         // Validate responsive settings for items
-        const breakpointSizes = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
-        const breakpointLabels = {
-            xs: 'Extra Small (<640px)',
-            sm: 'Small (640-768px)',
-            md: 'Medium (768-1024px)',
-            lg: 'Large (1024-1440px)',
-            xl: 'Extra Large (1440-1920px)',
-            xxl: '2X Large (>1920px)'
-        };
-        
         if (responsiveItem.enableResponsive) {
             let hasAnyBreakpoint = false;
             
-            breakpointSizes.forEach(size => {
+            BREAKPOINT_SIZES.forEach(size => {
                 const enabledKey = `${size}Enabled` as keyof ResponsiveItemPreview;
                 if (responsiveItem[enabledKey]) {
                     hasAnyBreakpoint = true;
@@ -1082,13 +1086,13 @@ export const check: CheckFunction = (values) => {
                             errors.push({
                                 property: `items[${index}].${placementTypeKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Cannot use 'Named Area' placement when 'Use Named Areas' is disabled`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Cannot use 'Named Area' placement when 'Use Named Areas' is disabled`
                             });
                         } else if (!responsiveItem[areaKey] || (responsiveItem[areaKey] as string).trim() === "") {
                             errors.push({
                                 property: `items[${index}].${areaKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Grid area is required when using area placement`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Grid area is required when using area placement`
                             });
                         } else {
                             // Check if the area is defined in ANY breakpoint configuration
@@ -1097,7 +1101,7 @@ export const check: CheckFunction = (values) => {
                                 errors.push({
                                     property: `items[${index}].${areaKey}`,
                                     severity: "warning",
-                                    message: `Item ${index + 1} ${breakpointLabels[size]}: Grid area "${areaName}" is not defined in any Grid Template Areas configuration. Available areas: ${Array.from(allDefinedAreas).join(", ")}`
+                                    message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Grid area "${areaName}" is not defined in any Grid Template Areas configuration. Available areas: ${Array.from(allDefinedAreas).join(", ")}`
                                 });
                             }
                         }
@@ -1116,28 +1120,28 @@ export const check: CheckFunction = (values) => {
                             errors.push({
                                 property: `items[${index}].${colStartKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid column start value`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid column start value`
                             });
                         }
                         if (colEnd && !isValidCoordinate(colEnd.trim())) {
                             errors.push({
                                 property: `items[${index}].${colEndKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid column end value`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid column end value`
                             });
                         }
                         if (rowStart && !isValidCoordinate(rowStart.trim())) {
                             errors.push({
                                 property: `items[${index}].${rowStartKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid row start value`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid row start value`
                             });
                         }
                         if (rowEnd && !isValidCoordinate(rowEnd.trim())) {
                             errors.push({
                                 property: `items[${index}].${rowEndKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid row end value`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid row end value`
                             });
                         }
                     } else if (placementType === "span") {
@@ -1151,14 +1155,14 @@ export const check: CheckFunction = (values) => {
                             errors.push({
                                 property: `items[${index}].${colStartKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid column span value`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid column span value`
                             });
                         }
                         if (rowStart && !isValidSpanValue(rowStart.trim())) {
                             errors.push({
                                 property: `items[${index}].${rowStartKey}`,
                                 severity: "error",
-                                message: `Item ${index + 1} ${breakpointLabels[size]}: Invalid row span value`
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid row span value`
                             });
                         }
                     }
@@ -1175,18 +1179,20 @@ export const check: CheckFunction = (values) => {
     });
     
     // Validate virtualization threshold
+    const VIRTUALIZATION_MIN_THRESHOLD = 10;
+    const VIRTUALIZATION_MAX_THRESHOLD = 1000;
     if (values.enableVirtualization && values.virtualizeThreshold !== null) {
-        if (values.virtualizeThreshold < 10) {
+        if (values.virtualizeThreshold < VIRTUALIZATION_MIN_THRESHOLD) {
             errors.push({
                 property: "virtualizeThreshold",
                 severity: "warning",
-                message: "Virtualization threshold below 10 items may cause performance issues"
+                message: `Virtualization threshold below ${VIRTUALIZATION_MIN_THRESHOLD} items may cause performance issues`
             });
-        } else if (values.virtualizeThreshold > 1000) {
+        } else if (values.virtualizeThreshold > VIRTUALIZATION_MAX_THRESHOLD) {
             errors.push({
                 property: "virtualizeThreshold",
                 severity: "warning",
-                message: "Very high virtualization threshold may impact initial render performance"
+                message: `Very high virtualization threshold may impact initial render performance`
             });
         }
     } else if (!values.enableVirtualization && values.virtualizeThreshold && values.virtualizeThreshold !== 100) {
@@ -1204,7 +1210,8 @@ export const check: CheckFunction = (values) => {
         });
     }
     
-    if (values.items.length > 50 && !values.enableVirtualization) {
+    const PERFORMANCE_ITEM_THRESHOLD = 50;
+    if (values.items.length > PERFORMANCE_ITEM_THRESHOLD && !values.enableVirtualization) {
         errors.push({
             severity: "info",
             message: `You have ${values.items.length} items. Consider enabling virtualization for better performance.`
@@ -1300,7 +1307,7 @@ export const getCustomCaption: CaptionFunction = (values) => {
     }
     
     if (containerValues.enableBreakpoints) {
-        const breakpointCount = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'].filter(size => {
+        const breakpointCount = BREAKPOINT_SIZES.filter(size => {
             const key = `${size}Enabled` as keyof ResponsiveContainerPreview;
             return containerValues[key];
         }).length;

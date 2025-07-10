@@ -18,20 +18,47 @@ import { getGridItemPlacement, parseGridTemplate, parseGridAreas } from "./utils
 import { BREAKPOINT_CONFIGS, getActiveBreakpoint } from "./utils/CSSGridTypes";
 
 /**
+ * Constants for styling
+ */
+const AREA_COLOR_OPACITY = 0.15;
+const AREA_BORDER_OPACITY = 0.3;
+const AREA_BORDER_WIDTH = 2;
+const AREA_BORDER_RADIUS = 4;
+const AREA_LABEL_BACKGROUND_OPACITY = 0.9;
+const AREA_LABEL_MAX_Z_INDEX = 999; // Maximum z-index for labels
+const AREA_BACKGROUND_Z_INDEX = -1; // Behind content
+const DEBUG_LINE_OPACITY = 0.6;
+const DEBUG_GAP_OPACITY = 0.25;
+const GRID_LINE_COLOR = "#ff003d";
+const GRID_LINE_WIDTH = 1;
+const GRID_LINE_LABEL_SIZE = 11;
+const GRID_LINE_LABEL_PADDING = { x: 20, y: 16 };
+const GRID_GAP_LABEL_SIZE = 10;
+const EMPTY_ITEM_MIN_HEIGHT = 40;
+const RESPONSIVE_INDICATOR_Z_INDEX = 100;
+const DEBUG_OVERLAY_Z_INDEX = 100;
+const DEFAULT_CONTAINER_WIDTH = 1024;
+const DEFAULT_BREAKPOINT = "lg";
+
+/**
  * Generate vibrant colors for areas with better visibility
+ * Each area gets a unique color from a predefined palette
+ *
+ * @param areas - Array of unique area names
+ * @returns Record mapping area names to their colors
  */
 const generateAreaColors = (areas: string[]): Record<string, string> => {
     const baseColors = [
-        "rgba(59, 130, 246, 0.2)", // Blue
-        "rgba(239, 68, 68, 0.2)", // Red
-        "rgba(16, 185, 129, 0.2)", // Green
-        "rgba(245, 158, 11, 0.2)", // Yellow
-        "rgba(139, 92, 246, 0.2)", // Purple
-        "rgba(236, 72, 153, 0.2)", // Pink
-        "rgba(14, 165, 233, 0.2)", // Sky
-        "rgba(168, 85, 247, 0.2)", // Violet
-        "rgba(251, 146, 60, 0.2)", // Orange
-        "rgba(6, 182, 212, 0.2)" // Cyan
+        `rgba(59, 130, 246, ${AREA_COLOR_OPACITY})`, // Blue
+        `rgba(239, 68, 68, ${AREA_COLOR_OPACITY})`, // Red
+        `rgba(16, 185, 129, ${AREA_COLOR_OPACITY})`, // Green
+        `rgba(245, 158, 11, ${AREA_COLOR_OPACITY})`, // Yellow
+        `rgba(139, 92, 246, ${AREA_COLOR_OPACITY})`, // Purple
+        `rgba(236, 72, 153, ${AREA_COLOR_OPACITY})`, // Pink
+        `rgba(14, 165, 233, ${AREA_COLOR_OPACITY})`, // Sky
+        `rgba(168, 85, 247, ${AREA_COLOR_OPACITY})`, // Violet
+        `rgba(251, 146, 60, ${AREA_COLOR_OPACITY})`, // Orange
+        `rgba(6, 182, 212, ${AREA_COLOR_OPACITY})` // Cyan
     ];
 
     const colorMap: Record<string, string> = {};
@@ -45,8 +72,9 @@ const generateAreaColors = (areas: string[]): Record<string, string> => {
 /**
  * CSS Grid Editor Preview Component - Production Grade with Responsiveness
  *
- * Responds to container width changes to show accurate preview
- * Uses direct style application instead of CSS variables for editor compatibility
+ * Provides a visual preview of the CSS Grid configuration in the Mendix Studio Pro
+ * Responds to container width changes to show accurate responsive behavior
+ * Uses inline styles for compatibility with Mendix Studio Pro's Jint rendering
  */
 export const preview: React.FC<CSSGridPreviewProps> = props => {
     // Cast to runtime type to handle conditional properties
@@ -87,11 +115,15 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     // State for grid measurements and responsive behavior
     const [gridMetrics, setGridMetrics] = useState<GridMetrics | null>(null);
-    const [containerWidth, setContainerWidth] = useState<number>(1024); // Default to desktop
-    const [activeBreakpointSize, setActiveBreakpointSize] = useState<string>("lg");
+    const [containerWidth, setContainerWidth] = useState<number>(DEFAULT_CONTAINER_WIDTH);
+    const [activeBreakpointSize, setActiveBreakpointSize] = useState<string>(DEFAULT_BREAKPOINT);
 
     /**
      * Helper to normalize empty strings to undefined
+     * Prevents empty strings from creating invalid CSS values
+     *
+     * @param value - The value to normalize
+     * @returns The normalized value or undefined
      */
     const normalizeValue = useCallback((value: string | undefined): string | undefined => {
         if (!value || value.trim() === "") return undefined;
@@ -100,7 +132,11 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Parse custom style string into React CSSProperties
+     * Converts CSS string format to React's camelCase object format
      * Modified to avoid regex for Mendix Studio Pro compatibility
+     *
+     * @param styleStr - CSS style string
+     * @returns CSSProperties object
      */
     const parseInlineStyles = useCallback((styleStr: string): CSSProperties => {
         const styles: CSSProperties = {};
@@ -156,6 +192,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Map enumeration values to CSS properties
+     * Converts Mendix enumeration values to valid CSS values
      */
     const cssEnumMappings = useMemo(
         () => ({
@@ -189,6 +226,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Get all defined areas across all configurations
+     * Collects area names from base config and all enabled breakpoints
+     *
+     * @returns Set of all unique area names
      */
     const getAllDefinedAreas = useCallback((): Set<string> => {
         const allAreas = new Set<string>();
@@ -230,6 +270,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Get active values for the current breakpoint
+     * Determines which configuration values should be used based on container width
+     *
+     * @returns Object containing all active grid configuration values
      */
     const getActiveBreakpointValues = useCallback(() => {
         // Define the return type interface
@@ -292,18 +335,6 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                 break;
             }
         }
-
-        // Debug logging
-        console.log("[CSSGrid Preview] Container width:", containerWidth);
-        console.log("[CSSGrid Preview] Active breakpoint:", activeBreakpointConfig?.size || "none");
-        console.log("[CSSGrid Preview] Breakpoints enabled:", {
-            xs: runtimeProps.xsEnabled,
-            sm: runtimeProps.smEnabled,
-            md: runtimeProps.mdEnabled,
-            lg: runtimeProps.lgEnabled,
-            xl: runtimeProps.xlEnabled,
-            xxl: runtimeProps.xxlEnabled
-        });
 
         // Apply only the active breakpoint's overrides if it's enabled
         if (activeBreakpointConfig) {
@@ -400,6 +431,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Build container styles
+     * Applies the active configuration values directly as CSS properties
      */
     const containerStyles = useMemo<CSSProperties>(() => {
         // Always get active values based on container width for the preview
@@ -452,6 +484,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Update container width and active breakpoint
+     * Tracks the container size to determine responsive behavior
      */
     useEffect(() => {
         if (!containerRef.current) return;
@@ -479,6 +512,10 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Get active placement for responsive items in preview
+     * Determines which placement configuration to use based on current breakpoint
+     *
+     * @param item - The grid item to get placement for
+     * @returns Active placement configuration
      */
     const getActiveItemPlacementForPreview = useCallback(
         (item: RuntimeGridItemPreview): GridItemPlacement => {
@@ -557,6 +594,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Parse grid dimensions for the current configuration
+     * Extracts information about columns, rows, and areas
      */
     const gridDimensions = useMemo(() => {
         // Get active configuration based on current breakpoint
@@ -578,6 +616,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Measure grid tracks and gaps after DOM updates
+     * Calculates the actual positions and sizes of grid lines
      * Modified to avoid split() for Mendix Studio Pro compatibility
      */
     const measureGrid = useCallback(() => {
@@ -761,6 +800,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Get active grid configuration for the current breakpoint
+     * Used for area validation in preview
      */
     const getActiveGridConfig = useCallback(() => {
         // Get the active values which already handles breakpoints
@@ -773,6 +813,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Check if responsive is enabled
+     * Determines if any breakpoints are configured
      */
     const hasResponsiveContainer = useMemo(() => {
         if (!enableBreakpoints) return false;
@@ -784,6 +825,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Render responsive indicator
+     * Shows which breakpoints are enabled and which is currently active
      */
     const renderResponsiveIndicator = () => {
         if (!hasResponsiveContainer) return null;
@@ -809,6 +851,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Render debug overlays
+     * Shows grid lines, gaps, and measurements when debug options are enabled
      */
     const renderDebugOverlays = () => {
         if (!gridMetrics || (!showGridLines && !showGridGaps)) return null;
@@ -829,7 +872,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                     width: "100%",
                     height: "100%",
                     pointerEvents: "none",
-                    zIndex: 100
+                    zIndex: DEBUG_OVERLAY_Z_INDEX
                 }}
                 width={width}
                 height={height}
@@ -846,8 +889,14 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                         patternUnits="userSpaceOnUse"
                         patternTransform="rotate(45)"
                     >
-                        <rect x="0" y="0" width="20" height="20" fill="rgba(255, 0, 61, 0.15)" />
-                        <rect x="0" y="0" width="10" height="20" fill="rgba(255, 0, 61, 0.25)" />
+                        <rect
+                            x="0"
+                            y="0"
+                            width="20"
+                            height="20"
+                            fill={`rgba(255, 0, 61, ${DEBUG_GAP_OPACITY * 0.6})`}
+                        />
+                        <rect x="0" y="0" width="10" height="20" fill={`rgba(255, 0, 61, ${DEBUG_GAP_OPACITY})`} />
                     </pattern>
                 </defs>
 
@@ -856,16 +905,11 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                     <g className="grid-gaps-column">
                         {tracks.columns.slice(0, -1).map((_, i) => {
                             if (i === tracks.columns.length - 2) return null; // Skip the last gap
-                            const currentPos = tracks.columns[i];
-                            const nextPos = tracks.columns[i + 1];
-                            const gapX = currentPos + (nextPos - currentPos - gaps.column) / 2;
-                            console.log(
-                                `Rendering column gap at index ${i}: currentPos=${currentPos}, nextPos=${nextPos}, gapX=${gapX}`
-                            );
+                            const nextColPos = tracks.columns[i + 1];
                             return (
                                 <g key={`gap-col-${i}`}>
                                     <rect
-                                        x={nextPos}
+                                        x={nextColPos}
                                         y={0}
                                         width={gaps.column}
                                         height={height}
@@ -873,14 +917,14 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                     />
                                     {/* Gap measurement text */}
                                     <text
-                                        x={nextPos + gaps.column / 2}
+                                        x={nextColPos + gaps.column / 2}
                                         y={height / 2}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize="10"
-                                        fill="rgba(255, 0, 61, 0.8)"
+                                        fontSize={GRID_GAP_LABEL_SIZE}
+                                        fill={`rgba(255, 0, 61, 0.8)`}
                                         fontWeight="bold"
-                                        transform={`rotate(-90 ${nextPos + gaps.column / 2} ${height / 2})`}
+                                        transform={`rotate(-90 ${nextColPos + gaps.column / 2} ${height / 2})`}
                                         style={{
                                             filter: "drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)"
                                         }}
@@ -897,23 +941,24 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                     <g className="grid-gaps-row">
                         {tracks.rows.slice(0, -1).map((_, i) => {
                             if (i === tracks.rows.length - 2) return null; // Skip the last gap
-                            const currentPos = tracks.rows[i];
-                            const nextPos = tracks.rows[i + 1];
-                            const gapY = currentPos + (nextPos - currentPos - gaps.row) / 2;
-                            console.log(
-                                `Rendering row gap at index ${i}: currentPos=${currentPos}, nextPos=${nextPos}, gapY=${gapY}`
-                            );
+                            const nextRowPos = tracks.rows[i + 1];
                             return (
                                 <g key={`gap-row-${i}`}>
-                                    <rect x={0} y={nextPos} width={width} height={gaps.row} fill="url(#gap-stripes)" />
+                                    <rect
+                                        x={0}
+                                        y={nextRowPos}
+                                        width={width}
+                                        height={gaps.row}
+                                        fill="url(#gap-stripes)"
+                                    />
                                     {/* Gap measurement text */}
                                     <text
                                         x={width / 2}
-                                        y={nextPos + gaps.row / 2}
+                                        y={nextRowPos + gaps.row / 2}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize="10"
-                                        fill="rgba(255, 0, 61, 0.8)"
+                                        fontSize={GRID_GAP_LABEL_SIZE}
+                                        fill={`rgba(255, 0, 61, 0.8)`}
                                         fontWeight="bold"
                                         style={{
                                             filter: "drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)"
@@ -946,9 +991,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                             y1={0}
                                             x2={x}
                                             y2={height}
-                                            stroke="#ff003d"
-                                            strokeWidth="1"
-                                            opacity="0.6"
+                                            stroke={GRID_LINE_COLOR}
+                                            strokeWidth={GRID_LINE_WIDTH}
+                                            opacity={DEBUG_LINE_OPACITY}
                                         />
                                     )}
 
@@ -961,9 +1006,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                                     y1={0}
                                                     x2={x}
                                                     y2={height}
-                                                    stroke="#ff003d"
-                                                    strokeWidth="1"
-                                                    opacity="0.6"
+                                                    stroke={GRID_LINE_COLOR}
+                                                    strokeWidth={GRID_LINE_WIDTH}
+                                                    opacity={DEBUG_LINE_OPACITY}
                                                 />
                                             )}
                                             <line
@@ -971,9 +1016,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                                 y1={0}
                                                 x2={x + gaps.column}
                                                 y2={height}
-                                                stroke="#ff003d"
-                                                strokeWidth="1"
-                                                opacity="0.6"
+                                                stroke={GRID_LINE_COLOR}
+                                                strokeWidth={GRID_LINE_WIDTH}
+                                                opacity={DEBUG_LINE_OPACITY}
                                             />
                                         </Fragment>
                                     )}
@@ -981,13 +1026,19 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                     {/* Column line numbers positioned inside grid */}
                                     {/* Top labels */}
                                     <rect
-                                        x={isFirst ? x + 4 : isLast ? x - 24 : x - 10}
+                                        x={
+                                            isFirst
+                                                ? x + 4
+                                                : isLast
+                                                ? x - GRID_LINE_LABEL_PADDING.x - 4
+                                                : x - GRID_LINE_LABEL_PADDING.x / 2
+                                        }
                                         y={4}
-                                        width="20"
-                                        height="16"
+                                        width={GRID_LINE_LABEL_PADDING.x}
+                                        height={GRID_LINE_LABEL_PADDING.y}
                                         fill="white"
-                                        stroke="#ff003d"
-                                        strokeWidth="1"
+                                        stroke={GRID_LINE_COLOR}
+                                        strokeWidth={GRID_LINE_WIDTH}
                                         opacity="0.9"
                                         rx="2"
                                     />
@@ -996,21 +1047,27 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                         y={12}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize="11"
-                                        fill="#ff003d"
+                                        fontSize={GRID_LINE_LABEL_SIZE}
+                                        fill={GRID_LINE_COLOR}
                                         fontWeight="bold"
                                     >
                                         {lineNumber}
                                     </text>
                                     {/* Bottom labels */}
                                     <rect
-                                        x={isFirst ? x + 4 : isLast ? x - 24 : x - 10}
-                                        y={height - 20}
-                                        width="20"
-                                        height="16"
+                                        x={
+                                            isFirst
+                                                ? x + 4
+                                                : isLast
+                                                ? x - GRID_LINE_LABEL_PADDING.x - 4
+                                                : x - GRID_LINE_LABEL_PADDING.x / 2
+                                        }
+                                        y={height - GRID_LINE_LABEL_PADDING.y - 4}
+                                        width={GRID_LINE_LABEL_PADDING.x}
+                                        height={GRID_LINE_LABEL_PADDING.y}
                                         fill="white"
-                                        stroke="#ff003d"
-                                        strokeWidth="1"
+                                        stroke={GRID_LINE_COLOR}
+                                        strokeWidth={GRID_LINE_WIDTH}
                                         opacity="0.9"
                                         rx="2"
                                     />
@@ -1019,8 +1076,8 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                         y={height - 12}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize="11"
-                                        fill="#ff003d"
+                                        fontSize={GRID_LINE_LABEL_SIZE}
+                                        fill={GRID_LINE_COLOR}
                                         fontWeight="bold"
                                     >
                                         {lineNumber}
@@ -1045,9 +1102,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                             y1={y}
                                             x2={width}
                                             y2={y}
-                                            stroke="#ff003d"
-                                            strokeWidth="1"
-                                            opacity="0.6"
+                                            stroke={GRID_LINE_COLOR}
+                                            strokeWidth={GRID_LINE_WIDTH}
+                                            opacity={DEBUG_LINE_OPACITY}
                                         />
                                     )}
 
@@ -1060,9 +1117,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                                     y1={y}
                                                     x2={width}
                                                     y2={y}
-                                                    stroke="#ff003d"
-                                                    strokeWidth="1"
-                                                    opacity="0.6"
+                                                    stroke={GRID_LINE_COLOR}
+                                                    strokeWidth={GRID_LINE_WIDTH}
+                                                    opacity={DEBUG_LINE_OPACITY}
                                                 />
                                             )}
                                             <line
@@ -1070,9 +1127,9 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                                 y1={y + gaps.row}
                                                 x2={width}
                                                 y2={y + gaps.row}
-                                                stroke="#ff003d"
-                                                strokeWidth="1"
-                                                opacity="0.6"
+                                                stroke={GRID_LINE_COLOR}
+                                                strokeWidth={GRID_LINE_WIDTH}
+                                                opacity={DEBUG_LINE_OPACITY}
                                             />
                                         </Fragment>
                                     )}
@@ -1081,12 +1138,18 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                     {/* Left labels */}
                                     <rect
                                         x={4}
-                                        y={isFirst ? y + 4 : isLast ? y - 20 : y - 8}
-                                        width="20"
-                                        height="16"
+                                        y={
+                                            isFirst
+                                                ? y + 4
+                                                : isLast
+                                                ? y - GRID_LINE_LABEL_PADDING.y - 4
+                                                : y - GRID_LINE_LABEL_PADDING.y / 2
+                                        }
+                                        width={GRID_LINE_LABEL_PADDING.x}
+                                        height={GRID_LINE_LABEL_PADDING.y}
                                         fill="white"
-                                        stroke="#ff003d"
-                                        strokeWidth="1"
+                                        stroke={GRID_LINE_COLOR}
+                                        strokeWidth={GRID_LINE_WIDTH}
                                         opacity="0.9"
                                         rx="2"
                                     />
@@ -1095,21 +1158,27 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                         y={isFirst ? y + 12 : isLast ? y - 12 : y}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize="11"
-                                        fill="#ff003d"
+                                        fontSize={GRID_LINE_LABEL_SIZE}
+                                        fill={GRID_LINE_COLOR}
                                         fontWeight="bold"
                                     >
                                         {lineNumber}
                                     </text>
                                     {/* Right labels */}
                                     <rect
-                                        x={width - 24}
-                                        y={isFirst ? y + 4 : isLast ? y - 20 : y - 8}
-                                        width="20"
-                                        height="16"
+                                        x={width - GRID_LINE_LABEL_PADDING.x - 4}
+                                        y={
+                                            isFirst
+                                                ? y + 4
+                                                : isLast
+                                                ? y - GRID_LINE_LABEL_PADDING.y - 4
+                                                : y - GRID_LINE_LABEL_PADDING.y / 2
+                                        }
+                                        width={GRID_LINE_LABEL_PADDING.x}
+                                        height={GRID_LINE_LABEL_PADDING.y}
                                         fill="white"
-                                        stroke="#ff003d"
-                                        strokeWidth="1"
+                                        stroke={GRID_LINE_COLOR}
+                                        strokeWidth={GRID_LINE_WIDTH}
                                         opacity="0.9"
                                         rx="2"
                                     />
@@ -1118,8 +1187,8 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                         y={isFirst ? y + 12 : isLast ? y - 12 : y}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize="11"
-                                        fill="#ff003d"
+                                        fontSize={GRID_LINE_LABEL_SIZE}
+                                        fill={GRID_LINE_COLOR}
                                         fontWeight="bold"
                                     >
                                         {lineNumber}
@@ -1135,6 +1204,8 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
     /**
      * Render grid areas overlay
+     * Creates area backgrounds behind content with labels on top
+     * Uses inline styles for Mendix Studio Pro compatibility
      */
     const renderGridAreasOverlay = () => {
         if (!showGridAreas || !useNamedAreas || !gridDimensions.parsedAreas) return null;
@@ -1173,10 +1244,17 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                             gridRow: `${minRow + 1} / ${maxRow + 2}`,
                             gridColumn: `${minCol + 1} / ${maxCol + 2}`,
                             backgroundColor: areaColorMap[cell],
-                            border: "1px solid rgba(0, 0, 0, 0.1)",
+                            border: `${AREA_BORDER_WIDTH}px dashed rgba(0, 0, 0, ${AREA_BORDER_OPACITY})`,
+                            borderRadius: `${AREA_BORDER_RADIUS}px`,
                             pointerEvents: "none",
                             position: "relative",
-                            zIndex: -1
+                            width: "100%",
+                            height: "100%",
+                            boxSizing: "border-box",
+                            // Ensure areas fill their grid cells
+                            justifySelf: "stretch",
+                            alignSelf: "stretch",
+                            zIndex: AREA_BACKGROUND_Z_INDEX // Behind content
                         }}
                     >
                         <div
@@ -1186,7 +1264,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                 top: "50%",
                                 left: "50%",
                                 transform: "translate(-50%, -50%)",
-                                zIndex: 1000,
+                                zIndex: AREA_LABEL_MAX_Z_INDEX, // Maximum z-index for label
                                 pointerEvents: "none"
                             }}
                         >
@@ -1199,7 +1277,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                                     color: "white",
                                     textTransform: "uppercase",
                                     letterSpacing: "0.5px",
-                                    background: "rgba(59, 130, 246, 0.9)",
+                                    background: `rgba(59, 130, 246, ${AREA_LABEL_BACKGROUND_OPACITY})`,
                                     padding: "2px 6px",
                                     borderRadius: "3px",
                                     whiteSpace: "nowrap",
@@ -1216,7 +1294,114 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
     };
 
     /**
-     * Container classes
+     * Render grid items
+     * Renders each configured item with appropriate placement and styling
+     */
+    const renderGridItems = useCallback(() => {
+        const allDefinedAreas = getAllDefinedAreas();
+        const activeConfig = getActiveGridConfig();
+
+        return items.map((item, index) => {
+            const runtimeItem = item as RuntimeGridItemPreview;
+
+            // Get the active placement for this item at the current breakpoint
+            const activePlacement = getActiveItemPlacementForPreview(runtimeItem);
+
+            // Determine the effective placement type
+            const effectivePlacementType =
+                useNamedAreas && activePlacement.gridArea?.trim() ? "area" : activePlacement.placementType;
+
+            // Validate area placement against current configuration
+            let validatedPlacement = activePlacement;
+            if (effectivePlacementType === "area" && activePlacement.gridArea) {
+                const currentAreas = activeConfig.areas ? parseGridAreas(activeConfig.areas) : null;
+                const currentAreaNames = currentAreas
+                    ? new Set(currentAreas.flat().filter(a => a !== "."))
+                    : new Set<string>();
+
+                if (!currentAreaNames.has(activePlacement.gridArea) && !allDefinedAreas.has(activePlacement.gridArea)) {
+                    // Area doesn't exist, fall back to auto
+                    validatedPlacement = {
+                        placementType: "auto",
+                        gridArea: undefined,
+                        columnStart: undefined,
+                        columnEnd: undefined,
+                        rowStart: undefined,
+                        rowEnd: undefined
+                    };
+                    console.warn(
+                        `Item ${index + 1}: Grid area "${
+                            activePlacement.gridArea
+                        }" is not defined in current configuration`
+                    );
+                }
+            }
+
+            const placementStyles = getGridItemPlacement(
+                {
+                    ...validatedPlacement,
+                    placementType: effectivePlacementType
+                },
+                useNamedAreas
+            );
+
+            const itemStyles: CSSProperties = {
+                position: "relative",
+                minHeight: `${EMPTY_ITEM_MIN_HEIGHT}px`,
+                boxSizing: "border-box",
+                width: "100%",
+                height: "100%",
+                ...placementStyles,
+                justifySelf: runtimeItem.justifySelf !== "auto" ? runtimeItem.justifySelf : undefined,
+                alignSelf: runtimeItem.alignSelf !== "auto" ? runtimeItem.alignSelf : undefined,
+                zIndex: runtimeItem.zIndex || undefined
+            };
+
+            const itemName =
+                runtimeItem.itemName ||
+                (effectivePlacementType === "area" && activePlacement.gridArea
+                    ? activePlacement.gridArea
+                    : `Item ${index + 1}`);
+
+            const hasResponsive = runtimeItem.enableResponsive || false;
+            const itemCaption = `${itemName}${hasResponsive ? " 📱" : ""}`;
+
+            const ContentRenderer = runtimeItem.content?.renderer;
+
+            const itemClasses = ["mx-css-grid-preview-item", "mx-grid-item", runtimeItem.className]
+                .filter(Boolean)
+                .join(" ");
+
+            return (
+                <Selectable key={`grid-item-${index}`} object={runtimeItem} caption={itemCaption}>
+                    <div
+                        className={itemClasses}
+                        style={itemStyles}
+                        data-item-index={index}
+                        data-item-name={itemName}
+                        data-placement-type={effectivePlacementType}
+                        data-responsive={hasResponsive}
+                    >
+                        {ContentRenderer ? (
+                            <div className="mx-css-grid-preview-content">
+                                <ContentRenderer>
+                                    <div style={{ width: "100%", height: "100%" }} />
+                                </ContentRenderer>
+                            </div>
+                        ) : (
+                            <div className="mx-css-grid-preview-empty">
+                                <span className="mx-css-grid-preview-empty-text">{itemName}</span>
+                            </div>
+                        )}
+                    </div>
+                </Selectable>
+            );
+        });
+    }, [items, useNamedAreas, getAllDefinedAreas, getActiveGridConfig, getActiveItemPlacementForPreview]);
+
+    /**
+     * Container class names
+     * Builds the complete class list for the grid container
      */
     const containerClasses = useMemo(() => {
         const classes = ["mx-css-grid-preview", "mx-css-grid", `mx-grid-${activeBreakpointSize}`, className];
@@ -1257,110 +1442,14 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                 data-rows={gridDimensions.rowCount}
                 data-breakpoint={activeBreakpointSize}
             >
-                {/* Grid areas overlay */}
+                {/* Grid areas overlay - rendered first so it's behind content */}
                 {renderGridAreasOverlay()}
 
-                {/* Debug overlays */}
-                {renderDebugOverlays()}
-
                 {/* Grid items */}
-                {items.map((item, index) => {
-                    const runtimeItem = item as RuntimeGridItemPreview;
+                {renderGridItems()}
 
-                    // Get the active placement for this item at the current breakpoint
-                    const activePlacement = getActiveItemPlacementForPreview(runtimeItem);
-
-                    // Determine the effective placement type
-                    const effectivePlacementType =
-                        useNamedAreas && activePlacement.gridArea?.trim() ? "area" : activePlacement.placementType;
-
-                    // Validate area placement against current configuration
-                    let validatedPlacement = activePlacement;
-                    if (effectivePlacementType === "area" && activePlacement.gridArea) {
-                        const activeConfig = getActiveGridConfig();
-                        const currentAreas = activeConfig.areas ? parseGridAreas(activeConfig.areas) : null;
-                        const currentAreaNames = currentAreas
-                            ? new Set(currentAreas.flat().filter(a => a !== "."))
-                            : new Set<string>();
-
-                        const allDefinedAreas = getAllDefinedAreas();
-
-                        if (
-                            !currentAreaNames.has(activePlacement.gridArea) &&
-                            !allDefinedAreas.has(activePlacement.gridArea)
-                        ) {
-                            // Area doesn't exist, fall back to auto
-                            validatedPlacement = {
-                                placementType: "auto",
-                                gridArea: undefined,
-                                columnStart: undefined,
-                                columnEnd: undefined,
-                                rowStart: undefined,
-                                rowEnd: undefined
-                            };
-                        }
-                    }
-
-                    const placementStyles = getGridItemPlacement(
-                        {
-                            ...validatedPlacement,
-                            placementType: effectivePlacementType
-                        },
-                        useNamedAreas
-                    );
-
-                    const itemStyles: CSSProperties = {
-                        position: "relative",
-                        minHeight: "40px",
-                        boxSizing: "border-box",
-                        width: "100%",
-                        height: "100%",
-                        ...placementStyles,
-                        justifySelf: runtimeItem.justifySelf !== "auto" ? runtimeItem.justifySelf : undefined,
-                        alignSelf: runtimeItem.alignSelf !== "auto" ? runtimeItem.alignSelf : undefined,
-                        zIndex: runtimeItem.zIndex || undefined
-                    };
-
-                    const itemName =
-                        runtimeItem.itemName ||
-                        (effectivePlacementType === "area" && activePlacement.gridArea
-                            ? activePlacement.gridArea
-                            : `Item ${index + 1}`);
-
-                    const hasResponsive = runtimeItem.enableResponsive || false;
-                    const itemCaption = `${itemName}${hasResponsive ? " 📱" : ""}`;
-
-                    const ContentRenderer = runtimeItem.content?.renderer;
-
-                    const itemClasses = ["mx-css-grid-preview-item", "mx-grid-item", runtimeItem.className]
-                        .filter(Boolean)
-                        .join(" ");
-
-                    return (
-                        <Selectable key={`grid-item-${index}`} object={runtimeItem} caption={itemCaption}>
-                            <div
-                                className={itemClasses}
-                                style={itemStyles}
-                                data-item-index={index}
-                                data-item-name={itemName}
-                                data-placement-type={effectivePlacementType}
-                                data-responsive={hasResponsive}
-                            >
-                                {ContentRenderer ? (
-                                    <div className="mx-css-grid-preview-content">
-                                        <ContentRenderer>
-                                            <div style={{ width: "100%", height: "100%" }} />
-                                        </ContentRenderer>
-                                    </div>
-                                ) : (
-                                    <div className="mx-css-grid-preview-empty">
-                                        <span className="mx-css-grid-preview-empty-text">{itemName}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </Selectable>
-                    );
-                })}
+                {/* Debug overlays - on top */}
+                {renderDebugOverlays()}
             </div>
         </div>
     );
@@ -1368,6 +1457,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
 /**
  * Get preview CSS styles
+ * Provides all necessary styles for the editor preview
  */
 export function getPreviewCss(): string {
     return `
@@ -1377,6 +1467,11 @@ export function getPreviewCss(): string {
             width: 100%;
             position: relative;
             contain: layout style;
+        }
+        
+        /* Make grid preview container positioned for absolute children */
+        .mx-css-grid-preview {
+            position: relative !important;
         }
 
         /* Grid item base styles */
@@ -1454,7 +1549,7 @@ export function getPreviewCss(): string {
             padding: 2px 8px;
             border-radius: 4px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            z-index: 100;
+            z-index: ${RESPONSIVE_INDICATOR_Z_INDEX};
         }
 
         .mx-css-grid-preview-info-icon {
@@ -1483,7 +1578,7 @@ export function getPreviewCss(): string {
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            z-index: 1000 !important;
+            z-index: ${AREA_LABEL_MAX_Z_INDEX} !important;
             pointer-events: none !important;
         }
 
@@ -1509,7 +1604,7 @@ export function getPreviewCss(): string {
         .mx-css-grid-preview-empty {
             width: 100%;
             height: 100%;
-            min-height: 40px;
+            min-height: ${EMPTY_ITEM_MIN_HEIGHT}px;
             display: flex;
             align-items: center;
             justify-content: center;
