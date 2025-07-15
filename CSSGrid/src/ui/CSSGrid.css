@@ -1,12 +1,12 @@
 /**
- * CSS Grid Widget Styles - Generic CSS Variable Implementation
+ * CSS Grid Widget Styles - BEM Implementation
  * 
- * Uses a consistent pattern for all grid items without assuming semantic names
- * Developers can target items using attribute selectors if needed
+ * Uses BEM notation: css-grid (block) and css-grid__item (element)
+ * CSS variables are prefixed with --css-grid- and --css-grid__item-
  */
 
 /* Base grid container */
-.mx-css-grid {
+.css-grid {
     box-sizing: border-box;
     width: 100%;
     position: relative;
@@ -14,164 +14,210 @@
 }
 
 /* Responsive grid uses CSS custom properties */
-.mx-css-grid.mx-css-grid--responsive {
+.css-grid.css-grid--responsive {
     /* Base configuration with defaults */
-    grid-template-columns: var(--grid-columns, 1fr);
-    grid-template-rows: var(--grid-rows, auto);
-    grid-template-areas: var(--grid-areas, none);
-    gap: var(--grid-gap, 0);
-    grid-auto-flow: var(--grid-auto-flow, row);
-    grid-auto-rows: var(--grid-auto-rows, auto);
-    grid-auto-columns: var(--grid-auto-columns, auto);
-    justify-items: var(--grid-justify-items, stretch);
-    align-items: var(--grid-align-items, stretch);
-    justify-content: var(--grid-justify-content, start);
-    align-content: var(--grid-align-content, stretch);
-    min-height: var(--grid-min-height);
-    max-height: var(--grid-max-height);
-    min-width: var(--grid-min-width);
-    max-width: var(--grid-max-width);
+    grid-template-columns: var(--css-grid-columns, 1fr);
+    grid-template-rows: var(--css-grid-rows, auto);
+    grid-template-areas: var(--css-grid-areas, none);
+    gap: var(--css-grid-gap, 0);
+    grid-auto-flow: var(--css-grid-auto-flow, row);
+    grid-auto-rows: var(--css-grid-auto-rows, auto);
+    grid-auto-columns: var(--css-grid-auto-columns, auto);
+    justify-items: var(--css-grid-justify-items, stretch);
+    align-items: var(--css-grid-align-items, stretch);
+    justify-content: var(--css-grid-justify-content, start);
+    align-content: var(--css-grid-align-content, stretch);
+    min-height: var(--css-grid-min-height);
+    max-height: var(--css-grid-max-height);
+    min-width: var(--css-grid-min-width);
+    max-width: var(--css-grid-max-width);
 }
 
 /* Center grid when max-width is set */
-.mx-css-grid.mx-css-grid--responsive[style*="--grid-max-width"] {
+.css-grid.css-grid--responsive[style*="--css-grid-max-width"] {
     margin-left: auto;
     margin-right: auto;
 }
 
 /* Extra Small Breakpoint (< 640px) - Mobile First Base */
 @media (max-width: 639px) {
-    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-xs {
-        grid-template-columns: var(--grid-xs-columns, var(--grid-columns, 1fr));
-        grid-template-rows: var(--grid-xs-rows, var(--grid-rows, auto));
-        grid-template-areas: var(--grid-xs-areas, var(--grid-areas, none));
-        gap: var(--grid-xs-gap, var(--grid-gap, 0));
-        grid-auto-flow: var(--grid-xs-auto-flow, var(--grid-auto-flow, row));
-        grid-auto-rows: var(--grid-xs-auto-rows, var(--grid-auto-rows, auto));
-        grid-auto-columns: var(--grid-xs-auto-columns, var(--grid-auto-columns, auto));
-        justify-items: var(--grid-xs-justify-items, var(--grid-justify-items, stretch));
-        align-items: var(--grid-xs-align-items, var(--grid-align-items, stretch));
-        justify-content: var(--grid-xs-justify-content, var(--grid-justify-content, start));
-        align-content: var(--grid-xs-align-content, var(--grid-align-content, stretch));
-        min-height: var(--grid-xs-min-height, var(--grid-min-height));
-        max-height: var(--grid-xs-max-height, var(--grid-max-height));
-        min-width: var(--grid-xs-min-width, var(--grid-min-width));
-        max-width: var(--grid-xs-max-width, var(--grid-max-width));
+    .css-grid.css-grid--responsive.css-grid--has-xs {
+        grid-template-columns: var(--css-grid-xs-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-xs-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-xs-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-xs-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-xs-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-xs-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-xs-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-xs-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-xs-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-xs-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-xs-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-xs-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-xs-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-xs-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-xs-max-width, var(--css-grid-max-width));
     }
 }
 
 /* Small Breakpoint (640px - 767px) */
 @media (min-width: 640px) and (max-width: 767px) {
-    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-sm {
-        grid-template-columns: var(--grid-sm-columns, var(--grid-columns, 1fr));
-        grid-template-rows: var(--grid-sm-rows, var(--grid-rows, auto));
-        grid-template-areas: var(--grid-sm-areas, var(--grid-areas, none));
-        gap: var(--grid-sm-gap, var(--grid-gap, 0));
-        grid-auto-flow: var(--grid-sm-auto-flow, var(--grid-auto-flow, row));
-        grid-auto-rows: var(--grid-sm-auto-rows, var(--grid-auto-rows, auto));
-        grid-auto-columns: var(--grid-sm-auto-columns, var(--grid-auto-columns, auto));
-        justify-items: var(--grid-sm-justify-items, var(--grid-justify-items, stretch));
-        align-items: var(--grid-sm-align-items, var(--grid-align-items, stretch));
-        justify-content: var(--grid-sm-justify-content, var(--grid-justify-content, start));
-        align-content: var(--grid-sm-align-content, var(--grid-align-content, stretch));
-        min-height: var(--grid-sm-min-height, var(--grid-min-height));
-        max-height: var(--grid-sm-max-height, var(--grid-max-height));
-        min-width: var(--grid-sm-min-width, var(--grid-min-width));
-        max-width: var(--grid-sm-max-width, var(--grid-max-width));
+    .css-grid.css-grid--responsive.css-grid--has-sm {
+        grid-template-columns: var(--css-grid-sm-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-sm-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-sm-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-sm-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-sm-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-sm-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-sm-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-sm-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-sm-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-sm-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-sm-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-sm-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-sm-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-sm-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-sm-max-width, var(--css-grid-max-width));
     }
 }
 
 /* Medium Breakpoint (768px - 1023px) */
 @media (min-width: 768px) and (max-width: 1023px) {
-    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-md {
-        grid-template-columns: var(--grid-md-columns, var(--grid-columns, 1fr));
-        grid-template-rows: var(--grid-md-rows, var(--grid-rows, auto));
-        grid-template-areas: var(--grid-md-areas, var(--grid-areas, none));
-        gap: var(--grid-md-gap, var(--grid-gap, 0));
-        grid-auto-flow: var(--grid-md-auto-flow, var(--grid-auto-flow, row));
-        grid-auto-rows: var(--grid-md-auto-rows, var(--grid-auto-rows, auto));
-        grid-auto-columns: var(--grid-md-auto-columns, var(--grid-auto-columns, auto));
-        justify-items: var(--grid-md-justify-items, var(--grid-justify-items, stretch));
-        align-items: var(--grid-md-align-items, var(--grid-align-items, stretch));
-        justify-content: var(--grid-md-justify-content, var(--grid-justify-content, start));
-        align-content: var(--grid-md-align-content, var(--grid-align-content, stretch));
-        min-height: var(--grid-md-min-height, var(--grid-min-height));
-        max-height: var(--grid-md-max-height, var(--grid-max-height));
-        min-width: var(--grid-md-min-width, var(--grid-min-width));
-        max-width: var(--grid-md-max-width, var(--grid-max-width));
+    .css-grid.css-grid--responsive.css-grid--has-md {
+        grid-template-columns: var(--css-grid-md-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-md-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-md-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-md-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-md-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-md-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-md-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-md-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-md-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-md-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-md-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-md-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-md-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-md-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-md-max-width, var(--css-grid-max-width));
     }
 }
 
 /* Large Breakpoint (1024px - 1439px) */
 @media (min-width: 1024px) and (max-width: 1439px) {
-    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-lg {
-        grid-template-columns: var(--grid-lg-columns, var(--grid-columns, 1fr));
-        grid-template-rows: var(--grid-lg-rows, var(--grid-rows, auto));
-        grid-template-areas: var(--grid-lg-areas, var(--grid-areas, none));
-        gap: var(--grid-lg-gap, var(--grid-gap, 0));
-        grid-auto-flow: var(--grid-lg-auto-flow, var(--grid-auto-flow, row));
-        grid-auto-rows: var(--grid-lg-auto-rows, var(--grid-auto-rows, auto));
-        grid-auto-columns: var(--grid-lg-auto-columns, var(--grid-auto-columns, auto));
-        justify-items: var(--grid-lg-justify-items, var(--grid-justify-items, stretch));
-        align-items: var(--grid-lg-align-items, var(--grid-align-items, stretch));
-        justify-content: var(--grid-lg-justify-content, var(--grid-justify-content, start));
-        align-content: var(--grid-lg-align-content, var(--grid-align-content, stretch));
-        min-height: var(--grid-lg-min-height, var(--grid-min-height));
-        max-height: var(--grid-lg-max-height, var(--grid-max-height));
-        min-width: var(--grid-lg-min-width, var(--grid-min-width));
-        max-width: var(--grid-lg-max-width, var(--grid-max-width));
+    .css-grid.css-grid--responsive.css-grid--has-lg {
+        grid-template-columns: var(--css-grid-lg-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-lg-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-lg-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-lg-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-lg-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-lg-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-lg-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-lg-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-lg-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-lg-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-lg-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-lg-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-lg-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-lg-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-lg-max-width, var(--css-grid-max-width));
     }
 }
 
 /* Extra Large Breakpoint (1440px - 1919px) */
 @media (min-width: 1440px) and (max-width: 1919px) {
-    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-xl {
-        grid-template-columns: var(--grid-xl-columns, var(--grid-columns, 1fr));
-        grid-template-rows: var(--grid-xl-rows, var(--grid-rows, auto));
-        grid-template-areas: var(--grid-xl-areas, var(--grid-areas, none));
-        gap: var(--grid-xl-gap, var(--grid-gap, 0));
-        grid-auto-flow: var(--grid-xl-auto-flow, var(--grid-auto-flow, row));
-        grid-auto-rows: var(--grid-xl-auto-rows, var(--grid-auto-rows, auto));
-        grid-auto-columns: var(--grid-xl-auto-columns, var(--grid-auto-columns, auto));
-        justify-items: var(--grid-xl-justify-items, var(--grid-justify-items, stretch));
-        align-items: var(--grid-xl-align-items, var(--grid-align-items, stretch));
-        justify-content: var(--grid-xl-justify-content, var(--grid-justify-content, start));
-        align-content: var(--grid-xl-align-content, var(--grid-align-content, stretch));
-        min-height: var(--grid-xl-min-height, var(--grid-min-height));
-        max-height: var(--grid-xl-max-height, var(--grid-max-height));
-        min-width: var(--grid-xl-min-width, var(--grid-min-width));
-        max-width: var(--grid-xl-max-width, var(--grid-max-width));
+    .css-grid.css-grid--responsive.css-grid--has-xl {
+        grid-template-columns: var(--css-grid-xl-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-xl-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-xl-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-xl-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-xl-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-xl-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-xl-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-xl-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-xl-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-xl-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-xl-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-xl-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-xl-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-xl-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-xl-max-width, var(--css-grid-max-width));
     }
 }
 
-/* 2X Large Breakpoint (>= 1920px) */
-@media (min-width: 1920px) {
-    .mx-css-grid.mx-css-grid--responsive.mx-grid-has-xxl {
-        grid-template-columns: var(--grid-xxl-columns, var(--grid-columns, 1fr));
-        grid-template-rows: var(--grid-xxl-rows, var(--grid-rows, auto));
-        grid-template-areas: var(--grid-xxl-areas, var(--grid-areas, none));
-        gap: var(--grid-xxl-gap, var(--grid-gap, 0));
-        grid-auto-flow: var(--grid-xxl-auto-flow, var(--grid-auto-flow, row));
-        grid-auto-rows: var(--grid-xxl-auto-rows, var(--grid-auto-rows, auto));
-        grid-auto-columns: var(--grid-xxl-auto-columns, var(--grid-auto-columns, auto));
-        justify-items: var(--grid-xxl-justify-items, var(--grid-justify-items, stretch));
-        align-items: var(--grid-xxl-align-items, var(--grid-align-items, stretch));
-        justify-content: var(--grid-xxl-justify-content, var(--grid-justify-content, start));
-        align-content: var(--grid-xxl-align-content, var(--grid-align-content, stretch));
-        min-height: var(--grid-xxl-min-height, var(--grid-min-height));
-        max-height: var(--grid-xxl-max-height, var(--grid-max-height));
-        min-width: var(--grid-xxl-min-width, var(--grid-min-width));
-        max-width: var(--grid-xxl-max-width, var(--grid-max-width));
+/* 2X Large Breakpoint (1920px - 2559px) */
+@media (min-width: 1920px) and (max-width: 2559px) {
+    .css-grid.css-grid--responsive.css-grid--has-xxl {
+        grid-template-columns: var(--css-grid-xxl-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-xxl-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-xxl-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-xxl-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-xxl-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-xxl-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-xxl-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-xxl-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-xxl-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-xxl-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-xxl-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-xxl-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-xxl-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-xxl-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-xxl-max-width, var(--css-grid-max-width));
+    }
+}
+
+/* 2K Breakpoint (2560px - 3839px) */
+@media (min-width: 2560px) and (max-width: 3839px) {
+    .css-grid.css-grid--responsive.css-grid--has-xxxl {
+        grid-template-columns: var(--css-grid-xxxl-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-xxxl-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-xxxl-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-xxxl-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-xxxl-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-xxxl-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-xxxl-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-xxxl-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-xxxl-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-xxxl-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-xxxl-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-xxxl-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-xxxl-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-xxxl-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-xxxl-max-width, var(--css-grid-max-width));
+    }
+}
+
+/* 4K Breakpoint (>= 3840px) */
+@media (min-width: 3840px) {
+    .css-grid.css-grid--responsive.css-grid--has-xxxxl {
+        grid-template-columns: var(--css-grid-xxxxl-columns, var(--css-grid-columns, 1fr));
+        grid-template-rows: var(--css-grid-xxxxl-rows, var(--css-grid-rows, auto));
+        grid-template-areas: var(--css-grid-xxxxl-areas, var(--css-grid-areas, none));
+        gap: var(--css-grid-xxxxl-gap, var(--css-grid-gap, 0));
+        grid-auto-flow: var(--css-grid-xxxxl-auto-flow, var(--css-grid-auto-flow, row));
+        grid-auto-rows: var(--css-grid-xxxxl-auto-rows, var(--css-grid-auto-rows, auto));
+        grid-auto-columns: var(--css-grid-xxxxl-auto-columns, var(--css-grid-auto-columns, auto));
+        justify-items: var(--css-grid-xxxxl-justify-items, var(--css-grid-justify-items, stretch));
+        align-items: var(--css-grid-xxxxl-align-items, var(--css-grid-align-items, stretch));
+        justify-content: var(--css-grid-xxxxl-justify-content, var(--css-grid-justify-content, start));
+        align-content: var(--css-grid-xxxxl-align-content, var(--css-grid-align-content, stretch));
+        min-height: var(--css-grid-xxxxl-min-height, var(--css-grid-min-height));
+        max-height: var(--css-grid-xxxxl-max-height, var(--css-grid-max-height));
+        min-width: var(--css-grid-xxxxl-min-width, var(--css-grid-min-width));
+        max-width: var(--css-grid-xxxxl-max-width, var(--css-grid-max-width));
     }
 }
 
 /* Grid item base styles */
-.mx-grid-item {
+.css-grid__item {
     box-sizing: border-box;
     min-width: 0; /* Prevent grid blowout */
     min-height: 0; /* Prevent grid blowout */
     position: relative;
     contain: layout style;
+    /* Responsive alignment using CSS variables */
+    justify-self: var(--css-grid__item-justify-self, auto);
+    align-self: var(--css-grid__item-align-self, auto);
+    z-index: var(--css-grid__item-z-index, auto);
 }
 
 /* 
@@ -180,19 +226,19 @@
  */
 
 /* Auto placement - no explicit positioning */
-.mx-grid-item--placement-auto {
+.css-grid__item--placement-auto {
     /* Let grid auto-flow handle placement */
     grid-area: auto;
 }
 
 /* Area placement - use named grid areas */
-.mx-grid-item--placement-area {
+.css-grid__item--placement-area {
     grid-area: var(--area);
     /* No need to set grid-column or grid-row - grid-area handles it */
 }
 
 /* Coordinate placement - use line-based positioning */
-.mx-grid-item--placement-coordinates {
+.css-grid__item--placement-coordinates {
     /* Only set individual properties, not shorthands */
     grid-column-start: var(--col-start, auto);
     grid-column-end: var(--col-end, auto);
@@ -201,7 +247,7 @@
 }
 
 /* Span placement - start position with span */
-.mx-grid-item--placement-span {
+.css-grid__item--placement-span {
     /* Use shorthands for span syntax */
     grid-column: var(--col-span, auto);
     grid-row: var(--row-span, auto);
@@ -209,23 +255,83 @@
 
 /* Responsive overrides for each placement type */
 
+/* Hidden item classes - BEM notation */
+/* These classes hide items completely at specific breakpoints */
+
+/* Responsive hidden classes - only apply at specific breakpoints */
+@media (max-width: 639px) {
+    .css-grid__item--hidden-xs {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+    .css-grid__item--hidden-sm {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .css-grid__item--hidden-md {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+    .css-grid__item--hidden-lg {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 1440px) and (max-width: 1919px) {
+    .css-grid__item--hidden-xl {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 1920px) and (max-width: 2559px) {
+    .css-grid__item--hidden-xxl {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 2560px) and (max-width: 3839px) {
+    .css-grid__item--hidden-xxxl {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+@media (min-width: 3840px) {
+    .css-grid__item--hidden-xxxxl {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
 /* XS breakpoint overrides */
 @media (max-width: 639px) {
     /* Auto placement at XS */
-    .mx-css-grid--responsive .mx-grid-item--xs-placement-auto {
+    .css-grid--responsive .css-grid__item--xs-placement-auto {
         grid-area: auto !important;
         grid-column: auto !important;
         grid-row: auto !important;
     }
-    
+
     /* Area placement at XS */
-    .mx-css-grid--responsive .mx-grid-item--xs-placement-area {
+    .css-grid--responsive .css-grid__item--xs-placement-area {
         grid-area: var(--xs-area, var(--area, auto));
         /* Remove grid-column and grid-row - not needed with grid-area */
     }
-    
+
     /* Coordinate placement at XS */
-    .mx-css-grid--responsive .mx-grid-item--xs-placement-coordinates {
+    .css-grid--responsive .css-grid__item--xs-placement-coordinates {
         /* Clear grid-area when using coordinates */
         grid-area: auto;
         grid-column-start: var(--xs-col-start, var(--col-start, auto));
@@ -233,219 +339,344 @@
         grid-row-start: var(--xs-row-start, var(--row-start, auto));
         grid-row-end: var(--xs-row-end, var(--row-end, auto));
     }
-    
+
     /* Span placement at XS */
-    .mx-css-grid--responsive .mx-grid-item--xs-placement-span {
+    .css-grid--responsive .css-grid__item--xs-placement-span {
         /* Clear grid-area when using span */
         grid-area: auto;
         grid-column: var(--xs-col-span, var(--col-span, auto));
         grid-row: var(--xs-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at XS */
+    .css-grid--responsive .css-grid__item--has-xs-alignment {
+        justify-self: var(--css-grid__item-xs-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-xs-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-xs-z-index, var(--css-grid__item-z-index, auto));
     }
 }
 
 /* SM breakpoint overrides */
 @media (min-width: 640px) and (max-width: 767px) {
     /* Auto placement at SM */
-    .mx-css-grid--responsive .mx-grid-item--sm-placement-auto {
+    .css-grid--responsive .css-grid__item--sm-placement-auto {
         grid-area: auto !important;
         grid-column: auto !important;
         grid-row: auto !important;
     }
-    
+
     /* Area placement at SM */
-    .mx-css-grid--responsive .mx-grid-item--sm-placement-area {
+    .css-grid--responsive .css-grid__item--sm-placement-area {
         grid-area: var(--sm-area, var(--area, auto));
     }
-    
+
     /* Coordinate placement at SM */
-    .mx-css-grid--responsive .mx-grid-item--sm-placement-coordinates {
+    .css-grid--responsive .css-grid__item--sm-placement-coordinates {
         grid-area: auto;
         grid-column-start: var(--sm-col-start, var(--col-start, auto));
         grid-column-end: var(--sm-col-end, var(--col-end, auto));
         grid-row-start: var(--sm-row-start, var(--row-start, auto));
         grid-row-end: var(--sm-row-end, var(--row-end, auto));
     }
-    
+
     /* Span placement at SM */
-    .mx-css-grid--responsive .mx-grid-item--sm-placement-span {
+    .css-grid--responsive .css-grid__item--sm-placement-span {
         grid-area: auto;
         grid-column: var(--sm-col-span, var(--col-span, auto));
         grid-row: var(--sm-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at SM */
+    .css-grid--responsive .css-grid__item--has-sm-alignment {
+        justify-self: var(--css-grid__item-sm-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-sm-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-sm-z-index, var(--css-grid__item-z-index, auto));
     }
 }
 
 /* MD breakpoint overrides */
 @media (min-width: 768px) and (max-width: 1023px) {
     /* Auto placement at MD */
-    .mx-css-grid--responsive .mx-grid-item--md-placement-auto {
+    .css-grid--responsive .css-grid__item--md-placement-auto {
         grid-area: auto !important;
         grid-column: auto !important;
         grid-row: auto !important;
     }
-    
+
     /* Area placement at MD */
-    .mx-css-grid--responsive .mx-grid-item--md-placement-area {
+    .css-grid--responsive .css-grid__item--md-placement-area {
         grid-area: var(--md-area, var(--area, auto));
     }
-    
+
     /* Coordinate placement at MD */
-    .mx-css-grid--responsive .mx-grid-item--md-placement-coordinates {
+    .css-grid--responsive .css-grid__item--md-placement-coordinates {
         grid-area: auto;
         grid-column-start: var(--md-col-start, var(--col-start, auto));
         grid-column-end: var(--md-col-end, var(--col-end, auto));
         grid-row-start: var(--md-row-start, var(--row-start, auto));
         grid-row-end: var(--md-row-end, var(--row-end, auto));
     }
-    
+
     /* Span placement at MD */
-    .mx-css-grid--responsive .mx-grid-item--md-placement-span {
+    .css-grid--responsive .css-grid__item--md-placement-span {
         grid-area: auto;
         grid-column: var(--md-col-span, var(--col-span, auto));
         grid-row: var(--md-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at MD */
+    .css-grid--responsive .css-grid__item--has-md-alignment {
+        justify-self: var(--css-grid__item-md-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-md-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-md-z-index, var(--css-grid__item-z-index, auto));
     }
 }
 
 /* LG breakpoint overrides */
 @media (min-width: 1024px) and (max-width: 1439px) {
     /* Auto placement at LG */
-    .mx-css-grid--responsive .mx-grid-item--lg-placement-auto {
+    .css-grid--responsive .css-grid__item--lg-placement-auto {
         grid-area: auto !important;
         grid-column: auto !important;
         grid-row: auto !important;
     }
-    
+
     /* Area placement at LG */
-    .mx-css-grid--responsive .mx-grid-item--lg-placement-area {
+    .css-grid--responsive .css-grid__item--lg-placement-area {
         grid-area: var(--lg-area, var(--area, auto));
     }
-    
+
     /* Coordinate placement at LG */
-    .mx-css-grid--responsive .mx-grid-item--lg-placement-coordinates {
+    .css-grid--responsive .css-grid__item--lg-placement-coordinates {
         grid-area: auto;
         grid-column-start: var(--lg-col-start, var(--col-start, auto));
         grid-column-end: var(--lg-col-end, var(--col-end, auto));
         grid-row-start: var(--lg-row-start, var(--row-start, auto));
         grid-row-end: var(--lg-row-end, var(--row-end, auto));
     }
-    
+
     /* Span placement at LG */
-    .mx-css-grid--responsive .mx-grid-item--lg-placement-span {
+    .css-grid--responsive .css-grid__item--lg-placement-span {
         grid-area: auto;
         grid-column: var(--lg-col-span, var(--col-span, auto));
         grid-row: var(--lg-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at LG */
+    .css-grid--responsive .css-grid__item--has-lg-alignment {
+        justify-self: var(--css-grid__item-lg-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-lg-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-lg-z-index, var(--css-grid__item-z-index, auto));
     }
 }
 
 /* XL breakpoint overrides */
 @media (min-width: 1440px) and (max-width: 1919px) {
     /* Auto placement at XL */
-    .mx-css-grid--responsive .mx-grid-item--xl-placement-auto {
+    .css-grid--responsive .css-grid__item--xl-placement-auto {
         grid-area: auto !important;
         grid-column: auto !important;
         grid-row: auto !important;
     }
-    
+
     /* Area placement at XL */
-    .mx-css-grid--responsive .mx-grid-item--xl-placement-area {
+    .css-grid--responsive .css-grid__item--xl-placement-area {
         grid-area: var(--xl-area, var(--area, auto));
     }
-    
+
     /* Coordinate placement at XL */
-    .mx-css-grid--responsive .mx-grid-item--xl-placement-coordinates {
+    .css-grid--responsive .css-grid__item--xl-placement-coordinates {
         grid-area: auto;
         grid-column-start: var(--xl-col-start, var(--col-start, auto));
         grid-column-end: var(--xl-col-end, var(--col-end, auto));
         grid-row-start: var(--xl-row-start, var(--row-start, auto));
         grid-row-end: var(--xl-row-end, var(--row-end, auto));
     }
-    
+
     /* Span placement at XL */
-    .mx-css-grid--responsive .mx-grid-item--xl-placement-span {
+    .css-grid--responsive .css-grid__item--xl-placement-span {
         grid-area: auto;
         grid-column: var(--xl-col-span, var(--col-span, auto));
         grid-row: var(--xl-row-span, var(--row-span, auto));
     }
+
+    /* Item alignment at XL */
+    .css-grid--responsive .css-grid__item--has-xl-alignment {
+        justify-self: var(--css-grid__item-xl-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-xl-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-xl-z-index, var(--css-grid__item-z-index, auto));
+    }
 }
 
 /* XXL breakpoint overrides */
-@media (min-width: 1920px) {
+@media (min-width: 1920px) and (max-width: 2559px) {
     /* Auto placement at XXL */
-    .mx-css-grid--responsive .mx-grid-item--xxl-placement-auto {
+    .css-grid--responsive .css-grid__item--xxl-placement-auto {
         grid-area: auto !important;
         grid-column: auto !important;
         grid-row: auto !important;
     }
-    
+
     /* Area placement at XXL */
-    .mx-css-grid--responsive .mx-grid-item--xxl-placement-area {
+    .css-grid--responsive .css-grid__item--xxl-placement-area {
         grid-area: var(--xxl-area, var(--area, auto));
     }
-    
+
     /* Coordinate placement at XXL */
-    .mx-css-grid--responsive .mx-grid-item--xxl-placement-coordinates {
+    .css-grid--responsive .css-grid__item--xxl-placement-coordinates {
         grid-area: auto;
         grid-column-start: var(--xxl-col-start, var(--col-start, auto));
         grid-column-end: var(--xxl-col-end, var(--col-end, auto));
         grid-row-start: var(--xxl-row-start, var(--row-start, auto));
         grid-row-end: var(--xxl-row-end, var(--row-end, auto));
     }
-    
+
     /* Span placement at XXL */
-    .mx-css-grid--responsive .mx-grid-item--xxl-placement-span {
+    .css-grid--responsive .css-grid__item--xxl-placement-span {
         grid-area: auto;
         grid-column: var(--xxl-col-span, var(--col-span, auto));
         grid-row: var(--xxl-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at XXL */
+    .css-grid--responsive .css-grid__item--has-xxl-alignment {
+        justify-self: var(--css-grid__item-xxl-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-xxl-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-xxl-z-index, var(--css-grid__item-z-index, auto));
+    }
+}
+
+/* 2K breakpoint overrides */
+@media (min-width: 2560px) and (max-width: 3839px) {
+    /* Auto placement at 2K */
+    .css-grid--responsive .css-grid__item--xxxl-placement-auto {
+        grid-area: auto !important;
+        grid-column: auto !important;
+        grid-row: auto !important;
+    }
+
+    /* Area placement at 2K */
+    .css-grid--responsive .css-grid__item--xxxl-placement-area {
+        grid-area: var(--xxxl-area, var(--area, auto));
+    }
+
+    /* Coordinate placement at 2K */
+    .css-grid--responsive .css-grid__item--xxxl-placement-coordinates {
+        grid-area: auto;
+        grid-column-start: var(--xxxl-col-start, var(--col-start, auto));
+        grid-column-end: var(--xxxl-col-end, var(--col-end, auto));
+        grid-row-start: var(--xxxl-row-start, var(--row-start, auto));
+        grid-row-end: var(--xxxl-row-end, var(--row-end, auto));
+    }
+
+    /* Span placement at 2K */
+    .css-grid--responsive .css-grid__item--xxxl-placement-span {
+        grid-area: auto;
+        grid-column: var(--xxxl-col-span, var(--col-span, auto));
+        grid-row: var(--xxxl-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at 2K */
+    .css-grid--responsive .css-grid__item--has-xxxl-alignment {
+        justify-self: var(--css-grid__item-xxxl-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-xxxl-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-xxxl-z-index, var(--css-grid__item-z-index, auto));
+    }
+}
+
+/* 4K breakpoint overrides */
+@media (min-width: 3840px) {
+    /* Auto placement at 4K */
+    .css-grid--responsive .css-grid__item--xxxxl-placement-auto {
+        grid-area: auto !important;
+        grid-column: auto !important;
+        grid-row: auto !important;
+    }
+
+    /* Area placement at 4K */
+    .css-grid--responsive .css-grid__item--xxxxl-placement-area {
+        grid-area: var(--xxxxl-area, var(--area, auto));
+    }
+
+    /* Coordinate placement at 4K */
+    .css-grid--responsive .css-grid__item--xxxxl-placement-coordinates {
+        grid-area: auto;
+        grid-column-start: var(--xxxxl-col-start, var(--col-start, auto));
+        grid-column-end: var(--xxxxl-col-end, var(--col-end, auto));
+        grid-row-start: var(--xxxxl-row-start, var(--row-start, auto));
+        grid-row-end: var(--xxxxl-row-end, var(--row-end, auto));
+    }
+
+    /* Span placement at 4K */
+    .css-grid--responsive .css-grid__item--xxxxl-placement-span {
+        grid-area: auto;
+        grid-column: var(--xxxxl-col-span, var(--col-span, auto));
+        grid-row: var(--xxxxl-row-span, var(--row-span, auto));
+    }
+
+    /* Item alignment at 4K */
+    .css-grid--responsive .css-grid__item--has-xxxxl-alignment {
+        justify-self: var(--css-grid__item-xxxxl-justify-self, var(--css-grid__item-justify-self, auto));
+        align-self: var(--css-grid__item-xxxxl-align-self, var(--css-grid__item-align-self, auto));
+        z-index: var(--css-grid__item-xxxxl-z-index, var(--css-grid__item-z-index, auto));
     }
 }
 
 /* 
  * Developers can target specific items using attribute selectors:
  * 
- * .mx-css-grid .mx-grid-item[data-grid-item="header"] { ... }
- * .mx-css-grid .mx-grid-item[data-grid-item="my-custom-area"] { ... }
- * .mx-css-grid .mx-grid-item[data-grid-index="0"] { ... }
+ * .css-grid .css-grid__item[data-grid-item="header"] { ... }
+ * .css-grid .css-grid__item[data-grid-item="my-custom-area"] { ... }
+ * .css-grid .css-grid__item[data-grid-index="0"] { ... }
  * 
  * Or use the semantic class name if they set itemName:
- * .mx-css-grid .mx-grid-item--my-custom-name { ... }
+ * .css-grid .css-grid__item--my-custom-name { ... }
  */
 
 /* Placeholder for virtualized items */
-.mx-grid-item--placeholder {
+.css-grid__item--placeholder {
     visibility: hidden;
     pointer-events: none;
 }
 
 /* Current breakpoint indicators */
-.mx-grid-xs { --current-breakpoint: xs; }
-.mx-grid-sm { --current-breakpoint: sm; }
-.mx-grid-md { --current-breakpoint: md; }
-.mx-grid-lg { --current-breakpoint: lg; }
-.mx-grid-xl { --current-breakpoint: xl; }
-.mx-grid-xxl { --current-breakpoint: xxl; }
-
-/* Focus styles */
-.mx-css-grid:focus-visible {
-    outline: 2px solid #0066cc;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+.css-grid--xs {
+    --current-breakpoint: xs;
+}
+.css-grid--sm {
+    --current-breakpoint: sm;
+}
+.css-grid--md {
+    --current-breakpoint: md;
+}
+.css-grid--lg {
+    --current-breakpoint: lg;
+}
+.css-grid--xl {
+    --current-breakpoint: xl;
+}
+.css-grid--xxl {
+    --current-breakpoint: xxl;
 }
 
+/* Grid container should not be focusable - focus flows to content within items */
+
 /* Ensure proper sizing for Mendix widgets */
-.mx-grid-item > .mx-widget,
-.mx-grid-item > .mx-container,
-.mx-grid-item > .mx-container-nested,
-.mx-grid-item > .mx-layoutgrid,
-.mx-grid-item > .mx-dataview,
-.mx-grid-item > .mx-listview,
-.mx-grid-item > .mx-scrollcontainer,
-.mx-grid-item > .mx-groupbox {
+.css-grid__item > .mx-widget,
+.css-grid__item > .mx-container,
+.css-grid__item > .mx-container-nested,
+.css-grid__item > .mx-layoutgrid,
+.css-grid__item > .mx-dataview,
+.css-grid__item > .mx-listview,
+.css-grid__item > .mx-scrollcontainer,
+.css-grid__item > .mx-groupbox {
     width: 100%;
     height: 100%;
 }
 
 /* Text content handling */
-.mx-grid-item > .mx-text,
-.mx-grid-item > .mx-label {
+.css-grid__item > .mx-text,
+.css-grid__item > .mx-label {
     max-width: 100%;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -453,33 +684,24 @@
 }
 
 /* Performance optimizations for virtualized grids */
-.mx-css-grid[data-virtualized="true"] {
+.css-grid[data-virtualized="true"] {
     will-change: contents;
     contain: strict;
 }
 
-/* Accessibility improvements */
-.mx-css-grid[role="grid"] .mx-grid-item:focus {
-    outline: 2px solid #0066cc;
-    outline-offset: -2px;
-    z-index: 1;
-}
+/* Grid items are layout containers - focus should be on interactive content within them */
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-    .mx-css-grid {
+    .css-grid {
         border: 1px solid;
-    }
-    
-    .mx-css-grid:focus-visible {
-        outline-width: 3px;
     }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-    .mx-css-grid,
-    .mx-grid-item {
+    .css-grid,
+    .css-grid__item {
         transition: none !important;
         animation: none !important;
     }
@@ -487,30 +709,29 @@
 
 /* Print styles */
 @media print {
-    .mx-css-grid {
+    .css-grid {
         break-inside: avoid;
         page-break-inside: avoid;
     }
-    
-    .mx-grid-item {
+
+    .css-grid__item {
         break-inside: avoid;
         page-break-inside: avoid;
     }
-    
-    /* Ensure focus indicators don't print */
-    .mx-css-grid:focus,
-    .mx-grid-item:focus {
+
+    /* Ensure any focus indicators don't print */
+    *:focus {
         outline: none !important;
         box-shadow: none !important;
     }
 }
 
 /* Ensure proper stacking context */
-.mx-css-grid {
+.css-grid {
     isolation: isolate;
 }
 
 /* Z-index management */
-.mx-grid-item[style*="z-index"] {
+.css-grid__item[style*="z-index"] {
     position: relative;
 }

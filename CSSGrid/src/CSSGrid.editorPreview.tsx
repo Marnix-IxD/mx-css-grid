@@ -1,12 +1,13 @@
-import { createElement, Fragment, CSSProperties, useRef, useEffect, useState, useMemo, useCallback } from "react";
-import { Selectable } from "mendix/preview/Selectable";
+import { createElement, CSSProperties, useRef, useEffect, useState, useMemo, useCallback } from "react";
 import {
     CSSGridPreviewProps,
     AutoFlowEnum,
     JustifyItemsEnum,
     AlignItemsEnum,
     JustifyContentEnum,
-    AlignContentEnum
+    AlignContentEnum,
+    JustifySelfEnum,
+    AlignSelfEnum
 } from "../typings/CSSGridProps";
 import {
     RuntimeGridItemPreview,
@@ -14,60 +15,48 @@ import {
     GridItemPlacement,
     GridMetrics
 } from "./types/ConditionalTypes";
-import { getGridItemPlacement, parseGridTemplate, parseGridAreas } from "./utils/gridHelpers";
-import { BREAKPOINT_CONFIGS, getActiveBreakpoint } from "./utils/CSSGridTypes";
+import { parseGridTemplate, parseGridAreas } from "./utils/gridHelpers";
+import { BREAKPOINT_CONFIGS, getActiveBreakpointWithHysteresis, BreakpointSize } from "./types/BreakpointTypes";
+import {
+    validateRuntimeGridContainerPreview,
+    validateRuntimeGridItemPreview,
+    getSafeEnumValue,
+    isAutoFlowEnum,
+    isJustifyItemsEnum,
+    isAlignItemsEnum,
+    isJustifyContentEnum,
+    isAlignContentEnum,
+    isRenderAsEnum,
+    setTypeSafeStyle,
+    isValidCSSProperty
+} from "./utils/typeValidation";
 
-/**
- * Constants for styling
- */
-const AREA_COLOR_OPACITY = 0.15;
-const AREA_BORDER_OPACITY = 0.3;
-const AREA_BORDER_WIDTH = 2;
-const AREA_BORDER_RADIUS = 4;
-const AREA_LABEL_BACKGROUND_OPACITY = 0.9;
-const AREA_LABEL_MAX_Z_INDEX = 999; // Maximum z-index for labels
-const AREA_BACKGROUND_Z_INDEX = -1; // Behind content
-const DEBUG_LINE_OPACITY = 0.6;
-const DEBUG_GAP_OPACITY = 0.25;
-const GRID_LINE_COLOR = "#ff003d";
-const GRID_LINE_WIDTH = 1;
-const GRID_LINE_LABEL_SIZE = 11;
-const GRID_LINE_LABEL_PADDING = { x: 20, y: 16 };
-const GRID_GAP_LABEL_SIZE = 10;
-const EMPTY_ITEM_MIN_HEIGHT = 40;
-const RESPONSIVE_INDICATOR_Z_INDEX = 100;
-const DEBUG_OVERLAY_Z_INDEX = 100;
-const DEFAULT_CONTAINER_WIDTH = 1024;
-const DEFAULT_BREAKPOINT = "lg";
+// Import split components
+import { ResponsiveIndicator } from "./components/preview/ResponsiveIndicator";
+import { DebugOverlay } from "./components/preview/DebugOverlay";
+import { GridAreaOverlay } from "./components/preview/GridAreaOverlay";
+import { GridItemRenderer } from "./components/preview/GridItemRenderer";
+import { generateAreaColors } from "./components/preview/areaColorGenerator";
+import {
+    DEFAULT_CONTAINER_WIDTH,
+    DEFAULT_BREAKPOINT,
+    EMPTY_ITEM_MIN_HEIGHT,
+    Z_INDEX,
+    MEASUREMENT_DELAY,
+    RESIZE_DEBOUNCE_DELAY,
+    CSS_VALUES,
+    CHAR_CODES
+} from "./utils/constants";
+import { normalizeValue } from "./utils/stringHelpers";
+import { getSafeCSSValue } from "./utils/cssEnumMappings";
+import {
+    forEachEnabledBreakpoint,
+    getItemResponsivePropertyKeys,
+    getBreakpointsToProcess,
+    ResponsiveMode
+} from "./utils/breakpointHelpers";
 
-/**
- * Generate vibrant colors for areas with better visibility
- * Each area gets a unique color from a predefined palette
- *
- * @param areas - Array of unique area names
- * @returns Record mapping area names to their colors
- */
-const generateAreaColors = (areas: string[]): Record<string, string> => {
-    const baseColors = [
-        `rgba(59, 130, 246, ${AREA_COLOR_OPACITY})`, // Blue
-        `rgba(239, 68, 68, ${AREA_COLOR_OPACITY})`, // Red
-        `rgba(16, 185, 129, ${AREA_COLOR_OPACITY})`, // Green
-        `rgba(245, 158, 11, ${AREA_COLOR_OPACITY})`, // Yellow
-        `rgba(139, 92, 246, ${AREA_COLOR_OPACITY})`, // Purple
-        `rgba(236, 72, 153, ${AREA_COLOR_OPACITY})`, // Pink
-        `rgba(14, 165, 233, ${AREA_COLOR_OPACITY})`, // Sky
-        `rgba(168, 85, 247, ${AREA_COLOR_OPACITY})`, // Violet
-        `rgba(251, 146, 60, ${AREA_COLOR_OPACITY})`, // Orange
-        `rgba(6, 182, 212, ${AREA_COLOR_OPACITY})` // Cyan
-    ];
-
-    const colorMap: Record<string, string> = {};
-    areas.forEach((area, index) => {
-        colorMap[area] = baseColors[index % baseColors.length];
-    });
-
-    return colorMap;
-};
+// Constants are imported from utils/constants.ts
 
 /**
  * CSS Grid Editor Preview Component - Production Grade with Responsiveness
@@ -76,9 +65,9 @@ const generateAreaColors = (areas: string[]): Record<string, string> => {
  * Responds to container width changes to show accurate responsive behavior
  * Uses inline styles for compatibility with Mendix Studio Pro's Jint rendering
  */
-export const preview: React.FC<CSSGridPreviewProps> = props => {
-    // Cast to runtime type to handle conditional properties
-    const runtimeProps = props as RuntimeGridContainerPreview;
+export const Preview: React.FC<CSSGridPreviewProps> = props => {
+    // Validate and cast to runtime type to handle conditional properties
+    const runtimeProps = validateRuntimeGridContainerPreview(props);
 
     const {
         gridTemplateColumns,
@@ -101,6 +90,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
         minWidth,
         maxWidth,
         enableBreakpoints,
+        responsiveMode,
         showGridLines = false,
         showGridAreas = false,
         showGridGaps = false,
@@ -112,117 +102,160 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
     const containerRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
+    const measurementRAFRef = useRef<number | null>(null);
+    const nestedRAFRef = useRef<number | null>(null);
 
     // State for grid measurements and responsive behavior
     const [gridMetrics, setGridMetrics] = useState<GridMetrics | null>(null);
     const [containerWidth, setContainerWidth] = useState<number>(DEFAULT_CONTAINER_WIDTH);
     const [activeBreakpointSize, setActiveBreakpointSize] = useState<string>(DEFAULT_BREAKPOINT);
+    const measurementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // normalizeValue function is now imported from utils/stringHelpers
 
     /**
-     * Helper to normalize empty strings to undefined
-     * Prevents empty strings from creating invalid CSS values
+     * Sanitize CSS value to prevent injection attacks
+     * Removes dangerous CSS functions and properties
      *
-     * @param value - The value to normalize
-     * @returns The normalized value or undefined
+     * @param value - CSS value to sanitize
+     * @returns Sanitized CSS value
      */
-    const normalizeValue = useCallback((value: string | undefined): string | undefined => {
-        if (!value || value.trim() === "") return undefined;
-        return value;
+    const sanitizeCSSValue = useCallback((value: string): string => {
+        if (!value) {
+            return value;
+        }
+
+        // Remove dangerous CSS functions and properties
+        // Check for javascript:, expression(), @import, url(javascript:), url(data:)
+        const dangerousPatterns = [
+            "javascript:",
+            "expression(",
+            "@import",
+            "url(javascript:",
+            "url(data:",
+            "vbscript:",
+            "mocha:",
+            "livescript:",
+            "behavior:",
+            "binding:",
+            "-moz-binding",
+            "-webkit-binding"
+        ];
+
+        let sanitizedValue = value;
+
+        // Convert to lowercase for pattern matching
+        const lowerValue = value.toLowerCase();
+
+        for (const pattern of dangerousPatterns) {
+            if (lowerValue.includes(pattern)) {
+                // Replace the dangerous pattern with empty string
+                const startIndex = lowerValue.indexOf(pattern);
+                sanitizedValue =
+                    sanitizedValue.substring(0, startIndex) + sanitizedValue.substring(startIndex + pattern.length);
+            }
+        }
+
+        return sanitizedValue;
     }, []);
 
     /**
      * Parse custom style string into React CSSProperties
      * Converts CSS string format to React's camelCase object format
      * Modified to avoid regex for Mendix Studio Pro compatibility
+     * Now includes CSS sanitization to prevent injection attacks
      *
      * @param styleStr - CSS style string
      * @returns CSSProperties object
      */
-    const parseInlineStyles = useCallback((styleStr: string): CSSProperties => {
-        const styles: CSSProperties = {};
-        if (!styleStr) return styles;
+    const parseInlineStyles = useCallback(
+        (styleStr: string): CSSProperties => {
+            const styles: CSSProperties = {};
+            if (!styleStr) {
+                return styles;
+            }
 
-        // Simple string parsing without regex
-        let currentProp = "";
-        let currentValue = "";
-        let inValue = false;
+            // Simple string parsing without regex
+            let currentProp = "";
+            let currentValue = "";
+            let inValue = false;
 
-        for (let i = 0; i < styleStr.length; i++) {
-            const char = styleStr[i];
+            for (let i = 0; i < styleStr.length; i++) {
+                const char = styleStr[i];
 
-            if (char === ":" && !inValue) {
-                inValue = true;
-            } else if (char === ";" || i === styleStr.length - 1) {
-                if (i === styleStr.length - 1 && char !== ";") {
-                    currentValue += char;
-                }
+                if (char === ":" && !inValue) {
+                    inValue = true;
+                } else if (char === ";" || i === styleStr.length - 1) {
+                    if (i === styleStr.length - 1 && char !== ";") {
+                        currentValue += char;
+                    }
 
-                const prop = currentProp.trim();
-                const value = currentValue.trim();
+                    const prop = currentProp.trim();
+                    const value = currentValue.trim();
 
-                if (prop && value) {
-                    // Convert kebab-case to camelCase manually
-                    let camelCaseProperty = "";
-                    let nextUpper = false;
+                    if (prop && value) {
+                        // Sanitize the CSS value before processing
+                        const sanitizedValue = sanitizeCSSValue(value);
 
-                    for (let j = 0; j < prop.length; j++) {
-                        if (prop[j] === "-") {
-                            nextUpper = true;
-                        } else {
-                            camelCaseProperty += nextUpper ? prop[j].toUpperCase() : prop[j];
-                            nextUpper = false;
+                        // Skip empty values after sanitization
+                        if (!sanitizedValue) {
+                            currentProp = "";
+                            currentValue = "";
+                            inValue = false;
+                            continue;
+                        }
+
+                        // Convert kebab-case to camelCase manually
+                        let camelCaseProperty = "";
+                        let nextUpper = false;
+
+                        for (let j = 0; j < prop.length; j++) {
+                            if (prop[j] === "-") {
+                                nextUpper = true;
+                            } else {
+                                camelCaseProperty += nextUpper ? prop[j].toUpperCase() : prop[j];
+                                nextUpper = false;
+                            }
+                        }
+
+                        // Use type-safe style setter with validation
+                        if (isValidCSSProperty(camelCaseProperty)) {
+                            setTypeSafeStyle(styles, camelCaseProperty, sanitizedValue);
                         }
                     }
 
-                    (styles as any)[camelCaseProperty] = value;
+                    currentProp = "";
+                    currentValue = "";
+                    inValue = false;
+                } else if (inValue) {
+                    currentValue += char;
+                } else {
+                    currentProp += char;
                 }
-
-                currentProp = "";
-                currentValue = "";
-                inValue = false;
-            } else if (inValue) {
-                currentValue += char;
-            } else {
-                currentProp += char;
             }
-        }
 
-        return styles;
-    }, []);
+            return styles;
+        },
+        [sanitizeCSSValue]
+    );
+
+    // CSS enum mappings are now imported from utils/cssEnumMappings
 
     /**
-     * Map enumeration values to CSS properties
-     * Converts Mendix enumeration values to valid CSS values
+     * Memoized parseGridAreas to avoid repeated parsing
      */
-    const cssEnumMappings = useMemo(
-        () => ({
-            autoFlow: {
-                row: "row",
-                column: "column",
-                dense: "dense",
-                columnDense: "column dense"
-            } as Record<string, string>,
-            justifyContent: {
-                start: "start",
-                end: "end",
-                center: "center",
-                stretch: "stretch",
-                spaceBetween: "space-between",
-                spaceAround: "space-around",
-                spaceEvenly: "space-evenly"
-            } as Record<string, string>,
-            alignContent: {
-                start: "start",
-                end: "end",
-                center: "center",
-                stretch: "stretch",
-                spaceBetween: "space-between",
-                spaceAround: "space-around",
-                spaceEvenly: "space-evenly"
-            } as Record<string, string>
-        }),
-        []
-    );
+    const memoizedParseGridAreas = useMemo(() => {
+        const cache = new Map<string, string[][] | null>();
+        return (areas: string): string[][] | null => {
+            if (cache.has(areas)) {
+                return cache.get(areas)!;
+            }
+            const result = parseGridAreas(areas);
+            cache.set(areas, result);
+            return result;
+        };
+    }, []);
 
     /**
      * Get all defined areas across all configurations
@@ -235,7 +268,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
         // Add base areas
         if (useNamedAreas && gridTemplateAreas) {
-            const parsed = parseGridAreas(gridTemplateAreas);
+            const parsed = memoizedParseGridAreas(gridTemplateAreas);
             if (parsed) {
                 parsed.flat().forEach(area => {
                     if (area !== ".") {
@@ -247,13 +280,10 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 
         // Add areas from enabled breakpoints
         if (enableBreakpoints) {
-            BREAKPOINT_CONFIGS.forEach(config => {
-                const enabledKey = `${config.size}Enabled` as keyof RuntimeGridContainerPreview;
-                const areasKey = `${config.size}Areas` as keyof RuntimeGridContainerPreview;
-
-                if (runtimeProps[enabledKey] && runtimeProps[areasKey]) {
-                    const areas = runtimeProps[areasKey] as string;
-                    const parsed = parseGridAreas(areas);
+            forEachEnabledBreakpoint(runtimeProps, (_config, getProperty) => {
+                const areas = getProperty("Areas") as string;
+                if (areas) {
+                    const parsed = memoizedParseGridAreas(areas);
                     if (parsed) {
                         parsed.flat().forEach(area => {
                             if (area !== ".") {
@@ -266,11 +296,12 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
         }
 
         return allAreas;
-    }, [useNamedAreas, gridTemplateAreas, enableBreakpoints, runtimeProps]);
+    }, [useNamedAreas, gridTemplateAreas, enableBreakpoints, runtimeProps, memoizedParseGridAreas]);
 
     /**
-     * Get active values for the current breakpoint
+     * Performance-optimized active breakpoint values using cascade-ready architecture
      * Determines which configuration values should be used based on container width
+     * Currently uses exact mode, ready for future cascade mode implementation
      *
      * @returns Object containing all active grid configuration values
      */
@@ -297,7 +328,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
         }
 
         // Start with base values
-        let activeValues: ActiveBreakpointValues = {
+        const activeValues: ActiveBreakpointValues = {
             columns: normalizeValue(gridTemplateColumns) || "1fr",
             rows: normalizeValue(gridTemplateRows) || "auto",
             areas: useNamedAreas ? normalizeValue(gridTemplateAreas) : undefined,
@@ -321,87 +352,119 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
             return activeValues;
         }
 
-        // Find the currently active breakpoint (not cumulative)
-        let activeBreakpointConfig = null;
-        // Iterate from largest to smallest to find the active breakpoint
-        for (let i = BREAKPOINT_CONFIGS.length - 1; i >= 0; i--) {
-            const config = BREAKPOINT_CONFIGS[i];
-            const inRange = config.maxWidth
-                ? containerWidth >= config.minWidth && containerWidth <= config.maxWidth
-                : containerWidth >= config.minWidth;
+        // Use shared helper to get breakpoints to process (exact mode: only 1 active breakpoint)
+        const mode: ResponsiveMode = responsiveMode === "cascade" ? "cascade" : "exact";
+        const breakpointsToProcess = getBreakpointsToProcess(mode, containerWidth, runtimeProps);
 
-            if (inRange) {
-                activeBreakpointConfig = config;
-                break;
+        // Apply the active breakpoint's overrides
+        breakpointsToProcess.forEach(activeBreakpointConfig => {
+            const getBreakpointValue = (prop: string): string | undefined => {
+                const key = `${activeBreakpointConfig.size}${prop}` as keyof RuntimeGridContainerPreview;
+                return normalizeValue(runtimeProps[key] as string | undefined);
+            };
+
+            // Override with breakpoint-specific values if they exist
+            const bpColumns = getBreakpointValue("Columns");
+            const bpRows = getBreakpointValue("Rows");
+            const bpGap = getBreakpointValue("Gap");
+            const bpRowGap = getBreakpointValue("RowGap");
+            const bpColumnGap = getBreakpointValue("ColumnGap");
+            const bpAutoFlow = getSafeEnumValue(
+                runtimeProps,
+                `${activeBreakpointConfig.size}AutoFlow` as keyof RuntimeGridContainerPreview,
+                isAutoFlowEnum,
+                undefined
+            );
+            const bpAutoRows = getBreakpointValue("AutoRows");
+            const bpAutoColumns = getBreakpointValue("AutoColumns");
+            const bpJustifyItems = getSafeEnumValue(
+                runtimeProps,
+                `${activeBreakpointConfig.size}JustifyItems` as keyof RuntimeGridContainerPreview,
+                isJustifyItemsEnum,
+                undefined
+            );
+            const bpAlignItems = getSafeEnumValue(
+                runtimeProps,
+                `${activeBreakpointConfig.size}AlignItems` as keyof RuntimeGridContainerPreview,
+                isAlignItemsEnum,
+                undefined
+            );
+            const bpJustifyContent = getSafeEnumValue(
+                runtimeProps,
+                `${activeBreakpointConfig.size}JustifyContent` as keyof RuntimeGridContainerPreview,
+                isJustifyContentEnum,
+                undefined
+            );
+            const bpAlignContent = getSafeEnumValue(
+                runtimeProps,
+                `${activeBreakpointConfig.size}AlignContent` as keyof RuntimeGridContainerPreview,
+                isAlignContentEnum,
+                undefined
+            );
+            const bpMinHeight = getBreakpointValue("MinHeight");
+            const bpMaxHeight = getBreakpointValue("MaxHeight");
+            const bpMinWidth = getBreakpointValue("MinWidth");
+            const bpMaxWidth = getBreakpointValue("MaxWidth");
+
+            if (bpColumns) {
+                activeValues.columns = bpColumns;
             }
-        }
-
-        // Apply only the active breakpoint's overrides if it's enabled
-        if (activeBreakpointConfig) {
-            const enabledKey = `${activeBreakpointConfig.size}Enabled` as keyof RuntimeGridContainerPreview;
-
-            if (runtimeProps[enabledKey]) {
-                const getBreakpointValue = (prop: string): string | undefined => {
-                    const key = `${activeBreakpointConfig.size}${prop}` as keyof RuntimeGridContainerPreview;
-                    return normalizeValue(runtimeProps[key] as string | undefined);
-                };
-
-                // Override with breakpoint-specific values if they exist
-                const bpColumns = getBreakpointValue("Columns");
-                const bpRows = getBreakpointValue("Rows");
-                const bpGap = getBreakpointValue("Gap");
-                const bpRowGap = getBreakpointValue("RowGap");
-                const bpColumnGap = getBreakpointValue("ColumnGap");
-                const bpAutoFlow = runtimeProps[
-                    `${activeBreakpointConfig.size}AutoFlow` as keyof RuntimeGridContainerPreview
-                ] as AutoFlowEnum | undefined;
-                const bpAutoRows = getBreakpointValue("AutoRows");
-                const bpAutoColumns = getBreakpointValue("AutoColumns");
-                const bpJustifyItems = runtimeProps[
-                    `${activeBreakpointConfig.size}JustifyItems` as keyof RuntimeGridContainerPreview
-                ] as JustifyItemsEnum | undefined;
-                const bpAlignItems = runtimeProps[
-                    `${activeBreakpointConfig.size}AlignItems` as keyof RuntimeGridContainerPreview
-                ] as AlignItemsEnum | undefined;
-                const bpJustifyContent = runtimeProps[
-                    `${activeBreakpointConfig.size}JustifyContent` as keyof RuntimeGridContainerPreview
-                ] as JustifyContentEnum | undefined;
-                const bpAlignContent = runtimeProps[
-                    `${activeBreakpointConfig.size}AlignContent` as keyof RuntimeGridContainerPreview
-                ] as AlignContentEnum | undefined;
-                const bpMinHeight = getBreakpointValue("MinHeight");
-                const bpMaxHeight = getBreakpointValue("MaxHeight");
-                const bpMinWidth = getBreakpointValue("MinWidth");
-                const bpMaxWidth = getBreakpointValue("MaxWidth");
-
-                if (bpColumns) activeValues.columns = bpColumns;
-                if (bpRows) activeValues.rows = bpRows;
-                if (bpGap) {
-                    activeValues.gap = bpGap;
-                    activeValues.rowGap = undefined;
-                    activeValues.columnGap = undefined;
-                } else {
-                    if (bpRowGap) activeValues.rowGap = bpRowGap;
-                    if (bpColumnGap) activeValues.columnGap = bpColumnGap;
+            if (bpRows) {
+                activeValues.rows = bpRows;
+            }
+            if (bpGap) {
+                activeValues.gap = bpGap;
+                activeValues.rowGap = undefined;
+                activeValues.columnGap = undefined;
+            } else {
+                if (bpRowGap) {
+                    activeValues.rowGap = bpRowGap;
                 }
-                if (bpAutoFlow) activeValues.autoFlow = bpAutoFlow;
-                if (bpAutoRows) activeValues.autoRows = bpAutoRows;
-                if (bpAutoColumns) activeValues.autoColumns = bpAutoColumns;
-                if (bpJustifyItems) activeValues.justifyItems = bpJustifyItems;
-                if (bpAlignItems) activeValues.alignItems = bpAlignItems;
-                if (bpJustifyContent) activeValues.justifyContent = bpJustifyContent;
-                if (bpAlignContent) activeValues.alignContent = bpAlignContent;
-                if (bpMinHeight) activeValues.minHeight = bpMinHeight;
-                if (bpMaxHeight) activeValues.maxHeight = bpMaxHeight;
-                if (bpMinWidth) activeValues.minWidth = bpMinWidth;
-                if (bpMaxWidth) activeValues.maxWidth = bpMaxWidth;
-
-                if (useNamedAreas) {
-                    const bpAreas = getBreakpointValue("Areas");
-                    if (bpAreas) activeValues.areas = bpAreas;
+                if (bpColumnGap) {
+                    activeValues.columnGap = bpColumnGap;
                 }
             }
-        }
+            if (bpAutoFlow) {
+                activeValues.autoFlow = bpAutoFlow;
+            }
+            if (bpAutoRows) {
+                activeValues.autoRows = bpAutoRows;
+            }
+            if (bpAutoColumns) {
+                activeValues.autoColumns = bpAutoColumns;
+            }
+            if (bpJustifyItems) {
+                activeValues.justifyItems = bpJustifyItems;
+            }
+            if (bpAlignItems) {
+                activeValues.alignItems = bpAlignItems;
+            }
+            if (bpJustifyContent) {
+                activeValues.justifyContent = bpJustifyContent;
+            }
+            if (bpAlignContent) {
+                activeValues.alignContent = bpAlignContent;
+            }
+            if (bpMinHeight) {
+                activeValues.minHeight = bpMinHeight;
+            }
+            if (bpMaxHeight) {
+                activeValues.maxHeight = bpMaxHeight;
+            }
+            if (bpMinWidth) {
+                activeValues.minWidth = bpMinWidth;
+            }
+            if (bpMaxWidth) {
+                activeValues.maxWidth = bpMaxWidth;
+            }
+
+            if (useNamedAreas) {
+                const bpAreas = getBreakpointValue("Areas");
+                if (bpAreas) {
+                    activeValues.areas = bpAreas;
+                }
+            }
+        });
 
         return activeValues;
     }, [
@@ -430,31 +493,37 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
     ]);
 
     /**
+     * Memoize active breakpoint values to avoid recalculation
+     */
+    const activeBreakpointValues = useMemo(() => {
+        return getActiveBreakpointValues();
+    }, [getActiveBreakpointValues]);
+
+    /**
      * Build container styles
      * Applies the active configuration values directly as CSS properties
      */
     const containerStyles = useMemo<CSSProperties>(() => {
-        // Always get active values based on container width for the preview
-        // This ensures responsive behavior works in the editor
-        const activeValues = getActiveBreakpointValues();
+        // Use memoized active values
+        const activeValues = activeBreakpointValues;
 
         // Apply the active values directly as CSS properties
         const styles: CSSProperties = {
             display: "grid",
             gridTemplateColumns: activeValues.columns,
             gridTemplateRows: activeValues.rows,
-            gridAutoFlow: cssEnumMappings.autoFlow[activeValues.autoFlow] || activeValues.autoFlow,
+            gridAutoFlow: getSafeCSSValue("autoFlow", activeValues.autoFlow, "row"),
             gridAutoColumns: activeValues.autoColumns,
             gridAutoRows: activeValues.autoRows,
             justifyItems: activeValues.justifyItems,
             alignItems: activeValues.alignItems,
-            justifyContent: cssEnumMappings.justifyContent[activeValues.justifyContent] || activeValues.justifyContent,
-            alignContent: cssEnumMappings.alignContent[activeValues.alignContent] || activeValues.alignContent,
+            justifyContent: getSafeCSSValue("justifyContent", activeValues.justifyContent, "start"),
+            alignContent: getSafeCSSValue("alignContent", activeValues.alignContent, "stretch"),
             minHeight: activeValues.minHeight,
             maxHeight: activeValues.maxHeight,
             minWidth: activeValues.minWidth,
             maxWidth: activeValues.maxWidth,
-            width: "100%",
+            width: CSS_VALUES.FULL_WIDTH,
             boxSizing: "border-box",
             position: "relative",
             ...parseInlineStyles(customStyle)
@@ -480,33 +549,55 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
         }
 
         return styles;
-    }, [getActiveBreakpointValues, useNamedAreas, customStyle, parseInlineStyles, cssEnumMappings]);
+    }, [activeBreakpointValues, useNamedAreas, customStyle, parseInlineStyles]);
 
     /**
      * Update container width and active breakpoint
      * Tracks the container size to determine responsive behavior
      */
     useEffect(() => {
-        if (!containerRef.current) return;
+        if (!containerRef.current) {
+            return;
+        }
 
         const updateContainerWidth = () => {
             if (containerRef.current) {
-                const width = containerRef.current.offsetWidth;
+                // Use getBoundingClientRect for more precise measurement
+                const rect = containerRef.current.getBoundingClientRect();
+                const width = Math.round(rect.width); // Round to avoid sub-pixel issues
+
+                // Use hysteresis to prevent rapid breakpoint switching
+                const newBreakpoint = getActiveBreakpointWithHysteresis(width, activeBreakpointSize as BreakpointSize);
+
                 setContainerWidth(width);
-                setActiveBreakpointSize(getActiveBreakpoint(width));
+                setActiveBreakpointSize(newBreakpoint);
             }
         };
 
+        // Debounced resize handler
+        const handleResize = () => {
+            // Clear any pending resize timeout
+            if (resizeTimeoutRef.current) {
+                clearTimeout(resizeTimeoutRef.current);
+            }
+
+            // Debounce resize events to prevent rapid updates
+            resizeTimeoutRef.current = setTimeout(() => {
+                updateContainerWidth();
+            }, MEASUREMENT_DELAY);
+        };
+
         // Use ResizeObserver to track container size changes
-        const resizeObserver = new ResizeObserver(() => {
-            updateContainerWidth();
-        });
+        const resizeObserver = new ResizeObserver(handleResize);
 
         resizeObserver.observe(containerRef.current);
         updateContainerWidth(); // Initial measurement
 
         return () => {
             resizeObserver.disconnect();
+            if (resizeTimeoutRef.current) {
+                clearTimeout(resizeTimeoutRef.current);
+            }
         };
     }, []);
 
@@ -531,7 +622,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
             }
 
             // Start with base placement
-            let activePlacement: GridItemPlacement = {
+            const activePlacement: GridItemPlacement = {
                 placementType: item.placementType,
                 gridArea: normalizeValue(item.gridArea),
                 columnStart: normalizeValue(item.columnStart),
@@ -540,34 +631,22 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                 rowEnd: normalizeValue(item.rowEnd)
             };
 
-            // Find the currently active breakpoint (not cumulative)
-            let activeBreakpointConfig = null;
-            // Iterate from largest to smallest to find the active breakpoint
-            for (let i = BREAKPOINT_CONFIGS.length - 1; i >= 0; i--) {
-                const config = BREAKPOINT_CONFIGS[i];
-                const inRange = config.maxWidth
-                    ? containerWidth >= config.minWidth && containerWidth <= config.maxWidth
-                    : containerWidth >= config.minWidth;
+            // Use shared helper to get breakpoints to process (exact mode: only 1 active breakpoint)
+            const mode: ResponsiveMode = responsiveMode === "cascade" ? "cascade" : "exact";
+            const breakpointsToProcess = getBreakpointsToProcess(mode, containerWidth, runtimeProps);
 
-                if (inRange) {
-                    activeBreakpointConfig = config;
-                    break;
-                }
-            }
+            // Apply the active breakpoint's overrides if item has it enabled
+            breakpointsToProcess.forEach(activeBreakpointConfig => {
+                const keys = getItemResponsivePropertyKeys(activeBreakpointConfig.size);
+                const isEnabled = item[keys.enabled as keyof RuntimeGridItemPreview];
 
-            // Apply only the active breakpoint's overrides if it's enabled
-            if (activeBreakpointConfig) {
-                const enabledKey = `${activeBreakpointConfig.size}Enabled` as keyof RuntimeGridItemPreview;
-
-                if (item[enabledKey]) {
+                if (isEnabled) {
                     const getBreakpointValue = (prop: string): string | undefined => {
                         const key = `${activeBreakpointConfig.size}${prop}` as keyof RuntimeGridItemPreview;
                         return normalizeValue(item[key] as string | undefined);
                     };
 
-                    const placementTypeKey =
-                        `${activeBreakpointConfig.size}PlacementType` as keyof RuntimeGridItemPreview;
-                    const placementType = item[placementTypeKey] as string;
+                    const placementType = item[keys.placementType as keyof RuntimeGridItemPreview] as string;
 
                     if (placementType) {
                         activePlacement.placementType = placementType;
@@ -579,17 +658,112 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                     const rowStart = getBreakpointValue("RowStart");
                     const rowEnd = getBreakpointValue("RowEnd");
 
-                    if (gridArea) activePlacement.gridArea = gridArea;
-                    if (colStart) activePlacement.columnStart = colStart;
-                    if (colEnd) activePlacement.columnEnd = colEnd;
-                    if (rowStart) activePlacement.rowStart = rowStart;
-                    if (rowEnd) activePlacement.rowEnd = rowEnd;
+                    if (gridArea) {
+                        activePlacement.gridArea = gridArea;
+                    }
+                    if (colStart) {
+                        activePlacement.columnStart = colStart;
+                    }
+                    if (colEnd) {
+                        activePlacement.columnEnd = colEnd;
+                    }
+                    if (rowStart) {
+                        activePlacement.rowStart = rowStart;
+                    }
+                    if (rowEnd) {
+                        activePlacement.rowEnd = rowEnd;
+                    }
                 }
-            }
+            });
 
             return activePlacement;
         },
-        [containerWidth, enableBreakpoints, normalizeValue]
+        [containerWidth, enableBreakpoints, normalizeValue, runtimeProps]
+    );
+
+    /**
+     * Check if item is hidden at current breakpoint
+     * Determines if the item should be shown as hidden in the preview
+     *
+     * @param item - The grid item to check
+     * @returns True if item is hidden at current breakpoint
+     */
+    const isItemHiddenAtCurrentBreakpoint = useCallback(
+        (item: RuntimeGridItemPreview): boolean => {
+            if (!item.enableResponsive || !enableBreakpoints) {
+                return false;
+            }
+
+            // Use shared helper to get breakpoints to process (exact mode: only 1 active breakpoint)
+            const mode: ResponsiveMode = responsiveMode === "cascade" ? "cascade" : "exact";
+            const breakpointsToProcess = getBreakpointsToProcess(mode, containerWidth, runtimeProps);
+
+            // Check if item is hidden at the active breakpoint
+            for (const activeBreakpointConfig of breakpointsToProcess) {
+                const hiddenKey = `${activeBreakpointConfig.size}Hidden` as keyof RuntimeGridItemPreview;
+                if (item[hiddenKey]) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+        [containerWidth, enableBreakpoints, runtimeProps]
+    );
+
+    /**
+     * Get active alignment for responsive items in preview
+     * Determines which alignment configuration to use based on current breakpoint
+     *
+     * @param item - The grid item to get alignment for
+     * @returns Active alignment configuration
+     */
+    const getActiveItemAlignmentForPreview = useCallback(
+        (item: RuntimeGridItemPreview): { justifySelf: JustifySelfEnum; alignSelf: AlignSelfEnum; zIndex: string } => {
+            if (!item.enableResponsive || !enableBreakpoints) {
+                return {
+                    justifySelf: (item.justifySelf || "auto") as JustifySelfEnum,
+                    alignSelf: (item.alignSelf || "auto") as AlignSelfEnum,
+                    zIndex: item.zIndex || ""
+                };
+            }
+
+            // Start with base alignment
+            const activeAlignment = {
+                justifySelf: (item.justifySelf || "auto") as JustifySelfEnum,
+                alignSelf: (item.alignSelf || "auto") as AlignSelfEnum,
+                zIndex: item.zIndex || ""
+            };
+
+            // Use shared helper to get breakpoints to process (exact mode: only 1 active breakpoint)
+            const mode: ResponsiveMode = responsiveMode === "cascade" ? "cascade" : "exact";
+            const breakpointsToProcess = getBreakpointsToProcess(mode, containerWidth, runtimeProps);
+
+            // Apply the active breakpoint's overrides if item has it enabled
+            breakpointsToProcess.forEach(activeBreakpointConfig => {
+                const keys = getItemResponsivePropertyKeys(activeBreakpointConfig.size);
+                const isEnabled = item[keys.enabled as keyof RuntimeGridItemPreview];
+
+                if (isEnabled) {
+                    const justifySelf = item[keys.justifySelf as keyof RuntimeGridItemPreview] as JustifySelfEnum;
+                    const alignSelf = item[keys.alignSelf as keyof RuntimeGridItemPreview] as AlignSelfEnum;
+                    const zIndex = item[keys.zIndex as keyof RuntimeGridItemPreview] as string;
+
+                    if (justifySelf) {
+                        activeAlignment.justifySelf = justifySelf;
+                    }
+                    if (alignSelf) {
+                        activeAlignment.alignSelf = alignSelf;
+                    }
+                    if (zIndex) {
+                        activeAlignment.zIndex = zIndex;
+                    }
+                }
+            });
+
+            return activeAlignment;
+        },
+        [containerWidth, enableBreakpoints, runtimeProps]
     );
 
     /**
@@ -597,12 +771,12 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
      * Extracts information about columns, rows, and areas
      */
     const gridDimensions = useMemo(() => {
-        // Get active configuration based on current breakpoint
-        const activeValues = getActiveBreakpointValues();
+        // Use memoized active values
+        const activeValues = activeBreakpointValues;
 
         const columns = parseGridTemplate(activeValues.columns);
         const rows = parseGridTemplate(activeValues.rows);
-        const areas = activeValues.areas ? parseGridAreas(activeValues.areas) : null;
+        const areas = activeValues.areas ? memoizedParseGridAreas(activeValues.areas) : null;
         const uniqueAreas = areas ? Array.from(new Set(areas.flat().filter(area => area !== "."))) : [];
 
         return {
@@ -612,7 +786,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
             uniqueAreas,
             areaColorMap: generateAreaColors(uniqueAreas)
         };
-    }, [getActiveBreakpointValues]);
+    }, [activeBreakpointValues, memoizedParseGridAreas]);
 
     /**
      * Measure grid tracks and gaps after DOM updates
@@ -620,203 +794,272 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
      * Modified to avoid split() for Mendix Studio Pro compatibility
      */
     const measureGrid = useCallback(() => {
-        if (!gridRef.current || !containerRef.current) return;
+        if (!gridRef.current || !containerRef.current) {
+            return;
+        }
+
+        // Cancel any pending RAF calls
+        if (measurementRAFRef.current) {
+            cancelAnimationFrame(measurementRAFRef.current);
+            measurementRAFRef.current = null;
+        }
+        if (nestedRAFRef.current) {
+            cancelAnimationFrame(nestedRAFRef.current);
+            nestedRAFRef.current = null;
+        }
 
         const gridEl = gridRef.current;
         void gridEl.offsetHeight; // Force reflow
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (!gridRef.current || !containerRef.current) return;
+        measurementRAFRef.current = requestAnimationFrame(() => {
+            if (!gridRef.current || !containerRef.current) {
+                return;
+            }
 
-                try {
-                    const computedStyle = window.getComputedStyle(gridEl);
-                    const containerBox = containerRef.current.getBoundingClientRect();
-                    const gridBox = gridEl.getBoundingClientRect();
+            try {
+                const computedStyle = window.getComputedStyle(gridEl);
+                const containerBox = containerRef.current.getBoundingClientRect();
+                const gridBox = gridEl.getBoundingClientRect();
 
-                    const computedColumnGap = parseFloat(computedStyle.columnGap) || 0;
-                    const computedRowGap = parseFloat(computedStyle.rowGap) || 0;
+                const computedColumnGap = parseFloat(computedStyle.columnGap) || 0;
+                const computedRowGap = parseFloat(computedStyle.rowGap) || 0;
 
-                    // Parse grid template columns - the computed style returns sizes in pixels
-                    const columnsStr = computedStyle.gridTemplateColumns;
-                    const columnTracks: number[] = [];
-                    let currentNumber = "";
-                    let inUnit = false;
+                // Parse grid template columns - the computed style returns sizes in pixels
+                const columnsStr = computedStyle.gridTemplateColumns;
+                const columnTracks: number[] = [];
+                let currentNumber = "";
+                let inUnit = false;
 
-                    for (let i = 0; i < columnsStr.length; i++) {
-                        const char = columnsStr[i];
-                        if ((char >= "0" && char <= "9") || char === ".") {
-                            currentNumber += char;
-                            inUnit = false;
-                        } else if (char === "p" && i + 1 < columnsStr.length && columnsStr[i + 1] === "x") {
-                            // Found 'px' unit
-                            if (currentNumber) {
-                                const num = parseFloat(currentNumber);
-                                if (!isNaN(num)) {
-                                    columnTracks.push(num);
-                                }
-                                currentNumber = "";
+                for (let i = 0; i < columnsStr.length; i++) {
+                    const char = columnsStr[i];
+                    if (
+                        (char >= String.fromCharCode(CHAR_CODES.DIGIT_0) &&
+                            char <= String.fromCharCode(CHAR_CODES.DIGIT_9)) ||
+                        char === "."
+                    ) {
+                        currentNumber += char;
+                        inUnit = false;
+                    } else if (char === "p" && i + 1 < columnsStr.length && columnsStr[i + 1] === "x") {
+                        // Found 'px' unit
+                        if (currentNumber) {
+                            const num = parseFloat(currentNumber);
+                            if (!isNaN(num)) {
+                                columnTracks.push(num);
                             }
-                            i++; // Skip the 'x'
-                            inUnit = true;
-                        } else if (char === " " || char === "\t") {
-                            // Space between values
-                            if (currentNumber && !inUnit) {
-                                const num = parseFloat(currentNumber);
-                                if (!isNaN(num)) {
-                                    columnTracks.push(num);
-                                }
-                                currentNumber = "";
+                            currentNumber = "";
+                        }
+                        i++; // Skip the 'x'
+                        inUnit = true;
+                    } else if (char === " " || char === "\t") {
+                        // Space between values
+                        if (currentNumber && !inUnit) {
+                            const num = parseFloat(currentNumber);
+                            if (!isNaN(num)) {
+                                columnTracks.push(num);
                             }
-                            inUnit = false;
+                            currentNumber = "";
                         }
+                        inUnit = false;
                     }
-                    // Handle last number if any
-                    if (currentNumber && !inUnit) {
-                        const num = parseFloat(currentNumber);
-                        if (!isNaN(num)) {
-                            columnTracks.push(num);
-                        }
-                    }
-
-                    // Parse grid template rows
-                    const rowsStr = computedStyle.gridTemplateRows;
-                    const rowTracks: number[] = [];
-                    currentNumber = "";
-                    inUnit = false;
-
-                    for (let i = 0; i < rowsStr.length; i++) {
-                        const char = rowsStr[i];
-                        if ((char >= "0" && char <= "9") || char === ".") {
-                            currentNumber += char;
-                            inUnit = false;
-                        } else if (char === "p" && i + 1 < rowsStr.length && rowsStr[i + 1] === "x") {
-                            // Found 'px' unit
-                            if (currentNumber) {
-                                const num = parseFloat(currentNumber);
-                                if (!isNaN(num)) {
-                                    rowTracks.push(num);
-                                }
-                                currentNumber = "";
-                            }
-                            i++; // Skip the 'x'
-                            inUnit = true;
-                        } else if (char === " " || char === "\t") {
-                            // Space between values
-                            if (currentNumber && !inUnit) {
-                                const num = parseFloat(currentNumber);
-                                if (!isNaN(num)) {
-                                    rowTracks.push(num);
-                                }
-                                currentNumber = "";
-                            }
-                            inUnit = false;
-                        }
-                    }
-                    // Handle last number if any
-                    if (currentNumber && !inUnit) {
-                        const num = parseFloat(currentNumber);
-                        if (!isNaN(num)) {
-                            rowTracks.push(num);
-                        }
-                    }
-
-                    // Build positions from tracks
-                    const columnPositions = [0];
-                    let currentX = 0;
-                    for (let i = 0; i < columnTracks.length; i++) {
-                        if (i > 0) {
-                            currentX += computedColumnGap;
-                        }
-                        currentX += columnTracks[i];
-                        columnPositions.push(currentX);
-                    }
-
-                    const rowPositions = [0];
-                    let currentY = 0;
-                    for (let i = 0; i < rowTracks.length; i++) {
-                        if (i > 0) {
-                            currentY += computedRowGap;
-                        }
-                        currentY += rowTracks[i];
-                        rowPositions.push(currentY);
-                    }
-
-                    setGridMetrics({
-                        tracks: {
-                            columns: columnPositions,
-                            rows: rowPositions
-                        },
-                        gaps: {
-                            column: computedColumnGap,
-                            row: computedRowGap
-                        },
-                        containerBox,
-                        gridBox
-                    });
-                } catch (error) {
-                    console.warn("[CSSGrid Preview] Error measuring grid:", error);
-                    // Set default metrics on error
-                    setGridMetrics(null);
                 }
-            });
+                // Handle last number if any
+                if (currentNumber && !inUnit) {
+                    const num = parseFloat(currentNumber);
+                    if (!isNaN(num)) {
+                        columnTracks.push(num);
+                    }
+                }
+
+                // Parse grid template rows
+                const rowsStr = computedStyle.gridTemplateRows;
+                const rowTracks: number[] = [];
+                currentNumber = "";
+                inUnit = false;
+
+                for (let i = 0; i < rowsStr.length; i++) {
+                    const char = rowsStr[i];
+                    if (
+                        (char >= String.fromCharCode(CHAR_CODES.DIGIT_0) &&
+                            char <= String.fromCharCode(CHAR_CODES.DIGIT_9)) ||
+                        char === "."
+                    ) {
+                        currentNumber += char;
+                        inUnit = false;
+                    } else if (char === "p" && i + 1 < rowsStr.length && rowsStr[i + 1] === "x") {
+                        // Found 'px' unit
+                        if (currentNumber) {
+                            const num = parseFloat(currentNumber);
+                            if (!isNaN(num)) {
+                                rowTracks.push(num);
+                            }
+                            currentNumber = "";
+                        }
+                        i++; // Skip the 'x'
+                        inUnit = true;
+                    } else if (char === " " || char === "\t") {
+                        // Space between values
+                        if (currentNumber && !inUnit) {
+                            const num = parseFloat(currentNumber);
+                            if (!isNaN(num)) {
+                                rowTracks.push(num);
+                            }
+                            currentNumber = "";
+                        }
+                        inUnit = false;
+                    }
+                }
+                // Handle last number if any
+                if (currentNumber && !inUnit) {
+                    const num = parseFloat(currentNumber);
+                    if (!isNaN(num)) {
+                        rowTracks.push(num);
+                    }
+                }
+
+                // Build positions from tracks
+                const columnPositions = [0];
+                let currentX = 0;
+                for (let i = 0; i < columnTracks.length; i++) {
+                    if (i > 0) {
+                        currentX += computedColumnGap;
+                    }
+                    currentX += columnTracks[i];
+                    columnPositions.push(currentX);
+                }
+
+                const rowPositions = [0];
+                let currentY = 0;
+                for (let i = 0; i < rowTracks.length; i++) {
+                    if (i > 0) {
+                        currentY += computedRowGap;
+                    }
+                    currentY += rowTracks[i];
+                    rowPositions.push(currentY);
+                }
+
+                setGridMetrics({
+                    tracks: {
+                        columns: columnPositions,
+                        rows: rowPositions
+                    },
+                    gaps: {
+                        column: computedColumnGap,
+                        row: computedRowGap
+                    },
+                    containerBox,
+                    gridBox
+                });
+            } catch (error) {
+                console.warn("[CSSGrid Preview] Error measuring grid:", error);
+                // Set default metrics on error
+                setGridMetrics(null);
+            }
+
+            // Clear RAF references after completion
+            measurementRAFRef.current = null;
+            nestedRAFRef.current = null;
         });
     }, []);
 
-    // Setup ResizeObserver for grid measurements
+    // Setup ResizeObserver for grid measurements only
     useEffect(() => {
-        if (!gridRef.current) return;
-
-        resizeObserverRef.current = new ResizeObserver(() => {
-            measureGrid();
-        });
-
-        resizeObserverRef.current.observe(gridRef.current);
-        if (containerRef.current) {
-            resizeObserverRef.current.observe(containerRef.current);
+        if (!gridRef.current) {
+            return;
         }
 
-        measureGrid(); // Initial measurement
+        // Debounced measurement handler for grid size changes only
+        const handleGridMeasurement = () => {
+            if (measurementTimeoutRef.current) {
+                clearTimeout(measurementTimeoutRef.current);
+            }
+
+            measurementTimeoutRef.current = setTimeout(() => {
+                measureGrid();
+            }, MEASUREMENT_DELAY);
+        };
+
+        resizeObserverRef.current = new ResizeObserver(handleGridMeasurement);
+        resizeObserverRef.current.observe(gridRef.current);
 
         return () => {
             if (resizeObserverRef.current) {
                 resizeObserverRef.current.disconnect();
+                resizeObserverRef.current = null;
+            }
+            if (measurementTimeoutRef.current) {
+                clearTimeout(measurementTimeoutRef.current);
+            }
+
+            // Cancel any pending RAF calls
+            if (measurementRAFRef.current) {
+                cancelAnimationFrame(measurementRAFRef.current);
+                measurementRAFRef.current = null;
+            }
+            if (nestedRAFRef.current) {
+                cancelAnimationFrame(nestedRAFRef.current);
+                nestedRAFRef.current = null;
             }
         };
-    }, [measureGrid]);
+    }, []);
 
-    // Re-measure when grid properties change
+    // Re-measure when grid properties change (debounced)
     useEffect(() => {
         if (gridRef.current) {
-            void gridRef.current.offsetHeight;
+            if (measurementTimeoutRef.current) {
+                clearTimeout(measurementTimeoutRef.current);
+            }
 
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    measureGrid();
-                });
-            });
+            measurementTimeoutRef.current = setTimeout(() => {
+                measureGrid();
+            }, RESIZE_DEBOUNCE_DELAY);
         }
-    }, [containerStyles, measureGrid]);
+    }, [containerStyles]);
+
+    // Cleanup on component unmount
+    useEffect(() => {
+        return () => {
+            // Cancel any pending RAF calls
+            if (measurementRAFRef.current) {
+                cancelAnimationFrame(measurementRAFRef.current);
+                measurementRAFRef.current = null;
+            }
+            if (nestedRAFRef.current) {
+                cancelAnimationFrame(nestedRAFRef.current);
+                nestedRAFRef.current = null;
+            }
+
+            // Cleanup ResizeObserver
+            if (resizeObserverRef.current) {
+                resizeObserverRef.current.disconnect();
+                resizeObserverRef.current = null;
+            }
+
+            // Clear state to prevent memory leaks
+            setGridMetrics(null);
+        };
+    }, []);
 
     /**
      * Get active grid configuration for the current breakpoint
      * Used for area validation in preview
      */
     const getActiveGridConfig = useCallback(() => {
-        // Get the active values which already handles breakpoints
-        const activeValues = getActiveBreakpointValues();
+        // Use memoized active values
+        const activeValues = activeBreakpointValues;
 
         return {
             areas: activeValues.areas
         };
-    }, [getActiveBreakpointValues]);
+    }, [activeBreakpointValues]);
 
     /**
      * Check if responsive is enabled
      * Determines if any breakpoints are configured
      */
     const hasResponsiveContainer = useMemo(() => {
-        if (!enableBreakpoints) return false;
+        if (!enableBreakpoints) {
+            return false;
+        }
         return BREAKPOINT_CONFIGS.some(config => {
             const key = `${config.size}Enabled` as keyof RuntimeGridContainerPreview;
             return runtimeProps[key];
@@ -824,474 +1067,40 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
     }, [enableBreakpoints, runtimeProps]);
 
     /**
-     * Render responsive indicator
-     * Shows which breakpoints are enabled and which is currently active
+     * Determine the semantic HTML element for an item
      */
-    const renderResponsiveIndicator = () => {
-        if (!hasResponsiveContainer) return null;
+    const getSemanticElement = useCallback((item: RuntimeGridItemPreview): string => {
+        // renderAs is part of the base type but might be undefined due to MakeOptional
+        const renderAs = item.renderAs;
 
-        const enabledBreakpoints: string[] = [];
-        BREAKPOINT_CONFIGS.forEach(config => {
-            const enabledKey = `${config.size}Enabled` as keyof RuntimeGridContainerPreview;
-            if (runtimeProps[enabledKey]) {
-                enabledBreakpoints.push(config.size.toUpperCase());
-            }
-        });
+        // Validate if it's a proper RenderAsEnum value
+        if (renderAs && isRenderAsEnum(renderAs) && renderAs !== "auto" && renderAs !== "div") {
+            return renderAs;
+        }
 
-        return (
-            <div className="mx-css-grid-preview-info">
-                <span className="mx-css-grid-preview-info-icon">📱</span>
-                <span className="mx-css-grid-preview-info-text">
-                    Responsive: {enabledBreakpoints.join(", ")} | Current: {activeBreakpointSize.toUpperCase()} (
-                    {containerWidth}px)
-                </span>
-            </div>
-        );
-    };
+        // Auto-detect based on area name or item name
+        if (!renderAs || renderAs === "auto") {
+            const areaName = (item.gridArea || item.itemName || "").toLowerCase().trim();
 
-    /**
-     * Render debug overlays
-     * Shows grid lines, gaps, and measurements when debug options are enabled
-     */
-    const renderDebugOverlays = () => {
-        if (!gridMetrics || (!showGridLines && !showGridGaps)) return null;
+            // Map common area names to semantic elements
+            const semanticMappings: Record<string, string> = {
+                header: "header",
+                nav: "nav",
+                navigation: "nav",
+                main: "main",
+                content: "main",
+                aside: "aside",
+                sidebar: "aside",
+                footer: "footer",
+                article: "article",
+                section: "section"
+            };
 
-        const { tracks, gaps, gridBox } = gridMetrics;
-        if (!gridBox) return null;
+            return semanticMappings[areaName] || "div";
+        }
 
-        const width = gridBox.width;
-        const height = gridBox.height;
-
-        return (
-            <svg
-                className="mx-css-grid-preview-debug-svg"
-                style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    zIndex: DEBUG_OVERLAY_Z_INDEX
-                }}
-                width={width}
-                height={height}
-                viewBox={`0 0 ${width} ${height}`}
-            >
-                {/* Define stripe pattern for gaps */}
-                <defs>
-                    <pattern
-                        id="gap-stripes"
-                        x="0"
-                        y="0"
-                        width="20"
-                        height="20"
-                        patternUnits="userSpaceOnUse"
-                        patternTransform="rotate(45)"
-                    >
-                        <rect
-                            x="0"
-                            y="0"
-                            width="20"
-                            height="20"
-                            fill={`rgba(255, 0, 61, ${DEBUG_GAP_OPACITY * 0.6})`}
-                        />
-                        <rect x="0" y="0" width="10" height="20" fill={`rgba(255, 0, 61, ${DEBUG_GAP_OPACITY})`} />
-                    </pattern>
-                </defs>
-
-                {/* Gap visualization with measurements */}
-                {showGridGaps && gaps.column > 0 && tracks.columns.length > 2 && (
-                    <g className="grid-gaps-column">
-                        {tracks.columns.slice(0, -1).map((_, i) => {
-                            if (i === tracks.columns.length - 2) return null; // Skip the last gap
-                            const nextColPos = tracks.columns[i + 1];
-                            return (
-                                <g key={`gap-col-${i}`}>
-                                    <rect
-                                        x={nextColPos}
-                                        y={0}
-                                        width={gaps.column}
-                                        height={height}
-                                        fill="url(#gap-stripes)"
-                                    />
-                                    {/* Gap measurement text */}
-                                    <text
-                                        x={nextColPos + gaps.column / 2}
-                                        y={height / 2}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize={GRID_GAP_LABEL_SIZE}
-                                        fill={`rgba(255, 0, 61, 0.8)`}
-                                        fontWeight="bold"
-                                        transform={`rotate(-90 ${nextColPos + gaps.column / 2} ${height / 2})`}
-                                        style={{
-                                            filter: "drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)"
-                                        }}
-                                    >
-                                        {Math.round(gaps.column)}px
-                                    </text>
-                                </g>
-                            );
-                        })}
-                    </g>
-                )}
-
-                {showGridGaps && gaps.row > 0 && tracks.rows.length > 2 && (
-                    <g className="grid-gaps-row">
-                        {tracks.rows.slice(0, -1).map((_, i) => {
-                            if (i === tracks.rows.length - 2) return null; // Skip the last gap
-                            const nextRowPos = tracks.rows[i + 1];
-                            return (
-                                <g key={`gap-row-${i}`}>
-                                    <rect
-                                        x={0}
-                                        y={nextRowPos}
-                                        width={width}
-                                        height={gaps.row}
-                                        fill="url(#gap-stripes)"
-                                    />
-                                    {/* Gap measurement text */}
-                                    <text
-                                        x={width / 2}
-                                        y={nextRowPos + gaps.row / 2}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize={GRID_GAP_LABEL_SIZE}
-                                        fill={`rgba(255, 0, 61, 0.8)`}
-                                        fontWeight="bold"
-                                        style={{
-                                            filter: "drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)"
-                                        }}
-                                    >
-                                        {Math.round(gaps.row)}px
-                                    </text>
-                                </g>
-                            );
-                        })}
-                    </g>
-                )}
-
-                {/* Grid lines with numbers */}
-                {showGridLines && (
-                    <g className="grid-lines">
-                        {/* Vertical lines with column numbers */}
-                        {tracks.columns.map((x, i) => {
-                            const lineNumber = i + 1;
-                            const isFirst = i === 0;
-                            const isLast = i === tracks.columns.length - 1;
-                            const hasGapBefore = i > 0 && gaps.column > 0;
-
-                            return (
-                                <g key={`v-${i}`}>
-                                    {/* For first and last lines, just draw one line */}
-                                    {(isFirst || isLast) && (
-                                        <line
-                                            x1={x}
-                                            y1={0}
-                                            x2={x}
-                                            y2={height}
-                                            stroke={GRID_LINE_COLOR}
-                                            strokeWidth={GRID_LINE_WIDTH}
-                                            opacity={DEBUG_LINE_OPACITY}
-                                        />
-                                    )}
-
-                                    {/* For middle lines with gaps, draw lines on both sides of gap */}
-                                    {!isFirst && !isLast && (
-                                        <Fragment>
-                                            {hasGapBefore && (
-                                                <line
-                                                    x1={x}
-                                                    y1={0}
-                                                    x2={x}
-                                                    y2={height}
-                                                    stroke={GRID_LINE_COLOR}
-                                                    strokeWidth={GRID_LINE_WIDTH}
-                                                    opacity={DEBUG_LINE_OPACITY}
-                                                />
-                                            )}
-                                            <line
-                                                x1={x + gaps.column}
-                                                y1={0}
-                                                x2={x + gaps.column}
-                                                y2={height}
-                                                stroke={GRID_LINE_COLOR}
-                                                strokeWidth={GRID_LINE_WIDTH}
-                                                opacity={DEBUG_LINE_OPACITY}
-                                            />
-                                        </Fragment>
-                                    )}
-
-                                    {/* Column line numbers positioned inside grid */}
-                                    {/* Top labels */}
-                                    <rect
-                                        x={
-                                            isFirst
-                                                ? x + 4
-                                                : isLast
-                                                ? x - GRID_LINE_LABEL_PADDING.x - 4
-                                                : x - GRID_LINE_LABEL_PADDING.x / 2
-                                        }
-                                        y={4}
-                                        width={GRID_LINE_LABEL_PADDING.x}
-                                        height={GRID_LINE_LABEL_PADDING.y}
-                                        fill="white"
-                                        stroke={GRID_LINE_COLOR}
-                                        strokeWidth={GRID_LINE_WIDTH}
-                                        opacity="0.9"
-                                        rx="2"
-                                    />
-                                    <text
-                                        x={isFirst ? x + 14 : isLast ? x - 14 : x}
-                                        y={12}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize={GRID_LINE_LABEL_SIZE}
-                                        fill={GRID_LINE_COLOR}
-                                        fontWeight="bold"
-                                    >
-                                        {lineNumber}
-                                    </text>
-                                    {/* Bottom labels */}
-                                    <rect
-                                        x={
-                                            isFirst
-                                                ? x + 4
-                                                : isLast
-                                                ? x - GRID_LINE_LABEL_PADDING.x - 4
-                                                : x - GRID_LINE_LABEL_PADDING.x / 2
-                                        }
-                                        y={height - GRID_LINE_LABEL_PADDING.y - 4}
-                                        width={GRID_LINE_LABEL_PADDING.x}
-                                        height={GRID_LINE_LABEL_PADDING.y}
-                                        fill="white"
-                                        stroke={GRID_LINE_COLOR}
-                                        strokeWidth={GRID_LINE_WIDTH}
-                                        opacity="0.9"
-                                        rx="2"
-                                    />
-                                    <text
-                                        x={isFirst ? x + 14 : isLast ? x - 14 : x}
-                                        y={height - 12}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize={GRID_LINE_LABEL_SIZE}
-                                        fill={GRID_LINE_COLOR}
-                                        fontWeight="bold"
-                                    >
-                                        {lineNumber}
-                                    </text>
-                                </g>
-                            );
-                        })}
-
-                        {/* Horizontal lines with row numbers */}
-                        {tracks.rows.map((y, i) => {
-                            const lineNumber = i + 1;
-                            const isFirst = i === 0;
-                            const isLast = i === tracks.rows.length - 1;
-                            const hasGapBefore = i > 0 && gaps.row > 0;
-
-                            return (
-                                <g key={`h-${i}`}>
-                                    {/* For first and last lines, just draw one line */}
-                                    {(isFirst || isLast) && (
-                                        <line
-                                            x1={0}
-                                            y1={y}
-                                            x2={width}
-                                            y2={y}
-                                            stroke={GRID_LINE_COLOR}
-                                            strokeWidth={GRID_LINE_WIDTH}
-                                            opacity={DEBUG_LINE_OPACITY}
-                                        />
-                                    )}
-
-                                    {/* For middle lines with gaps, draw lines on both sides of gap */}
-                                    {!isFirst && !isLast && (
-                                        <Fragment>
-                                            {hasGapBefore && (
-                                                <line
-                                                    x1={0}
-                                                    y1={y}
-                                                    x2={width}
-                                                    y2={y}
-                                                    stroke={GRID_LINE_COLOR}
-                                                    strokeWidth={GRID_LINE_WIDTH}
-                                                    opacity={DEBUG_LINE_OPACITY}
-                                                />
-                                            )}
-                                            <line
-                                                x1={0}
-                                                y1={y + gaps.row}
-                                                x2={width}
-                                                y2={y + gaps.row}
-                                                stroke={GRID_LINE_COLOR}
-                                                strokeWidth={GRID_LINE_WIDTH}
-                                                opacity={DEBUG_LINE_OPACITY}
-                                            />
-                                        </Fragment>
-                                    )}
-
-                                    {/* Row line numbers positioned inside grid */}
-                                    {/* Left labels */}
-                                    <rect
-                                        x={4}
-                                        y={
-                                            isFirst
-                                                ? y + 4
-                                                : isLast
-                                                ? y - GRID_LINE_LABEL_PADDING.y - 4
-                                                : y - GRID_LINE_LABEL_PADDING.y / 2
-                                        }
-                                        width={GRID_LINE_LABEL_PADDING.x}
-                                        height={GRID_LINE_LABEL_PADDING.y}
-                                        fill="white"
-                                        stroke={GRID_LINE_COLOR}
-                                        strokeWidth={GRID_LINE_WIDTH}
-                                        opacity="0.9"
-                                        rx="2"
-                                    />
-                                    <text
-                                        x={14}
-                                        y={isFirst ? y + 12 : isLast ? y - 12 : y}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize={GRID_LINE_LABEL_SIZE}
-                                        fill={GRID_LINE_COLOR}
-                                        fontWeight="bold"
-                                    >
-                                        {lineNumber}
-                                    </text>
-                                    {/* Right labels */}
-                                    <rect
-                                        x={width - GRID_LINE_LABEL_PADDING.x - 4}
-                                        y={
-                                            isFirst
-                                                ? y + 4
-                                                : isLast
-                                                ? y - GRID_LINE_LABEL_PADDING.y - 4
-                                                : y - GRID_LINE_LABEL_PADDING.y / 2
-                                        }
-                                        width={GRID_LINE_LABEL_PADDING.x}
-                                        height={GRID_LINE_LABEL_PADDING.y}
-                                        fill="white"
-                                        stroke={GRID_LINE_COLOR}
-                                        strokeWidth={GRID_LINE_WIDTH}
-                                        opacity="0.9"
-                                        rx="2"
-                                    />
-                                    <text
-                                        x={width - 14}
-                                        y={isFirst ? y + 12 : isLast ? y - 12 : y}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize={GRID_LINE_LABEL_SIZE}
-                                        fill={GRID_LINE_COLOR}
-                                        fontWeight="bold"
-                                    >
-                                        {lineNumber}
-                                    </text>
-                                </g>
-                            );
-                        })}
-                    </g>
-                )}
-            </svg>
-        );
-    };
-
-    /**
-     * Render grid areas overlay
-     * Creates area backgrounds behind content with labels on top
-     * Uses inline styles for Mendix Studio Pro compatibility
-     */
-    const renderGridAreasOverlay = () => {
-        if (!showGridAreas || !useNamedAreas || !gridDimensions.parsedAreas) return null;
-
-        const { parsedAreas, areaColorMap } = gridDimensions;
-        const processedAreas = new Set<string>();
-
-        return parsedAreas.map((row, rowIndex) =>
-            row.map((cell, colIndex) => {
-                if (cell === "." || processedAreas.has(cell)) return null;
-
-                // Find the full extent of this area
-                let minRow = rowIndex,
-                    maxRow = rowIndex;
-                let minCol = colIndex,
-                    maxCol = colIndex;
-
-                for (let r = 0; r < parsedAreas.length; r++) {
-                    for (let c = 0; c < parsedAreas[r].length; c++) {
-                        if (parsedAreas[r][c] === cell) {
-                            minRow = Math.min(minRow, r);
-                            maxRow = Math.max(maxRow, r);
-                            minCol = Math.min(minCol, c);
-                            maxCol = Math.max(maxCol, c);
-                        }
-                    }
-                }
-
-                processedAreas.add(cell);
-
-                return (
-                    <div
-                        key={`area-${cell}`}
-                        className="mx-css-grid-preview-area-overlay"
-                        style={{
-                            gridRow: `${minRow + 1} / ${maxRow + 2}`,
-                            gridColumn: `${minCol + 1} / ${maxCol + 2}`,
-                            backgroundColor: areaColorMap[cell],
-                            border: `${AREA_BORDER_WIDTH}px dashed rgba(0, 0, 0, ${AREA_BORDER_OPACITY})`,
-                            borderRadius: `${AREA_BORDER_RADIUS}px`,
-                            pointerEvents: "none",
-                            position: "relative",
-                            width: "100%",
-                            height: "100%",
-                            boxSizing: "border-box",
-                            // Ensure areas fill their grid cells
-                            justifySelf: "stretch",
-                            alignSelf: "stretch",
-                            zIndex: AREA_BACKGROUND_Z_INDEX // Behind content
-                        }}
-                    >
-                        <div
-                            className="mx-css-grid-preview-area-label-container"
-                            style={{
-                                position: "absolute",
-                                top: "50%",
-                                left: "50%",
-                                transform: "translate(-50%, -50%)",
-                                zIndex: AREA_LABEL_MAX_Z_INDEX, // Maximum z-index for label
-                                pointerEvents: "none"
-                            }}
-                        >
-                            <span
-                                className="mx-css-grid-preview-area-label"
-                                style={{
-                                    display: "inline-block",
-                                    fontSize: "11px",
-                                    fontWeight: 600,
-                                    color: "white",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.5px",
-                                    background: `rgba(59, 130, 246, ${AREA_LABEL_BACKGROUND_OPACITY})`,
-                                    padding: "2px 6px",
-                                    borderRadius: "3px",
-                                    whiteSpace: "nowrap",
-                                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.2)"
-                                }}
-                            >
-                                {cell.toUpperCase()}
-                            </span>
-                        </div>
-                    </div>
-                );
-            })
-        );
-    };
+        return "div";
+    }, []);
 
     /**
      * Render grid items
@@ -1302,10 +1111,16 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
         const activeConfig = getActiveGridConfig();
 
         return items.map((item, index) => {
-            const runtimeItem = item as RuntimeGridItemPreview;
+            const runtimeItem = validateRuntimeGridItemPreview(item);
+
+            // Check if item is hidden at current breakpoint
+            const isHidden = isItemHiddenAtCurrentBreakpoint(runtimeItem);
 
             // Get the active placement for this item at the current breakpoint
             const activePlacement = getActiveItemPlacementForPreview(runtimeItem);
+
+            // Get the active alignment for this item at the current breakpoint
+            const activeAlignment = getActiveItemAlignmentForPreview(runtimeItem);
 
             // Determine the effective placement type
             const effectivePlacementType =
@@ -1314,7 +1129,7 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
             // Validate area placement against current configuration
             let validatedPlacement = activePlacement;
             if (effectivePlacementType === "area" && activePlacement.gridArea) {
-                const currentAreas = activeConfig.areas ? parseGridAreas(activeConfig.areas) : null;
+                const currentAreas = activeConfig.areas ? memoizedParseGridAreas(activeConfig.areas) : null;
                 const currentAreaNames = currentAreas
                     ? new Set(currentAreas.flat().filter(a => a !== "."))
                     : new Set<string>();
@@ -1329,92 +1144,65 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                         rowStart: undefined,
                         rowEnd: undefined
                     };
-                    console.warn(
-                        `Item ${index + 1}: Grid area "${
-                            activePlacement.gridArea
-                        }" is not defined in current configuration`
-                    );
                 }
             }
 
-            const placementStyles = getGridItemPlacement(
-                {
-                    ...validatedPlacement,
-                    placementType: effectivePlacementType
-                },
-                useNamedAreas
-            );
-
-            const itemStyles: CSSProperties = {
-                position: "relative",
-                minHeight: `${EMPTY_ITEM_MIN_HEIGHT}px`,
-                boxSizing: "border-box",
-                width: "100%",
-                height: "100%",
-                ...placementStyles,
-                justifySelf: runtimeItem.justifySelf !== "auto" ? runtimeItem.justifySelf : undefined,
-                alignSelf: runtimeItem.alignSelf !== "auto" ? runtimeItem.alignSelf : undefined,
-                zIndex: runtimeItem.zIndex || undefined
-            };
-
             const itemName =
                 runtimeItem.itemName ||
-                (effectivePlacementType === "area" && activePlacement.gridArea
-                    ? activePlacement.gridArea
+                (effectivePlacementType === "area" && validatedPlacement.gridArea
+                    ? validatedPlacement.gridArea
                     : `Item ${index + 1}`);
 
             const hasResponsive = runtimeItem.enableResponsive || false;
-            const itemCaption = `${itemName}${hasResponsive ? " 📱" : ""}`;
+            const semanticElement = getSemanticElement(runtimeItem);
 
-            const ContentRenderer = runtimeItem.content?.renderer;
-
-            const itemClasses = ["mx-css-grid-preview-item", "mx-grid-item", runtimeItem.className]
-                .filter(Boolean)
-                .join(" ");
+            // Use memoized active container values to check parent alignment when item is "auto"
+            const activeValues = activeBreakpointValues;
 
             return (
-                <Selectable key={`grid-item-${index}`} object={runtimeItem} caption={itemCaption}>
-                    <div
-                        className={itemClasses}
-                        style={itemStyles}
-                        data-item-index={index}
-                        data-item-name={itemName}
-                        data-placement-type={effectivePlacementType}
-                        data-responsive={hasResponsive}
-                    >
-                        {ContentRenderer ? (
-                            <div className="mx-css-grid-preview-content">
-                                <ContentRenderer>
-                                    <div style={{ width: "100%", height: "100%" }} />
-                                </ContentRenderer>
-                            </div>
-                        ) : (
-                            <div className="mx-css-grid-preview-empty">
-                                <span className="mx-css-grid-preview-empty-text">{itemName}</span>
-                            </div>
-                        )}
-                    </div>
-                </Selectable>
+                <GridItemRenderer
+                    key={`grid_item_${index}`}
+                    item={runtimeItem}
+                    index={index}
+                    useNamedAreas={useNamedAreas}
+                    isHidden={isHidden}
+                    activePlacement={validatedPlacement}
+                    activeAlignment={activeAlignment}
+                    effectivePlacementType={effectivePlacementType}
+                    itemName={itemName}
+                    hasResponsive={hasResponsive}
+                    semanticElement={semanticElement}
+                    activeJustifyItems={activeValues.justifyItems}
+                    activeAlignItems={activeValues.alignItems}
+                />
             );
         });
-    }, [items, useNamedAreas, getAllDefinedAreas, getActiveGridConfig, getActiveItemPlacementForPreview]);
+    }, [
+        items,
+        useNamedAreas,
+        getAllDefinedAreas,
+        getActiveGridConfig,
+        getActiveItemPlacementForPreview,
+        getActiveItemAlignmentForPreview,
+        isItemHiddenAtCurrentBreakpoint,
+        activeBreakpointValues,
+        memoizedParseGridAreas,
+        getSemanticElement
+    ]);
 
     /**
      * Container class names
      * Builds the complete class list for the grid container
      */
     const containerClasses = useMemo(() => {
-        const classes = ["mx-css-grid-preview", "mx-css-grid", `mx-grid-${activeBreakpointSize}`, className];
+        const classes = ["css-grid-preview", "css-grid", `css-grid--${activeBreakpointSize}`, className];
 
         if (enableBreakpoints) {
-            classes.push("mx-css-grid--responsive");
+            classes.push("css-grid--responsive");
 
-            // Add enabled breakpoint classes
-            BREAKPOINT_CONFIGS.forEach(config => {
-                const enabledKey = `${config.size}Enabled` as keyof RuntimeGridContainerPreview;
-                if (runtimeProps[enabledKey]) {
-                    classes.push(`mx-grid-has-${config.size}`);
-                }
+            // Add enabled breakpoint classes using helper
+            forEachEnabledBreakpoint(runtimeProps, config => {
+                classes.push(`css-grid--has-${config.size}`);
             });
         }
 
@@ -1424,14 +1212,24 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
     return (
         <div
             ref={containerRef}
-            className="mx-css-grid-preview-wrapper"
+            className="css-grid-preview-wrapper"
             style={{
                 position: "relative",
-                width: "100%"
+                width: CSS_VALUES.FULL_WIDTH
             }}
         >
             {/* Responsive indicator */}
-            {renderResponsiveIndicator()}
+            <ResponsiveIndicator
+                hasResponsiveContainer={hasResponsiveContainer}
+                showGridInfo={props.showGridInfo || false}
+                enableBreakpoints={enableBreakpoints}
+                containerWidth={containerWidth}
+                containerHeight={containerRef.current?.offsetHeight || 0}
+                runtimeProps={runtimeProps}
+                items={items}
+                isItemHiddenAtCurrentBreakpoint={isItemHiddenAtCurrentBreakpoint}
+                responsiveMode={responsiveMode}
+            />
 
             {/* Main grid container */}
             <div
@@ -1443,13 +1241,18 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
                 data-breakpoint={activeBreakpointSize}
             >
                 {/* Grid areas overlay - rendered first so it's behind content */}
-                {renderGridAreasOverlay()}
+                <GridAreaOverlay
+                    showGridAreas={showGridAreas}
+                    useNamedAreas={useNamedAreas}
+                    parsedAreas={gridDimensions.parsedAreas}
+                    areaColorMap={gridDimensions.areaColorMap}
+                />
 
                 {/* Grid items */}
                 {renderGridItems()}
 
                 {/* Debug overlays - on top */}
-                {renderDebugOverlays()}
+                <DebugOverlay gridMetrics={gridMetrics} showGridLines={showGridLines} showGridGaps={showGridGaps} />
             </div>
         </div>
     );
@@ -1462,20 +1265,20 @@ export const preview: React.FC<CSSGridPreviewProps> = props => {
 export function getPreviewCss(): string {
     return `
         /* Base grid container styles for preview */
-        .mx-css-grid {
+        .css-grid {
             box-sizing: border-box;
-            width: 100%;
+            width: ${CSS_VALUES.FULL_WIDTH};
             position: relative;
             contain: layout style;
         }
         
         /* Make grid preview container positioned for absolute children */
-        .mx-css-grid-preview {
+        .css-grid-preview {
             position: relative !important;
         }
 
         /* Grid item base styles */
-        .mx-grid-item {
+        .css-grid__item {
             box-sizing: border-box;
             min-width: 0;
             min-height: 0;
@@ -1484,59 +1287,59 @@ export function getPreviewCss(): string {
         }
 
         /* Current breakpoint indicators */
-        .mx-grid-xs { --current-breakpoint: xs; }
-        .mx-grid-sm { --current-breakpoint: sm; }
-        .mx-grid-md { --current-breakpoint: md; }
-        .mx-grid-lg { --current-breakpoint: lg; }
-        .mx-grid-xl { --current-breakpoint: xl; }
-        .mx-grid-xxl { --current-breakpoint: xxl; }
+        .css-grid--xs { --current-breakpoint: xs; }
+        .css-grid--sm { --current-breakpoint: sm; }
+        .css-grid--md { --current-breakpoint: md; }
+        .css-grid--lg { --current-breakpoint: lg; }
+        .css-grid--xl { --current-breakpoint: xl; }
+        .css-grid--xxl { --current-breakpoint: xxl; }
 
         /* Focus styles */
-        .mx-css-grid:focus-visible {
+        .css-grid:focus-visible {
             outline: 2px solid #0066cc;
             outline-offset: 2px;
             box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
         }
 
         /* Ensure proper sizing for Mendix widgets */
-        .mx-grid-item > .mx-widget,
-        .mx-grid-item > .mx-container,
-        .mx-grid-item > .mx-container-nested,
-        .mx-grid-item > .mx-layoutgrid,
-        .mx-grid-item > .mx-dataview,
-        .mx-grid-item > .mx-listview,
-        .mx-grid-item > .mx-scrollcontainer,
-        .mx-grid-item > .mx-groupbox {
-            width: 100%;
-            height: 100%;
+        .css-grid__item > .mx-widget,
+        .css-grid__item > .mx-container,
+        .css-grid__item > .mx-container-nested,
+        .css-grid__item > .mx-layoutgrid,
+        .css-grid__item > .mx-dataview,
+        .css-grid__item > .mx-listview,
+        .css-grid__item > .mx-scrollcontainer,
+        .css-grid__item > .mx-groupbox {
+            width: ${CSS_VALUES.FULL_WIDTH};
+            height: ${CSS_VALUES.FULL_HEIGHT};
         }
 
         /* Text content handling */
-        .mx-grid-item > .mx-text,
-        .mx-grid-item > .mx-label {
-            max-width: 100%;
+        .css-grid__item > .mx-text,
+        .css-grid__item > .mx-label {
+            max-width: ${CSS_VALUES.FULL_WIDTH};
             overflow-wrap: break-word;
             word-wrap: break-word;
             hyphens: auto;
         }
 
         /* Remove all ::before and ::after pseudo elements */
-        .mx-css-grid-preview *::before,
-        .mx-css-grid-preview *::after {
+        .css-grid-preview *::before,
+        .css-grid-preview *::after {
             content: none !important;
             display: none !important;
         }
 
         /* Additional preview-specific styles */
-        .mx-css-grid-preview-wrapper {
+        .css-grid-preview-wrapper {
             position: relative;
-            width: 100%;
+            width: ${CSS_VALUES.FULL_WIDTH};
             box-sizing: border-box;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         /* Responsive indicator */
-        .mx-css-grid-preview-info {
+        .css-grid-preview-info {
             position: absolute;
             top: 4px;
             right: 4px;
@@ -1545,65 +1348,65 @@ export function getPreviewCss(): string {
             gap: 4px;
             font-size: 11px;
             color: #666;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, ${CSS_VALUES.BACKGROUND_WHITE_OPACITY});
             padding: 2px 8px;
             border-radius: 4px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            z-index: ${RESPONSIVE_INDICATOR_Z_INDEX};
+            z-index: ${Z_INDEX.RESPONSIVE_INDICATOR};
         }
 
-        .mx-css-grid-preview-info-icon {
+        .css-grid-preview-info-icon {
             font-size: 12px;
         }
 
-        .mx-css-grid-preview-info-text {
+        .css-grid-preview-info-text {
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         /* Debug SVG overlay */
-        .mx-css-grid-preview-debug-svg {
+        .css-grid-preview-debug-svg {
             pointer-events: none;
         }
 
         /* Grid area overlay */
-        .mx-css-grid-preview-area-overlay {
+        .css-grid-preview-area-overlay {
             transition: opacity 0.2s ease;
         }
 
         /* Area label container */
-        .mx-css-grid-preview-area-label-container {
+        .css-grid-preview-area-label-container {
             position: absolute !important;
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            z-index: ${AREA_LABEL_MAX_Z_INDEX} !important;
+            z-index: ${Z_INDEX.AREA_LABEL_MAX} !important;
             pointer-events: none !important;
         }
 
         /* Preview-specific grid item styles */
-        .mx-css-grid-preview-item {
+        .css-grid-preview-item {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .mx-css-grid-preview-item:hover {
+        .css-grid-preview-item:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         /* Content wrapper */
-        .mx-css-grid-preview-content {
-            width: 100%;
-            height: 100%;
+        .css-grid-preview-content {
+            width: ${CSS_VALUES.FULL_WIDTH};
+            height: ${CSS_VALUES.FULL_HEIGHT};
             position: relative;
             z-index: 2;
         }
 
         /* Empty item placeholder */
-        .mx-css-grid-preview-empty {
-            width: 100%;
-            height: 100%;
+        .css-grid-preview-empty {
+            width: ${CSS_VALUES.FULL_WIDTH};
+            height: ${CSS_VALUES.FULL_HEIGHT};
             min-height: ${EMPTY_ITEM_MIN_HEIGHT}px;
             display: flex;
             align-items: center;
@@ -1616,7 +1419,7 @@ export function getPreviewCss(): string {
             z-index: 2;
         }
 
-        .mx-css-grid-preview-empty-text {
+        .css-grid-preview-empty-text {
             font-size: 11px;
             color: #999;
             font-weight: 500;
@@ -1624,17 +1427,17 @@ export function getPreviewCss(): string {
         }
 
         /* Hover state for empty items */
-        .mx-css-grid-preview-item:hover .mx-css-grid-preview-empty {
+        .css-grid-preview-item:hover .css-grid-preview-empty {
             background: rgba(59, 130, 246, 0.05);
             border-color: rgba(59, 130, 246, 0.3);
         }
 
-        .mx-css-grid-preview-item:hover .mx-css-grid-preview-empty-text {
+        .css-grid-preview-item:hover .css-grid-preview-empty-text {
             color: #3b82f6;
         }
 
         /* Auto-flow indicator */
-        .mx-css-grid-preview-item[data-placement-type="auto"] .mx-css-grid-preview-empty {
+        .css-grid-preview-item[data-placement-type="auto"] .css-grid-preview-empty {
             background: repeating-linear-gradient(
                 45deg,
                 transparent,
@@ -1650,30 +1453,30 @@ export function getPreviewCss(): string {
         }
 
         /* Ensure Mendix widgets fill containers */
-        .mx-css-grid-preview-item .mx-widget,
-        .mx-css-grid-preview-item .mx-dataview,
-        .mx-css-grid-preview-item .mx-listview,
-        .mx-css-grid-preview-item .mx-container,
-        .mx-css-grid-preview-item .mx-container-nested,
-        .mx-css-grid-preview-item .mx-scrollcontainer,
-        .mx-css-grid-preview-item .mx-groupbox {
-            width: 100%;
-            height: 100%;
+        .css-grid-preview-item .mx-widget,
+        .css-grid-preview-item .mx-dataview,
+        .css-grid-preview-item .mx-listview,
+        .css-grid-preview-item .mx-container,
+        .css-grid-preview-item .mx-container-nested,
+        .css-grid-preview-item .mx-scrollcontainer,
+        .css-grid-preview-item .mx-groupbox {
+            width: ${CSS_VALUES.FULL_WIDTH};
+            height: ${CSS_VALUES.FULL_HEIGHT};
         }
 
         /* Remove default margins */
-        .mx-css-grid-preview-item > * {
+        .css-grid-preview-item > * {
             margin: 0;
         }
 
         /* Text overflow handling */
-        .mx-css-grid-preview-item {
+        .css-grid-preview-item {
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
 
         /* Z-index visual feedback */
-        .mx-css-grid-preview-item[style*="z-index"] {
+        .css-grid-preview-item[style*="z-index"] {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
@@ -1683,20 +1486,20 @@ export function getPreviewCss(): string {
         }
 
         /* Smooth transitions */
-        .mx-css-grid-preview,
-        .mx-css-grid-preview-item,
-        .mx-css-grid-preview-area-overlay {
+        .css-grid-preview,
+        .css-grid-preview-item,
+        .css-grid-preview-area-overlay {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Responsive adjustments for small editor views */
-        .mx-css-grid-preview-wrapper {
+        .css-grid-preview-wrapper {
             min-width: 320px;
         }
         
         /* Ensure info panel stays visible */
         @media (max-width: 480px) {
-            .mx-css-grid-preview-info {
+            .css-grid-preview-info {
                 font-size: 10px;
                 padding: 2px 6px;
             }

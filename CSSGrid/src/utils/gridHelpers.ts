@@ -1,32 +1,28 @@
 /**
  * Grid Helper Utilities
- * 
+ *
  * Collection of utility functions for CSS Grid widget
  * Handles grid template parsing, validation, and style generation
- * 
- * Modified for Mendix Studio Pro compatibility
+ *
+ * IMPORTANT: These utilities avoid using regex with split() functions
+ * to ensure compatibility with Mendix Studio Pro's Jint JavaScript
+ * interpreter, which has incomplete regex support in split() operations.
  */
 
 import { CSSProperties } from "react";
-import { 
-    RuntimeGridContainer, 
-    RuntimeGridItem,
-    GridItemPlacement 
-} from "../types/ConditionalTypes";
+import { RuntimeGridContainer, RuntimeGridItem, GridItemPlacement } from "../types/ConditionalTypes";
+import { CHAR_CODES } from "./constants";
+import { normalizeValue } from "./stringHelpers";
+import { forEachEnabledBreakpoint, forEachEnabledItemBreakpoint } from "./breakpointHelpers";
+import { BREAKPOINT_CONFIGS } from "../types/BreakpointTypes";
 
-/**
- * Helper to normalize empty strings to undefined
- * This prevents empty strings from creating invalid CSS
- */
-function normalizeValue(value: string | undefined): string | undefined {
-    if (!value || value.trim() === "") return undefined;
-    return value;
-}
+// normalizeValue function is now imported from ./stringHelpers
 
 /**
  * Parse CSS grid template string and expand repeat() functions
- * Modified to avoid complex regex patterns and split() for Mendix compatibility
- * 
+ * Implements manual parsing without regex to ensure compatibility
+ * with Mendix Studio Pro's Jint environment
+ *
  * @param template - Grid template string (e.g., "1fr 2fr 1fr" or "repeat(3, 1fr)")
  * @returns Array of grid track values
  */
@@ -36,67 +32,79 @@ export function parseGridTemplate(template: string): string[] {
     }
 
     let expandedTemplate = template;
-    
+
     // Handle repeat() syntax without regex
     while (expandedTemplate.includes("repeat(")) {
         const startIdx = expandedTemplate.indexOf("repeat(");
-        if (startIdx === -1) break;
-        
+        if (startIdx === -1) {
+            break;
+        }
+
         const openParen = startIdx + 6; // "repeat".length
         let closeParen = -1;
         let parenDepth = 1;
-        
+
         // Find matching closing parenthesis
         for (let i = openParen + 1; i < expandedTemplate.length; i++) {
-            if (expandedTemplate[i] === "(") parenDepth++;
-            if (expandedTemplate[i] === ")") parenDepth--;
+            if (expandedTemplate[i] === "(") {
+                parenDepth++;
+            }
+            if (expandedTemplate[i] === ")") {
+                parenDepth--;
+            }
             if (parenDepth === 0) {
                 closeParen = i;
                 break;
             }
         }
-        
-        if (closeParen === -1) break;
-        
+
+        if (closeParen === -1) {
+            break;
+        }
+
         // Extract repeat content
         const repeatContent = expandedTemplate.substring(openParen + 1, closeParen);
         const commaIdx = repeatContent.indexOf(",");
-        if (commaIdx === -1) break;
-        
+        if (commaIdx === -1) {
+            break;
+        }
+
         const countStr = repeatContent.substring(0, commaIdx).trim();
         const valueStr = repeatContent.substring(commaIdx + 1).trim();
         const count = parseInt(countStr, 10);
-        
-        if (isNaN(count) || count < 1) break;
-        
+
+        if (isNaN(count) || count < 1) {
+            break;
+        }
+
         // Build repeated string without using Array.fill().join()
         let repeated = "";
         for (let i = 0; i < count; i++) {
-            if (i > 0) repeated += " ";
+            if (i > 0) {
+                repeated += " ";
+            }
             repeated += valueStr;
         }
-        
+
         // Replace in template
-        expandedTemplate = 
-            expandedTemplate.substring(0, startIdx) + 
-            repeated + 
-            expandedTemplate.substring(closeParen + 1);
+        expandedTemplate =
+            expandedTemplate.substring(0, startIdx) + repeated + expandedTemplate.substring(closeParen + 1);
     }
 
     // Parse by spaces not inside parentheses - using simple state machine
     const parts: string[] = [];
     let current = "";
     let depth = 0;
-    
+
     for (let i = 0; i < expandedTemplate.length; i++) {
         const char = expandedTemplate[i];
-        
+
         if (char === "(" || char === "[") {
             depth++;
         } else if (char === ")" || char === "]") {
             depth--;
         }
-        
+
         if (char === " " && depth === 0) {
             if (current.trim()) {
                 parts.push(current.trim());
@@ -106,19 +114,19 @@ export function parseGridTemplate(template: string): string[] {
             current += char;
         }
     }
-    
+
     if (current.trim()) {
         parts.push(current.trim());
     }
-    
+
     return parts.length > 0 ? parts : ["1fr"];
 }
 
 /**
  * Parse grid template areas string into a 2D array
  * NO AUTOMATIC QUOTE ADDITION - uses the value exactly as provided
- * Modified to avoid split() for Mendix Studio Pro compatibility
- * 
+ * Implements manual parsing without split() to ensure Jint compatibility
+ *
  * @param areas - Grid template areas string
  * @returns 2D array of area names or null if invalid
  */
@@ -129,7 +137,7 @@ export function parseGridAreas(areas: string): string[][] | null {
 
     // Check if the areas string contains quotes
     const hasQuotes = areas.includes('"') || areas.includes("'");
-    
+
     if (hasQuotes) {
         // Parse quoted format (standard CSS format)
         // Extract content between quotes
@@ -137,7 +145,7 @@ export function parseGridAreas(areas: string): string[][] | null {
         const quoteChar = areas.includes('"') ? '"' : "'";
         let inQuote = false;
         let currentLine = "";
-        
+
         for (let i = 0; i < areas.length; i++) {
             const char = areas[i];
             if (char === quoteChar) {
@@ -156,19 +164,19 @@ export function parseGridAreas(areas: string): string[][] | null {
                 currentLine += char;
             }
         }
-        
+
         // Parse the quoted lines into grid without using split
         const grid: string[][] = [];
         for (const line of quotedLines) {
             const cells: string[] = [];
-            let currentCell = '';
-            
+            let currentCell = "";
+
             for (let i = 0; i < line.length; i++) {
                 const char = line[i];
-                if (char === ' ' || char === '\t') {
+                if (char === " " || char === "\t") {
                     if (currentCell) {
                         cells.push(currentCell);
-                        currentCell = '';
+                        currentCell = "";
                     }
                 } else {
                     currentCell += char;
@@ -177,45 +185,45 @@ export function parseGridAreas(areas: string): string[][] | null {
             if (currentCell) {
                 cells.push(currentCell);
             }
-            
+
             if (cells.length > 0) {
                 grid.push(cells);
             }
         }
-        
+
         return grid.length > 0 ? grid : null;
     } else {
         // Parse unquoted format (legacy support)
         // Parse by newlines without using split()
         const lines: string[] = [];
-        let currentLine = '';
-        
+        let currentLine = "";
+
         for (let i = 0; i < areas.length; i++) {
             const char = areas[i];
-            if (char === '\n') {
+            if (char === "\n") {
                 if (currentLine.trim()) {
                     lines.push(currentLine.trim());
                 }
-                currentLine = '';
-            } else if (char !== '\r') {
+                currentLine = "";
+            } else if (char !== "\r") {
                 currentLine += char;
             }
         }
         if (currentLine.trim()) {
             lines.push(currentLine.trim());
         }
-        
+
         const grid: string[][] = [];
         for (const line of lines) {
             const cells: string[] = [];
-            let currentCell = '';
-            
+            let currentCell = "";
+
             for (let i = 0; i < line.length; i++) {
                 const char = line[i];
-                if (char === ' ' || char === '\t') {
+                if (char === " " || char === "\t") {
                     if (currentCell) {
                         cells.push(currentCell);
-                        currentCell = '';
+                        currentCell = "";
                     }
                 } else {
                     currentCell += char;
@@ -224,12 +232,12 @@ export function parseGridAreas(areas: string): string[][] | null {
             if (currentCell) {
                 cells.push(currentCell);
             }
-            
+
             if (cells.length > 0) {
                 grid.push(cells);
             }
         }
-        
+
         return grid.length > 0 ? grid : null;
     }
 }
@@ -237,7 +245,7 @@ export function parseGridAreas(areas: string): string[][] | null {
 /**
  * Generate CSS for container responsive breakpoints
  * Uses mobile-first approach with proper normalization
- * 
+ *
  * @param props - Container props with responsive settings
  * @param className - CSS class name for the grid container
  * @param useNamedAreas - Whether named areas are enabled
@@ -246,71 +254,37 @@ export function parseGridAreas(areas: string): string[][] | null {
 export function generateContainerBreakpointStyles(
     props: RuntimeGridContainer,
     className: string,
-    useNamedAreas: boolean = false
+    useNamedAreas = false
 ): string {
     if (!props.enableBreakpoints) {
         return "";
     }
 
     const cssRules: string[] = [];
-    
-    // Define breakpoint configurations in mobile-first order
-    const breakpoints = [
-        { key: 'xs', minWidth: 0, maxWidth: 639 },
-        { key: 'sm', minWidth: 640, maxWidth: 767 },
-        { key: 'md', minWidth: 768, maxWidth: 1023 },
-        { key: 'lg', minWidth: 1024, maxWidth: 1439 },
-        { key: 'xl', minWidth: 1440, maxWidth: 1919 },
-        { key: 'xxl', minWidth: 1920, maxWidth: undefined }
-    ] as const;
-    
-    // Process each breakpoint
-    breakpoints.forEach(bp => {
-        const enabledKey = `${bp.key}Enabled` as keyof RuntimeGridContainer;
-        if (!props[enabledKey]) {
-            return;
-        }
-        
+
+    // Process each enabled breakpoint using helper
+    forEachEnabledBreakpoint(props, (config, getProperty, getNormalizedProperty) => {
         const rules: string[] = [];
-        
-        // Get breakpoint-specific values with normalization
-        const columnsKey = `${bp.key}Columns` as keyof RuntimeGridContainer;
-        const rowsKey = `${bp.key}Rows` as keyof RuntimeGridContainer;
-        const areasKey = `${bp.key}Areas` as keyof RuntimeGridContainer;
-        const gapKey = `${bp.key}Gap` as keyof RuntimeGridContainer;
-        const rowGapKey = `${bp.key}RowGap` as keyof RuntimeGridContainer;
-        const columnGapKey = `${bp.key}ColumnGap` as keyof RuntimeGridContainer;
-        const autoFlowKey = `${bp.key}AutoFlow` as keyof RuntimeGridContainer;
-        const autoRowsKey = `${bp.key}AutoRows` as keyof RuntimeGridContainer;
-        const autoColumnsKey = `${bp.key}AutoColumns` as keyof RuntimeGridContainer;
-        const justifyItemsKey = `${bp.key}JustifyItems` as keyof RuntimeGridContainer;
-        const alignItemsKey = `${bp.key}AlignItems` as keyof RuntimeGridContainer;
-        const justifyContentKey = `${bp.key}JustifyContent` as keyof RuntimeGridContainer;
-        const alignContentKey = `${bp.key}AlignContent` as keyof RuntimeGridContainer;
-        const minHeightKey = `${bp.key}MinHeight` as keyof RuntimeGridContainer;
-        const maxHeightKey = `${bp.key}MaxHeight` as keyof RuntimeGridContainer;
-        const minWidthKey = `${bp.key}MinWidth` as keyof RuntimeGridContainer;
-        const maxWidthKey = `${bp.key}MaxWidth` as keyof RuntimeGridContainer;
-        
-        // Normalize all values to prevent empty strings in CSS
-        const columns = normalizeValue(props[columnsKey] as string | undefined);
-        const rows = normalizeValue(props[rowsKey] as string | undefined);
-        const areas = normalizeValue(props[areasKey] as string | undefined);
-        const gap = normalizeValue(props[gapKey] as string | undefined);
-        const rowGap = normalizeValue(props[rowGapKey] as string | undefined);
-        const columnGap = normalizeValue(props[columnGapKey] as string | undefined);
-        const autoFlow = props[autoFlowKey] as string | undefined;
-        const autoRows = normalizeValue(props[autoRowsKey] as string | undefined);
-        const autoColumns = normalizeValue(props[autoColumnsKey] as string | undefined);
-        const justifyItems = props[justifyItemsKey] as string | undefined;
-        const alignItems = props[alignItemsKey] as string | undefined;
-        const justifyContent = props[justifyContentKey] as string | undefined;
-        const alignContent = props[alignContentKey] as string | undefined;
-        const minHeight = normalizeValue(props[minHeightKey] as string | undefined);
-        const maxHeight = normalizeValue(props[maxHeightKey] as string | undefined);
-        const minWidth = normalizeValue(props[minWidthKey] as string | undefined);
-        const maxWidth = normalizeValue(props[maxWidthKey] as string | undefined);
-        
+
+        // Get breakpoint-specific values with normalization using helper
+        const columns = getNormalizedProperty("Columns");
+        const rows = getNormalizedProperty("Rows");
+        const areas = getNormalizedProperty("Areas");
+        const gap = getNormalizedProperty("Gap");
+        const rowGap = getNormalizedProperty("RowGap");
+        const columnGap = getNormalizedProperty("ColumnGap");
+        const autoFlow = getProperty("AutoFlow");
+        const autoRows = getNormalizedProperty("AutoRows");
+        const autoColumns = getNormalizedProperty("AutoColumns");
+        const justifyItems = getProperty("JustifyItems");
+        const alignItems = getProperty("AlignItems");
+        const justifyContent = getProperty("JustifyContent");
+        const alignContent = getProperty("AlignContent");
+        const minHeight = getNormalizedProperty("MinHeight");
+        const maxHeight = getNormalizedProperty("MaxHeight");
+        const minWidth = getNormalizedProperty("MinWidth");
+        const maxWidth = getNormalizedProperty("MaxWidth");
+
         if (columns) {
             rules.push(`grid-template-columns: ${columns};`);
         }
@@ -333,10 +307,10 @@ export function generateContainerBreakpointStyles(
         if (autoFlow) {
             // Map enumeration values to CSS
             const flowMapping: Record<string, string> = {
-                'row': 'row',
-                'column': 'column',
-                'dense': 'dense',
-                'columnDense': 'column dense'
+                row: "row",
+                column: "column",
+                dense: "dense",
+                columnDense: "column dense"
             };
             rules.push(`grid-auto-flow: ${flowMapping[autoFlow] || autoFlow};`);
         }
@@ -354,17 +328,17 @@ export function generateContainerBreakpointStyles(
         }
         if (justifyContent) {
             const contentMapping: Record<string, string> = {
-                'spaceBetween': 'space-between',
-                'spaceAround': 'space-around',
-                'spaceEvenly': 'space-evenly'
+                spaceBetween: "space-between",
+                spaceAround: "space-around",
+                spaceEvenly: "space-evenly"
             };
             rules.push(`justify-content: ${contentMapping[justifyContent] || justifyContent};`);
         }
         if (alignContent) {
             const contentMapping: Record<string, string> = {
-                'spaceBetween': 'space-between',
-                'spaceAround': 'space-around',
-                'spaceEvenly': 'space-evenly'
+                spaceBetween: "space-between",
+                spaceAround: "space-around",
+                spaceEvenly: "space-evenly"
             };
             rules.push(`align-content: ${contentMapping[alignContent] || alignContent};`);
         }
@@ -382,11 +356,17 @@ export function generateContainerBreakpointStyles(
             rules.push(`margin-left: auto;`);
             rules.push(`margin-right: auto;`);
         }
-        
+
         if (rules.length > 0) {
+            // Get breakpoint configuration
+            const bpConfig = BREAKPOINT_CONFIGS.find(bp => bp.size === config.size);
+            if (!bpConfig) {
+                return;
+            }
+
             // For XS breakpoint, apply styles directly without media query
             // This ensures XS styles are the base and get overridden by larger breakpoints
-            if (bp.key === 'xs') {
+            if (config.size === "xs") {
                 cssRules.push(`
                     ${className} {
                         ${rules.join("\n                        ")}
@@ -396,7 +376,7 @@ export function generateContainerBreakpointStyles(
                 // For other breakpoints, use min-width media query
                 // This creates a proper cascade where larger breakpoints override smaller ones
                 const mediaQuery = `
-                    @media (min-width: ${bp.minWidth}px) {
+                    @media (min-width: ${bpConfig.minWidth}px) {
                         ${className} {
                             ${rules.join("\n                            ")}
                         }
@@ -406,59 +386,38 @@ export function generateContainerBreakpointStyles(
             }
         }
     });
-    
+
     return cssRules.join("\n");
 }
 
 /**
  * Generate CSS for per-item responsive breakpoints
  * Uses mobile-first approach with normalization
- * 
+ *
  * @param items - Array of grid items with breakpoint configurations
  * @param widgetId - Unique widget identifier for CSS scoping
  * @returns CSS string with media queries for item breakpoints
  */
-export function generateItemBreakpointStyles(
-    items: RuntimeGridItem[],
-    widgetId: string
-): string {
+export function generateItemBreakpointStyles(items: RuntimeGridItem[], widgetId: string): string {
     const cssRules: string[] = [];
-    
-    // Define breakpoint configurations in mobile-first order
-    const breakpoints = [
-        { key: 'xs', minWidth: 0, maxWidth: 639 },
-        { key: 'sm', minWidth: 640, maxWidth: 767 },
-        { key: 'md', minWidth: 768, maxWidth: 1023 },
-        { key: 'lg', minWidth: 1024, maxWidth: 1439 },
-        { key: 'xl', minWidth: 1440, maxWidth: 1919 },
-        { key: 'xxl', minWidth: 1920, maxWidth: undefined }
-    ] as const;
-    
+
     items.forEach((item, index) => {
         if (!item.enableResponsive) {
             return;
         }
-        
+
         const itemClassName = `.${widgetId}-item-${index}`;
-        
-        // Process each breakpoint
-        breakpoints.forEach(bp => {
-            // Type-safe property access
-            const enabledKey = `${bp.key}Enabled` as keyof RuntimeGridItem;
-            if (!item[enabledKey]) {
-                return;
-            }
-            
+
+        // Process each enabled breakpoint using helper
+        forEachEnabledItemBreakpoint(item, (config, getProperty, getNormalizedProperty) => {
             const rules: string[] = [];
-            
+
             // Get placement type for this breakpoint
-            const placementTypeKey = `${bp.key}PlacementType` as keyof RuntimeGridItem;
-            const placementType = item[placementTypeKey] as string || 'auto';
-            
+            const placementType = (getProperty("PlacementType") as string) || "auto";
+
             // Apply placement based on type with normalization
             if (placementType === "area") {
-                const areaKey = `${bp.key}GridArea` as keyof RuntimeGridItem;
-                const areaValue = normalizeValue(item[areaKey] as string | undefined);
+                const areaValue = getNormalizedProperty("GridArea");
                 if (areaValue) {
                     rules.push(`grid-area: ${areaValue};`);
                     // Clear coordinate-based placement
@@ -466,16 +425,11 @@ export function generateItemBreakpointStyles(
                     rules.push(`grid-row: auto;`);
                 }
             } else if (placementType === "coordinates") {
-                const colStartKey = `${bp.key}ColumnStart` as keyof RuntimeGridItem;
-                const colEndKey = `${bp.key}ColumnEnd` as keyof RuntimeGridItem;
-                const rowStartKey = `${bp.key}RowStart` as keyof RuntimeGridItem;
-                const rowEndKey = `${bp.key}RowEnd` as keyof RuntimeGridItem;
-                
-                const colStart = normalizeValue(item[colStartKey] as string | undefined);
-                const colEnd = normalizeValue(item[colEndKey] as string | undefined);
-                const rowStart = normalizeValue(item[rowStartKey] as string | undefined);
-                const rowEnd = normalizeValue(item[rowEndKey] as string | undefined);
-                
+                const colStart = getNormalizedProperty("ColumnStart");
+                const colEnd = getNormalizedProperty("ColumnEnd");
+                const rowStart = getNormalizedProperty("RowStart");
+                const rowEnd = getNormalizedProperty("RowEnd");
+
                 if (colStart && colStart !== "auto") {
                     rules.push(`grid-column-start: ${colStart};`);
                 }
@@ -491,12 +445,9 @@ export function generateItemBreakpointStyles(
                 // Clear area placement
                 rules.push(`grid-area: auto;`);
             } else if (placementType === "span") {
-                const colStartKey = `${bp.key}ColumnStart` as keyof RuntimeGridItem;
-                const rowStartKey = `${bp.key}RowStart` as keyof RuntimeGridItem;
-                
-                const colStart = normalizeValue(item[colStartKey] as string | undefined);
-                const rowStart = normalizeValue(item[rowStartKey] as string | undefined);
-                
+                const colStart = getNormalizedProperty("ColumnStart");
+                const rowStart = getNormalizedProperty("RowStart");
+
                 if (colStart && colStart !== "auto") {
                     if (colStart.includes("span")) {
                         rules.push(`grid-column: ${colStart};`);
@@ -519,10 +470,16 @@ export function generateItemBreakpointStyles(
                 rules.push(`grid-column: auto;`);
                 rules.push(`grid-row: auto;`);
             }
-            
+
             if (rules.length > 0) {
+                // Get breakpoint configuration for media query
+                const bpConfig = BREAKPOINT_CONFIGS.find(bp => bp.size === config.size);
+                if (!bpConfig) {
+                    return;
+                }
+
                 // For XS breakpoint, apply styles directly without media query
-                if (bp.key === 'xs') {
+                if (config.size === "xs") {
                     cssRules.push(`
                         ${itemClassName} {
                             ${rules.join("\n                            ")}
@@ -531,7 +488,7 @@ export function generateItemBreakpointStyles(
                 } else {
                     // For other breakpoints, use min-width media query
                     const mediaQuery = `
-                        @media (min-width: ${bp.minWidth}px) {
+                        @media (min-width: ${bpConfig.minWidth}px) {
                             ${itemClassName} {
                                 ${rules.join("\n                                ")}
                             }
@@ -542,19 +499,19 @@ export function generateItemBreakpointStyles(
             }
         });
     });
-    
+
     return cssRules.join("\n");
 }
 
 /**
  * Merge grid placement properties into CSS grid properties
  * Fixed to properly handle mixed placement types when using named areas
- * 
+ *
  * @param item - Grid item placement configuration
  * @param useNamedAreas - Whether the grid is using named areas
  * @returns CSS properties for grid item placement
  */
-export function getGridItemPlacement(item: GridItemPlacement, useNamedAreas: boolean = false): CSSProperties {
+export function getGridItemPlacement(item: GridItemPlacement, useNamedAreas = false): CSSProperties {
     const placement: CSSProperties = {};
 
     // Normalize values before processing
@@ -627,7 +584,7 @@ export function getGridItemPlacement(item: GridItemPlacement, useNamedAreas: boo
 
 /**
  * Get unique area names from grid template areas
- * 
+ *
  * @param areas - Parsed grid areas array
  * @returns Array of unique area names (excluding dots)
  */
@@ -637,7 +594,7 @@ export function getUniqueAreaNames(areas: string[][] | null): string[] {
     }
 
     const uniqueNames = new Set<string>();
-    
+
     areas.forEach(row => {
         row.forEach(cell => {
             if (cell && cell !== ".") {
@@ -652,7 +609,7 @@ export function getUniqueAreaNames(areas: string[][] | null): string[] {
 /**
  * Check if a grid area name is valid
  * Using simple character checks instead of regex
- * 
+ *
  * @param name - Grid area name to validate
  * @returns true if valid, false otherwise
  */
@@ -663,18 +620,25 @@ export function isValidAreaName(name: string): boolean {
 
     // Must start with a letter
     const firstChar = name.charCodeAt(0);
-    if (!((firstChar >= 65 && firstChar <= 90) || (firstChar >= 97 && firstChar <= 122))) {
+    if (
+        !(
+            (firstChar >= CHAR_CODES.UPPERCASE_A && firstChar <= CHAR_CODES.UPPERCASE_Z) ||
+            (firstChar >= CHAR_CODES.LOWERCASE_A && firstChar <= CHAR_CODES.LOWERCASE_Z)
+        )
+    ) {
         return false;
     }
 
     // Check remaining characters
     for (let i = 1; i < name.length; i++) {
         const charCode = name.charCodeAt(i);
-        const isLetter = (charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122);
-        const isNumber = charCode >= 48 && charCode <= 57;
-        const isHyphen = charCode === 45;
-        const isUnderscore = charCode === 95;
-        
+        const isLetter =
+            (charCode >= CHAR_CODES.UPPERCASE_A && charCode <= CHAR_CODES.UPPERCASE_Z) ||
+            (charCode >= CHAR_CODES.LOWERCASE_A && charCode <= CHAR_CODES.LOWERCASE_Z);
+        const isNumber = charCode >= CHAR_CODES.DIGIT_0 && charCode <= CHAR_CODES.DIGIT_9;
+        const isHyphen = charCode === CHAR_CODES.HYPHEN;
+        const isUnderscore = charCode === CHAR_CODES.UNDERSCORE;
+
         if (!isLetter && !isNumber && !isHyphen && !isUnderscore) {
             return false;
         }

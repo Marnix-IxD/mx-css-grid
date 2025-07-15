@@ -1,48 +1,50 @@
 {
-  "name": "cssgrid",
-  "widgetName": "CSSGrid",
-  "version": "1.1.0",
-  "description": "A CSS Grid implementation for Mendix Studio Pro 10.24+",
-  "copyright": "@The Orange Force B.V.",
-  "author": "Marnix Valentijn Puijker",
-  "engines": {
-    "node": ">=16"
-  },
-  "license": "Apache-2.0",
-  "config": {
-    "projectPath": "../Mendix/CSSGrid",
-    "mendixHost": "http://localhost:8080",
-    "developmentPort": 3000
-  },
-  "packagePath": "theorangeforce",
-  "scripts": {
-    "start": "pluggable-widgets-tools start:server",
-    "dev": "pluggable-widgets-tools start:web",
-    "build": "pluggable-widgets-tools build:web",
-    "create:typings": "pluggable-widgets-tools create:typings",
-    "lint": "pluggable-widgets-tools lint",
-    "lint:fix": "pluggable-widgets-tools lint:fix",
-    "prerelease": "npm run lint",
-    "release": "pluggable-widgets-tools release:web",
-    "clean": "rm -rf ./dist",
-    "rebuild": "npm run clean && npm run build"
-  },
-  "devDependencies": {
-    "@mendix/pluggable-widgets-tools": "^10.21.1",
-    "@types/big.js": "^6.0.2",
-    "@types/classnames": "^2.3.1"
-  },
-  "dependencies": {
-    "classnames": "^2.2.6"
-  },
-  "resolutions": {
-    "react": "^18.2.0",
-    "@types/react": "^18.2.0",
-    "react-native": "0.72.7"
-  },
-  "overrides": {
-    "react": "^18.2.0",
-    "@types/react": "^18.2.0",
-    "react-native": "0.72.7"
-  }
+    "name": "cssgrid",
+    "widgetName": "CSSGrid",
+    "version": "1.2.0",
+    "description": "A CSS Grid implementation for Mendix Studio Pro 10.24+",
+    "copyright": "@The Orange Force B.V.",
+    "author": "Marnix Valentijn Puijker",
+    "engines": {
+        "node": ">=16"
+    },
+    "license": "Apache-2.0",
+    "config": {
+        "projectPath": "../Mendix/CSSGrid",
+        "mendixHost": "http://localhost:8080",
+        "developmentPort": 3000
+    },
+    "packagePath": "theorangeforce",
+    "scripts": {
+        "start": "pluggable-widgets-tools start:server",
+        "dev": "pluggable-widgets-tools start:web",
+        "build": "npm run format && pluggable-widgets-tools build:web",
+        "create:typings": "pluggable-widgets-tools create:typings",
+        "lint": "pluggable-widgets-tools lint",
+        "lint:fix": "pluggable-widgets-tools lint:fix",
+        "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,css,xml}\" \"typings/**/*.d.ts\" \"*.{js,json,md}\"",
+        "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,css,xml}\" \"typings/**/*.d.ts\" \"*.{js,json,md}\"",
+        "prerelease": "npm run format:check && npm run lint",
+        "release": "pluggable-widgets-tools release:web",
+        "clean": "rm -rf ./dist",
+        "rebuild": "npm run clean && npm run format && npm run build"
+    },
+    "devDependencies": {
+        "@mendix/pluggable-widgets-tools": "^10.21.1",
+        "@types/big.js": "^6.0.2",
+        "@types/classnames": "^2.3.1"
+    },
+    "dependencies": {
+        "classnames": "^2.2.6"
+    },
+    "resolutions": {
+        "react": "^18.2.0",
+        "@types/react": "^18.2.0",
+        "react-native": "0.72.7"
+    },
+    "overrides": {
+        "react": "^18.2.0",
+        "@types/react": "^18.2.0",
+        "react-native": "0.72.7"
+    }
 }

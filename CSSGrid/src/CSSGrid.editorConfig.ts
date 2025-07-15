@@ -1,27 +1,51 @@
 import { CSSGridPreviewProps, ItemsPreviewType } from "../typings/CSSGridProps";
-import { Properties, hidePropertiesIn, hidePropertyIn, hideNestedPropertiesIn, transformGroupsIntoTabs } from "@mendix/pluggable-widgets-tools";
+import {
+    Properties,
+    hidePropertiesIn,
+    hidePropertyIn,
+    hideNestedPropertiesIn,
+    transformGroupsIntoTabs,
+    Problem
+} from "@mendix/pluggable-widgets-tools";
+import {
+    validateCssDimension,
+    validateGap,
+    validateGridTemplate,
+    validateZIndex,
+    validateGridTemplateAreas,
+    validateItemPlacement,
+    isEmpty
+} from "./utils/validationHelpers";
+import { BREAKPOINT_SIZES, BREAKPOINT_LABELS, BreakpointSizeType, EDITOR } from "./utils/constants";
+import {
+    getResponsivePropertyKeys,
+    forEachEnabledBreakpoint,
+    hasBreakpointConfiguration,
+    getItemResponsivePropertyKeys,
+    forEachEnabledItemBreakpoint,
+    forEachBreakpoint
+} from "./utils/breakpointHelpers";
 
 /**
  * CSS Grid Editor Configuration
- * 
+ *
  * Provides validation, custom captions, and preview styling
  * for the Mendix Studio Pro property editor
- * 
+ *
  * Enhanced with container-level responsive validation
+ *
+ * NOTE: Validation functions avoid regex to ensure compatibility
+ * with Mendix Studio Pro's Jint JavaScript interpreter
  */
 
-// Type definitions for validation errors
-interface ValidationError {
-    property?: string;
-    message: string;
-    severity?: "error" | "warning" | "info";
-}
-
-// Type for the check function
-type CheckFunction = (values: CSSGridPreviewProps) => ValidationError[];
+// Type for the check function using Mendix's Problem type
+type CheckFunction = (values: CSSGridPreviewProps) => Problem[];
 
 // Type for the caption function
 type CaptionFunction = (values: CSSGridPreviewProps) => string;
+
+// Type for renderAs property
+type RenderAsType = "auto" | "div" | "section" | "article" | "nav" | "aside" | "header" | "main" | "footer";
 
 // Type for responsive properties that might exist on items
 type ResponsiveProperties = {
@@ -33,7 +57,7 @@ type ResponsiveProperties = {
     xsColumnEnd?: string;
     xsRowStart?: string;
     xsRowEnd?: string;
-    
+
     // SM breakpoint
     smEnabled?: boolean;
     smPlacementType?: string;
@@ -42,7 +66,7 @@ type ResponsiveProperties = {
     smColumnEnd?: string;
     smRowStart?: string;
     smRowEnd?: string;
-    
+
     // MD breakpoint
     mdEnabled?: boolean;
     mdPlacementType?: string;
@@ -51,7 +75,7 @@ type ResponsiveProperties = {
     mdColumnEnd?: string;
     mdRowStart?: string;
     mdRowEnd?: string;
-    
+
     // LG breakpoint
     lgEnabled?: boolean;
     lgPlacementType?: string;
@@ -60,7 +84,7 @@ type ResponsiveProperties = {
     lgColumnEnd?: string;
     lgRowStart?: string;
     lgRowEnd?: string;
-    
+
     // XL breakpoint
     xlEnabled?: boolean;
     xlPlacementType?: string;
@@ -69,7 +93,7 @@ type ResponsiveProperties = {
     xlColumnEnd?: string;
     xlRowStart?: string;
     xlRowEnd?: string;
-    
+
     // XXL breakpoint
     xxlEnabled?: boolean;
     xxlPlacementType?: string;
@@ -78,17 +102,61 @@ type ResponsiveProperties = {
     xxlColumnEnd?: string;
     xxlRowStart?: string;
     xxlRowEnd?: string;
+
+    // 2K breakpoint
+    xxxlEnabled?: boolean;
+    xxxlPlacementType?: string;
+    xxxlGridArea?: string;
+    xxxlColumnStart?: string;
+    xxxlColumnEnd?: string;
+    xxxlRowStart?: string;
+    xxxlRowEnd?: string;
+
+    // 4K breakpoint
+    xxxxlEnabled?: boolean;
+    xxxxlPlacementType?: string;
+    xxxxlGridArea?: string;
+    xxxxlColumnStart?: string;
+    xxxxlColumnEnd?: string;
+    xxxxlRowStart?: string;
+    xxxxlRowEnd?: string;
+
+    // Responsive alignment properties
+    xsJustifySelf?: string;
+    xsAlignSelf?: string;
+    xsZIndex?: number;
+    smJustifySelf?: string;
+    smAlignSelf?: string;
+    smZIndex?: number;
+    mdJustifySelf?: string;
+    mdAlignSelf?: string;
+    mdZIndex?: number;
+    lgJustifySelf?: string;
+    lgAlignSelf?: string;
+    lgZIndex?: number;
+    xlJustifySelf?: string;
+    xlAlignSelf?: string;
+    xlZIndex?: number;
+    xxlJustifySelf?: string;
+    xxlAlignSelf?: string;
+    xxlZIndex?: number;
+    xxxlJustifySelf?: string;
+    xxxlAlignSelf?: string;
+    xxxlZIndex?: number;
+    xxxxlJustifySelf?: string;
+    xxxxlAlignSelf?: string;
+    xxxxlZIndex?: number;
 };
 
 // Type for container responsive properties
 type ResponsiveContainerProperties = {
     enableBreakpoints?: boolean;
-    
+
     // Debug properties
     showGridLines?: boolean;
     showGridAreas?: boolean;
     showGridGaps?: boolean;
-    
+
     // XS breakpoint
     xsEnabled?: boolean;
     xsColumns?: string;
@@ -108,7 +176,7 @@ type ResponsiveContainerProperties = {
     xsMaxHeight?: string;
     xsMinWidth?: string;
     xsMaxWidth?: string;
-    
+
     // SM breakpoint
     smEnabled?: boolean;
     smColumns?: string;
@@ -128,7 +196,7 @@ type ResponsiveContainerProperties = {
     smMaxHeight?: string;
     smMinWidth?: string;
     smMaxWidth?: string;
-    
+
     // MD breakpoint
     mdEnabled?: boolean;
     mdColumns?: string;
@@ -148,7 +216,7 @@ type ResponsiveContainerProperties = {
     mdMaxHeight?: string;
     mdMinWidth?: string;
     mdMaxWidth?: string;
-    
+
     // LG breakpoint
     lgEnabled?: boolean;
     lgColumns?: string;
@@ -168,7 +236,7 @@ type ResponsiveContainerProperties = {
     lgMaxHeight?: string;
     lgMinWidth?: string;
     lgMaxWidth?: string;
-    
+
     // XL breakpoint
     xlEnabled?: boolean;
     xlColumns?: string;
@@ -188,7 +256,7 @@ type ResponsiveContainerProperties = {
     xlMaxHeight?: string;
     xlMinWidth?: string;
     xlMaxWidth?: string;
-    
+
     // XXL breakpoint
     xxlEnabled?: boolean;
     xxlColumns?: string;
@@ -208,33 +276,61 @@ type ResponsiveContainerProperties = {
     xxlMaxHeight?: string;
     xxlMinWidth?: string;
     xxlMaxWidth?: string;
+
+    // 2K breakpoint
+    xxxlEnabled?: boolean;
+    xxxlColumns?: string;
+    xxxlRows?: string;
+    xxxlAreas?: string;
+    xxxlGap?: string;
+    xxxlRowGap?: string;
+    xxxlColumnGap?: string;
+    xxxlAutoFlow?: string;
+    xxxlAutoRows?: string;
+    xxxlAutoColumns?: string;
+    xxxlJustifyItems?: string;
+    xxxlAlignItems?: string;
+    xxxlJustifyContent?: string;
+    xxxlAlignContent?: string;
+    xxxlMinHeight?: string;
+    xxxlMaxHeight?: string;
+    xxxlMinWidth?: string;
+    xxxlMaxWidth?: string;
+
+    // 4K breakpoint
+    xxxxlEnabled?: boolean;
+    xxxxlColumns?: string;
+    xxxxlRows?: string;
+    xxxxlAreas?: string;
+    xxxxlGap?: string;
+    xxxxlRowGap?: string;
+    xxxxlColumnGap?: string;
+    xxxxlAutoFlow?: string;
+    xxxxlAutoRows?: string;
+    xxxxlAutoColumns?: string;
+    xxxxlJustifyItems?: string;
+    xxxxlAlignItems?: string;
+    xxxxlJustifyContent?: string;
+    xxxxlAlignContent?: string;
+    xxxxlMinHeight?: string;
+    xxxxlMaxHeight?: string;
+    xxxxlMinWidth?: string;
+    xxxxlMaxWidth?: string;
 };
 
 // Use type intersection instead of interface extension
 type ResponsiveItemPreview = ItemsPreviewType & ResponsiveProperties;
 type ResponsiveContainerPreview = CSSGridPreviewProps & ResponsiveContainerProperties;
 
-// Constants for breakpoint configuration
-const BREAKPOINT_SIZES = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const;
-const BREAKPOINT_LABELS = {
-    xs: 'Extra Small (<640px)',
-    sm: 'Small (640-768px)',
-    md: 'Medium (768-1024px)',
-    lg: 'Large (1024-1440px)',
-    xl: 'Extra Large (1440-1920px)',
-    xxl: '2X Large (>1920px)'
-} as const;
+// Constants are imported from utils/constants.ts
 
 /**
  * Dynamically configure which properties are visible based on other property values
  * This significantly reduces UI clutter by showing only relevant options
  */
-export function getProperties(
-    values: CSSGridPreviewProps,
-    defaultProperties: Properties
-): Properties {
+export function getProperties(values: CSSGridPreviewProps, defaultProperties: Properties): Properties {
     // Start with default properties
-    let properties = defaultProperties;
+    const properties = defaultProperties;
     const containerValues = values as ResponsiveContainerPreview;
 
     // 1. Grid Layout conditional properties
@@ -252,58 +348,40 @@ export function getProperties(
 
     // 3. Container breakpoint properties
     if (!values.enableBreakpoints) {
-        // Hide all breakpoint-related properties
+        // Hide all breakpoint-related properties using helper
         const breakpointProps: Array<keyof CSSGridPreviewProps> = [];
-        
-        BREAKPOINT_SIZES.forEach(bp => {
-            breakpointProps.push(
-                `${bp}Enabled` as keyof CSSGridPreviewProps,
-                `${bp}Columns` as keyof CSSGridPreviewProps,
-                `${bp}Rows` as keyof CSSGridPreviewProps,
-                `${bp}Areas` as keyof CSSGridPreviewProps,
-                `${bp}Gap` as keyof CSSGridPreviewProps,
-                `${bp}RowGap` as keyof CSSGridPreviewProps,
-                `${bp}ColumnGap` as keyof CSSGridPreviewProps,
-                `${bp}AutoFlow` as keyof CSSGridPreviewProps,
-                `${bp}AutoRows` as keyof CSSGridPreviewProps,
-                `${bp}AutoColumns` as keyof CSSGridPreviewProps,
-                `${bp}JustifyItems` as keyof CSSGridPreviewProps,
-                `${bp}AlignItems` as keyof CSSGridPreviewProps,
-                `${bp}JustifyContent` as keyof CSSGridPreviewProps,
-                `${bp}AlignContent` as keyof CSSGridPreviewProps,
-                `${bp}MinHeight` as keyof CSSGridPreviewProps,
-                `${bp}MaxHeight` as keyof CSSGridPreviewProps,
-                `${bp}MinWidth` as keyof CSSGridPreviewProps,
-                `${bp}MaxWidth` as keyof CSSGridPreviewProps
-            );
+
+        BREAKPOINT_SIZES.forEach((bp: BreakpointSizeType) => {
+            const keys = getResponsivePropertyKeys(bp as any); // Convert to BreakpointSize
+            Object.values(keys).forEach(key => {
+                breakpointProps.push(key as keyof CSSGridPreviewProps);
+            });
         });
-        
+
         hidePropertiesIn(properties, values, breakpointProps);
     } else {
         // Hide detailed breakpoint properties if the breakpoint is not enabled
-        BREAKPOINT_SIZES.forEach(bp => {
-            const enabledKey = `${bp}Enabled` as keyof CSSGridPreviewProps;
-            if (!values[enabledKey]) {
-                const propsToHide: Array<keyof CSSGridPreviewProps> = [
-                    `${bp}Columns`, `${bp}Rows`, `${bp}Areas`, `${bp}Gap`, `${bp}RowGap`, `${bp}ColumnGap`,
-                    `${bp}AutoFlow`, `${bp}AutoRows`, `${bp}AutoColumns`, `${bp}JustifyItems`, `${bp}AlignItems`,
-                    `${bp}JustifyContent`, `${bp}AlignContent`, `${bp}MinHeight`, `${bp}MaxHeight`, 
-                    `${bp}MinWidth`, `${bp}MaxWidth`
-                ] as Array<keyof CSSGridPreviewProps>;
+        forEachBreakpoint(values, (config, getProperty) => {
+            const isEnabled = getProperty("Enabled");
+            if (!isEnabled) {
+                const keys = getResponsivePropertyKeys(config.size);
+                // Exclude the 'enabled' key since we want to keep that visible
+                const propsToHide = Object.values(keys)
+                    .filter(key => key !== `${config.size}Enabled`)
+                    .map(key => key as keyof CSSGridPreviewProps);
                 hidePropertiesIn(properties, values, propsToHide);
             } else {
                 // If gap is set for this breakpoint, hide individual gaps
-                const gapKey = `${bp}Gap` as keyof CSSGridPreviewProps;
-                if (values[gapKey]) {
-                    hidePropertiesIn(properties, values, [
-                        `${bp}RowGap`, 
-                        `${bp}ColumnGap`
-                    ] as Array<keyof CSSGridPreviewProps>);
+                const gap = getProperty("Gap");
+                if (gap) {
+                    hidePropertiesIn(properties, values, [`${config.size}RowGap`, `${config.size}ColumnGap`] as Array<
+                        keyof CSSGridPreviewProps
+                    >);
                 }
-                
+
                 // Hide areas if not using named areas
                 if (!values.useNamedAreas) {
-                    hidePropertyIn(properties, values, `${bp}Areas` as keyof CSSGridPreviewProps);
+                    hidePropertyIn(properties, values, `${config.size}Areas` as keyof CSSGridPreviewProps);
                 }
                 // NOTE: We do NOT hide columns/rows when useNamedAreas is true
                 // Both are needed to properly define the grid structure
@@ -319,118 +397,139 @@ export function getProperties(
                 case "auto":
                     // Hide all placement properties for auto
                     hideNestedPropertiesIn(properties, values, "items", index, [
-                        "gridArea", "columnStart", "columnEnd", "rowStart", "rowEnd"
+                        "gridArea",
+                        "columnStart",
+                        "columnEnd",
+                        "rowStart",
+                        "rowEnd"
                     ] as Array<keyof ItemsPreviewType>);
                     break;
-                    
+
                 case "area":
                     // Hide coordinate properties for area placement
                     hideNestedPropertiesIn(properties, values, "items", index, [
-                        "columnStart", "columnEnd", "rowStart", "rowEnd"
+                        "columnStart",
+                        "columnEnd",
+                        "rowStart",
+                        "rowEnd"
                     ] as Array<keyof ItemsPreviewType>);
-                    
+
                     // Hide grid area if not using named areas at container level
                     if (!values.useNamedAreas) {
-                        hideNestedPropertiesIn(properties, values, "items", index, ["gridArea"] as Array<keyof ItemsPreviewType>);
+                        hideNestedPropertiesIn(properties, values, "items", index, ["gridArea"] as Array<
+                            keyof ItemsPreviewType
+                        >);
                     }
                     break;
-                    
+
                 case "coordinates":
                     // Hide area property for coordinate placement
-                    hideNestedPropertiesIn(properties, values, "items", index, ["gridArea"] as Array<keyof ItemsPreviewType>);
+                    hideNestedPropertiesIn(properties, values, "items", index, ["gridArea"] as Array<
+                        keyof ItemsPreviewType
+                    >);
                     break;
-                    
+
                 case "span":
                     // Hide area and end properties for span placement
                     hideNestedPropertiesIn(properties, values, "items", index, [
-                        "gridArea", "columnEnd", "rowEnd"
+                        "gridArea",
+                        "columnEnd",
+                        "rowEnd"
                     ] as Array<keyof ItemsPreviewType>);
                     break;
             }
-            
+
             // Hide all responsive properties if not enabled for this item OR if container responsiveness is disabled
             if (!item.enableResponsive || !values.enableBreakpoints) {
                 const responsiveProps: Array<keyof ItemsPreviewType> = [];
-                
-                BREAKPOINT_SIZES.forEach(bp => {
-                    responsiveProps.push(
-                        `${bp}Enabled` as keyof ItemsPreviewType,
-                        `${bp}PlacementType` as keyof ItemsPreviewType,
-                        `${bp}GridArea` as keyof ItemsPreviewType,
-                        `${bp}ColumnStart` as keyof ItemsPreviewType,
-                        `${bp}ColumnEnd` as keyof ItemsPreviewType,
-                        `${bp}RowStart` as keyof ItemsPreviewType,
-                        `${bp}RowEnd` as keyof ItemsPreviewType
-                    );
-                });
-                
+
+                forEachEnabledItemBreakpoint(
+                    item,
+                    (_config, _getProperty) => {
+                        const keys = getItemResponsivePropertyKeys(_config.size);
+                        Object.values(keys).forEach(key => {
+                            responsiveProps.push(key as keyof ItemsPreviewType);
+                        });
+                    },
+                    { includeDisabled: true }
+                ); // Include all breakpoints when hiding everything
+
                 hideNestedPropertiesIn(properties, values, "items", index, responsiveProps);
             } else {
                 // Hide detailed responsive properties based on enabled breakpoints and placement types
-                BREAKPOINT_SIZES.forEach(bp => {
-                    const enabledKey = `${bp}Enabled` as keyof ItemsPreviewType;
-                    const placementTypeKey = `${bp}PlacementType` as keyof ItemsPreviewType;
-                    
-                    // Check if container has this breakpoint enabled
-                    const containerBreakpointEnabledKey = `${bp}Enabled` as keyof ResponsiveContainerPreview;
-                    const isContainerBreakpointEnabled = containerValues[containerBreakpointEnabledKey];
-                    
-                    // Hide all breakpoint properties if container doesn't have this breakpoint enabled
-                    if (!isContainerBreakpointEnabled) {
-                        const propsToHide: Array<keyof ItemsPreviewType> = [
-                            `${bp}Enabled`, `${bp}PlacementType`, `${bp}GridArea`, 
-                            `${bp}ColumnStart`, `${bp}ColumnEnd`, 
-                            `${bp}RowStart`, `${bp}RowEnd`
-                        ] as Array<keyof ItemsPreviewType>;
-                        hideNestedPropertiesIn(properties, values, "items", index, propsToHide);
-                    } else if (!item[enabledKey]) {
-                        // Hide all properties for this breakpoint if not enabled
-                        const propsToHide: Array<keyof ItemsPreviewType> = [
-                            `${bp}PlacementType`, `${bp}GridArea`, 
-                            `${bp}ColumnStart`, `${bp}ColumnEnd`, 
-                            `${bp}RowStart`, `${bp}RowEnd`
-                        ] as Array<keyof ItemsPreviewType>;
-                        hideNestedPropertiesIn(properties, values, "items", index, propsToHide);
-                    } else {
-                        // Hide properties based on placement type for this breakpoint
-                        const placementType = item[placementTypeKey];
-                        
-                        switch (placementType) {
-                            case "auto":
-                                hideNestedPropertiesIn(properties, values, "items", index, [
-                                    `${bp}GridArea`, `${bp}ColumnStart`, `${bp}ColumnEnd`, 
-                                    `${bp}RowStart`, `${bp}RowEnd`
-                                ] as Array<keyof ItemsPreviewType>);
-                                break;
-                                
-                            case "area":
-                                hideNestedPropertiesIn(properties, values, "items", index, [
-                                    `${bp}ColumnStart`, `${bp}ColumnEnd`, 
-                                    `${bp}RowStart`, `${bp}RowEnd`
-                                ] as Array<keyof ItemsPreviewType>);
-                                
-                                // Hide area if container doesn't use named areas
-                                if (!values.useNamedAreas) {
+                forEachEnabledItemBreakpoint(
+                    item,
+                    (config, _getProperty) => {
+                        const enabledKey = `${config.size}Enabled` as keyof ItemsPreviewType;
+                        const placementTypeKey = `${config.size}PlacementType` as keyof ItemsPreviewType;
+
+                        // Check if container has this breakpoint enabled
+                        const containerBreakpointEnabledKey =
+                            `${config.size}Enabled` as keyof ResponsiveContainerPreview;
+                        const isContainerBreakpointEnabled = containerValues[containerBreakpointEnabledKey];
+
+                        // Hide all breakpoint properties if container doesn't have this breakpoint enabled
+                        if (!isContainerBreakpointEnabled) {
+                            const keys = getItemResponsivePropertyKeys(config.size);
+                            const propsToHide = Object.values(keys).map(key => key as keyof ItemsPreviewType);
+                            hideNestedPropertiesIn(properties, values, "items", index, propsToHide);
+                        } else if (!item[enabledKey]) {
+                            // Hide all properties for this breakpoint if not enabled
+                            const keys = getItemResponsivePropertyKeys(config.size);
+                            // Exclude the 'enabled' key since we want to keep that visible
+                            const propsToHide = Object.values(keys)
+                                .filter(key => key !== `${config.size}Enabled`)
+                                .map(key => key as keyof ItemsPreviewType);
+                            hideNestedPropertiesIn(properties, values, "items", index, propsToHide);
+                        } else {
+                            // Hide properties based on placement type for this breakpoint
+                            const placementType = item[placementTypeKey];
+
+                            switch (placementType) {
+                                case "auto":
                                     hideNestedPropertiesIn(properties, values, "items", index, [
-                                        `${bp}GridArea`
+                                        `${config.size}GridArea`,
+                                        `${config.size}ColumnStart`,
+                                        `${config.size}ColumnEnd`,
+                                        `${config.size}RowStart`,
+                                        `${config.size}RowEnd`
                                     ] as Array<keyof ItemsPreviewType>);
-                                }
-                                break;
-                                
-                            case "coordinates":
-                                hideNestedPropertiesIn(properties, values, "items", index, [
-                                    `${bp}GridArea`
-                                ] as Array<keyof ItemsPreviewType>);
-                                break;
-                                
-                            case "span":
-                                hideNestedPropertiesIn(properties, values, "items", index, [
-                                    `${bp}GridArea`, `${bp}ColumnEnd`, `${bp}RowEnd`
-                                ] as Array<keyof ItemsPreviewType>);
-                                break;
+                                    break;
+
+                                case "area":
+                                    hideNestedPropertiesIn(properties, values, "items", index, [
+                                        `${config.size}ColumnStart`,
+                                        `${config.size}ColumnEnd`,
+                                        `${config.size}RowStart`,
+                                        `${config.size}RowEnd`
+                                    ] as Array<keyof ItemsPreviewType>);
+
+                                    // Hide area if container doesn't use named areas
+                                    if (!values.useNamedAreas) {
+                                        hideNestedPropertiesIn(properties, values, "items", index, [
+                                            `${config.size}GridArea`
+                                        ] as Array<keyof ItemsPreviewType>);
+                                    }
+                                    break;
+
+                                case "coordinates":
+                                    hideNestedPropertiesIn(properties, values, "items", index, [
+                                        `${config.size}GridArea`
+                                    ] as Array<keyof ItemsPreviewType>);
+                                    break;
+
+                                case "span":
+                                    hideNestedPropertiesIn(properties, values, "items", index, [
+                                        `${config.size}GridArea`,
+                                        `${config.size}ColumnEnd`,
+                                        `${config.size}RowEnd`
+                                    ] as Array<keyof ItemsPreviewType>);
+                                    break;
+                            }
                         }
-                    }
-                });
+                    },
+                    { includeDisabled: true }
+                ); // Need to check all breakpoints to see container status
             }
         });
     }
@@ -454,281 +553,14 @@ export function getProperties(
 }
 
 /**
- * Validate CSS grid template syntax without regex
- * 
- * @param template - Grid template string to validate
- * @returns true if valid, false otherwise
- */
-function validateGridTemplateSyntax(template: string): boolean {
-    if (!template || template.trim() === "") {
-        return false;
-    }
-
-    const validKeywords = [
-        "auto", "min-content", "max-content", "fr", "px", "%",
-        "em", "rem", "vw", "vh", "minmax", "repeat"
-    ];
-
-    // Split template into parts
-    const parts: string[] = [];
-    let current = "";
-    let depth = 0;
-
-    for (let i = 0; i < template.length; i++) {
-        const char = template[i];
-        
-        if (char === "(") depth++;
-        if (char === ")") depth--;
-        
-        if ((char === " " || char === "\t") && depth === 0) {
-            if (current.trim()) {
-                parts.push(current.trim());
-            }
-            current = "";
-        } else {
-            current += char;
-        }
-    }
-    
-    if (current.trim()) {
-        parts.push(current.trim());
-    }
-
-    // Validate each part
-    for (const part of parts) {
-        let isValid = false;
-
-        // Check for numeric values with units
-        if (hasValidNumericValue(part)) {
-            isValid = true;
-        }
-
-        // Check for keywords
-        for (const keyword of validKeywords) {
-            if (part === keyword || part.includes(keyword)) {
-                isValid = true;
-                break;
-            }
-        }
-
-        // Check for minmax() function
-        if (part.startsWith("minmax(") && part.endsWith(")")) {
-            isValid = true;
-        }
-
-        // Check for repeat() function
-        if (part.startsWith("repeat(") && part.endsWith(")")) {
-            isValid = true;
-        }
-
-        if (!isValid) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/**
- * Check if a string contains a valid numeric value with unit
- * 
- * @param value - Value to check
- * @returns true if valid numeric value with unit
- */
-function hasValidNumericValue(value: string): boolean {
-    const units = ["fr", "px", "%", "em", "rem", "vw", "vh", "ch", "ex"];
-    
-    for (const unit of units) {
-        if (value.endsWith(unit)) {
-            const numPart = value.substring(0, value.length - unit.length);
-            const num = parseFloat(numPart);
-            if (!isNaN(num) && num >= 0) {
-                return true;
-            }
-        }
-    }
-
-    // Check for plain numbers (grid line numbers)
-    const num = parseInt(value, 10);
-    return !isNaN(num) && num > 0;
-}
-
-/**
- * Validate CSS grid template areas format
- * Now expects standard CSS format with quotes
- * 
- * @param areas - Grid template areas string
- * @returns validation result with parsed lines and error message if invalid
- */
-function validateGridTemplateAreas(areas: string): { valid: boolean; lines?: string[][]; error?: string } {
-    if (!areas || areas.trim() === "") {
-        return { valid: false, error: "Grid Template Areas cannot be empty" };
-    }
-
-    // Check if the areas string contains quotes (standard CSS format)
-    const hasQuotes = areas.includes('"') || areas.includes("'");
-    
-    if (!hasQuotes) {
-        return { 
-            valid: false, 
-            error: "Grid Template Areas must be in CSS format with quotes. Example:\n\"header header header\"\n\"sidebar main aside\"\n\"footer footer footer\"" 
-        };
-    }
-
-    // Parse quoted format
-    const quotedLines: string[] = [];
-    const quoteChar = areas.includes('"') ? '"' : "'";
-    let inQuote = false;
-    let currentLine = "";
-    
-    for (let i = 0; i < areas.length; i++) {
-        const char = areas[i];
-        if (char === quoteChar) {
-            if (inQuote) {
-                // End of quoted line
-                if (currentLine.trim()) {
-                    quotedLines.push(currentLine.trim());
-                }
-                currentLine = "";
-                inQuote = false;
-            } else {
-                // Start of quoted line
-                inQuote = true;
-            }
-        } else if (inQuote) {
-            currentLine += char;
-        }
-    }
-    
-    if (quotedLines.length === 0) {
-        return { valid: false, error: "No valid grid area lines found. Each line must be wrapped in quotes." };
-    }
-
-    // Parse each line into cells without using split()
-    const rowCells: string[][] = [];
-    for (const line of quotedLines) {
-        const trimmedLine = line.trim();
-        const cells: string[] = [];
-        let currentCell = '';
-        
-        for (let i = 0; i < trimmedLine.length; i++) {
-            const char = trimmedLine[i];
-            if (char === ' ' || char === '\t') {
-                if (currentCell) {
-                    cells.push(currentCell);
-                    currentCell = '';
-                }
-            } else {
-                currentCell += char;
-            }
-        }
-        if (currentCell) {
-            cells.push(currentCell);
-        }
-        
-        if (cells.length > 0) {
-            rowCells.push(cells);
-        }
-    }
-    
-    // Check column counts
-    const columnCounts = rowCells.map(row => row.length);
-    const firstCount = columnCounts[0];
-    
-    if (!columnCounts.every(count => count === firstCount)) {
-        return { valid: false, error: "All rows must have the same number of columns" };
-    }
-    
-    return { valid: true, lines: rowCells };
-}
-
-/**
- * Validate area name without regex
- * 
- * @param name - Area name to validate
- * @returns true if valid, false otherwise
- */
-function isValidAreaName(name: string): boolean {
-    if (!name || name === ".") {
-        return true;
-    }
-
-    // Must start with a letter
-    const firstChar = name.charCodeAt(0);
-    if (!((firstChar >= 65 && firstChar <= 90) || (firstChar >= 97 && firstChar <= 122))) {
-        return false;
-    }
-
-    // Check remaining characters
-    for (let i = 1; i < name.length; i++) {
-        const charCode = name.charCodeAt(i);
-        const isLetter = (charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122);
-        const isNumber = charCode >= 48 && charCode <= 57;
-        const isHyphen = charCode === 45;
-        const isUnderscore = charCode === 95;
-        
-        if (!isLetter && !isNumber && !isHyphen && !isUnderscore) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/**
- * Validate coordinate value without regex
- * 
- * @param value - Coordinate value to validate
- * @returns true if valid, false otherwise
- */
-function isValidCoordinate(value: string): boolean {
-    if (!value || value === "auto") {
-        return true;
-    }
-
-    // Check for negative numbers
-    if (value.startsWith("-")) {
-        const num = parseInt(value.substring(1), 10);
-        return !isNaN(num) && num > 0;
-    }
-
-    // Check for positive numbers
-    const num = parseInt(value, 10);
-    return !isNaN(num) && num > 0;
-}
-
-/**
- * Validate span value without regex
- * 
- * @param value - Span value to validate
- * @returns true if valid, false otherwise
- */
-function isValidSpanValue(value: string): boolean {
-    if (!value || value === "auto") {
-        return true;
-    }
-
-    // Check for "span N" format
-    if (value.startsWith("span ")) {
-        const numPart = value.substring(5).trim();
-        const num = parseInt(numPart, 10);
-        return !isNaN(num) && num > 0;
-    }
-
-    // Check for plain number
-    const num = parseInt(value, 10);
-    return !isNaN(num) && num > 0;
-}
-
-/**
  * Get all defined areas across all breakpoints
- * 
+ *
  * @param values - Widget property values
  * @returns Set of all defined area names
  */
 function getAllDefinedAreas(values: ResponsiveContainerPreview): Set<string> {
     const allAreas = new Set<string>();
-    
+
     // Add base areas
     if (values.useNamedAreas && values.gridTemplateAreas) {
         const validation = validateGridTemplateAreas(values.gridTemplateAreas);
@@ -740,15 +572,12 @@ function getAllDefinedAreas(values: ResponsiveContainerPreview): Set<string> {
             });
         }
     }
-    
+
     // Add areas from enabled breakpoints
     if (values.enableBreakpoints) {
-        BREAKPOINT_SIZES.forEach(bp => {
-            const enabledKey = `${bp}Enabled` as keyof ResponsiveContainerPreview;
-            const areasKey = `${bp}Areas` as keyof ResponsiveContainerPreview;
-            
-            if (values[enabledKey] && values[areasKey]) {
-                const areas = values[areasKey] as string;
+        forEachEnabledBreakpoint(values, (_config, getProperty) => {
+            const areas = getProperty("Areas") as string;
+            if (areas) {
                 const validation = validateGridTemplateAreas(areas);
                 if (validation.valid && validation.lines) {
                     validation.lines.flat().forEach(area => {
@@ -760,309 +589,433 @@ function getAllDefinedAreas(values: ResponsiveContainerPreview): Set<string> {
             }
         });
     }
-    
+
     return allAreas;
 }
 
 /**
  * Validates the CSS Grid configuration
- * 
+ *
  * @param values - Widget property values
  * @returns Array of validation errors and warnings
  */
-export const check: CheckFunction = (values) => {
-    const errors: ValidationError[] = [];
+export const check: CheckFunction = values => {
+    const errors: Problem[] = [];
     const containerValues = values as ResponsiveContainerPreview;
-    
+
     // Get all defined areas across all breakpoints
     const allDefinedAreas = getAllDefinedAreas(containerValues);
-    
+
+    // Check for multiple main elements
+    const mainElements = values.items.filter(item => {
+        const itemWithRenderAs = item as ItemsPreviewType & { renderAs?: RenderAsType };
+
+        // Check explicit main
+        if (itemWithRenderAs.renderAs === "main") {
+            return true;
+        }
+
+        // Check auto-detected main
+        if (itemWithRenderAs.renderAs === "auto") {
+            const areaName = (item.gridArea || item.itemName || "").toLowerCase().trim();
+            return areaName === "main" || areaName === "content";
+        }
+
+        return false;
+    });
+
+    if (mainElements.length > 1) {
+        errors.push({
+            severity: "warning",
+            message: `Multiple items (${mainElements.length}) are set to render as <main>. Only one <main> element should exist per page for proper accessibility.`
+        });
+    }
+
     // Validate grid template based on useNamedAreas
     if (values.useNamedAreas) {
-        // Validate grid template areas
-        if (!values.gridTemplateAreas || values.gridTemplateAreas.trim() === "") {
+        // Validate grid template areas (required when using named areas)
+        const areasValidation = validateGridTemplateAreas(values.gridTemplateAreas, true);
+
+        if (!areasValidation.valid) {
             errors.push({
-                property: "gridTemplateAreas",
                 severity: "error",
-                message: "Grid Template Areas is required when 'Use Named Areas' is enabled. Enter your grid areas in CSS format with quotes."
+                message: areasValidation.error || "Invalid grid template areas format"
             });
-        } else {
-            // Validate grid template areas format
-            const validation = validateGridTemplateAreas(values.gridTemplateAreas);
-            
-            if (!validation.valid) {
-                errors.push({
-                    property: "gridTemplateAreas",
-                    severity: "error",
-                    message: validation.error || "Invalid grid template areas format"
-                });
-            } else if (validation.lines) {
-                // Validate area names
-                const invalidAreas: string[] = [];
-                const baseAreas = new Set<string>();
-                
-                for (const area of validation.lines.flat()) {
-                    if (area !== ".") {
-                        baseAreas.add(area);
-                        if (!isValidAreaName(area)) {
-                            invalidAreas.push(area);
-                        }
-                    }
-                }
-                
-                if (invalidAreas.length > 0) {
-                    errors.push({
-                        property: "gridTemplateAreas",
-                        severity: "error",
-                        message: `Invalid area names: ${invalidAreas.join(", ")}. Area names must start with a letter and contain only letters, numbers, hyphens, and underscores.`
-                    });
-                }
-                
-                // Check items using areas - now check against ALL defined areas
-                values.items?.forEach((item, index) => {
-                    if (item.placementType === "area" && item.gridArea && !allDefinedAreas.has(item.gridArea)) {
-                        errors.push({
-                            property: `items[${index}].gridArea`,
-                            severity: "warning",
-                            message: `Item ${index + 1}: Grid area "${item.gridArea}" is not defined in any Grid Template Areas. Available areas: ${Array.from(allDefinedAreas).join(", ")}`
-                        });
-                    }
-                });
-            }
         }
-        
+
         // Still validate columns and rows when using named areas
-        if (!values.gridTemplateColumns || values.gridTemplateColumns.trim() === "") {
+        const columnsValidation = validateGridTemplate(values.gridTemplateColumns, "Grid Template Columns", false);
+        if (!columnsValidation.isValid) {
+            errors.push({
+                property: "gridTemplateColumns",
+                severity: columnsValidation.severity || "warning",
+                message:
+                    columnsValidation.error ||
+                    columnsValidation.warning ||
+                    "Grid Template Columns is recommended even when using named areas"
+            });
+        } else if (isEmpty(values.gridTemplateColumns)) {
             errors.push({
                 property: "gridTemplateColumns",
                 severity: "warning",
-                message: "Grid Template Columns is recommended even when using named areas to define the column structure"
+                message:
+                    "Grid Template Columns is recommended even when using named areas to define the column structure"
             });
         }
-        
-        if (!values.gridTemplateRows || values.gridTemplateRows.trim() === "") {
+
+        // Rows are optional
+        const rowsValidation = validateGridTemplate(values.gridTemplateRows, "Grid Template Rows", false);
+        if (!rowsValidation.isValid) {
             errors.push({
                 property: "gridTemplateRows",
-                severity: "info",
-                message: "Grid Template Rows can be used with named areas to define row heights"
+                severity: rowsValidation.severity || "warning",
+                message: rowsValidation.error || "Invalid grid template rows syntax"
             });
         }
     } else {
-        // Info message about ignoring grid template areas
-        if (values.gridTemplateAreas) {
+        // Not using named areas
+        if (!isEmpty(values.gridTemplateAreas)) {
             errors.push({
-                severity: "info",
-                message: "Grid Template Areas is only used when 'Use Named Areas' is enabled. Enable it to use area-based placement."
+                severity: "warning",
+                message:
+                    "Grid Template Areas is only used when 'Use Named Areas' is enabled. Enable it to use area-based placement."
             });
         }
-        
-        // Validate grid template columns
-        if (!values.gridTemplateColumns || values.gridTemplateColumns.trim() === "") {
+
+        // Validate grid template columns (required when not using named areas)
+        const columnsValidation = validateGridTemplate(values.gridTemplateColumns, "Grid Template Columns", true);
+        if (!columnsValidation.isValid) {
             errors.push({
                 property: "gridTemplateColumns",
-                severity: "error",
-                message: "Grid Template Columns is required when not using named areas"
+                severity: columnsValidation.severity || "error",
+                message: columnsValidation.error || "Grid Template Columns is required"
             });
-        } else {
-            // Validate grid template syntax
-            if (!validateGridTemplateSyntax(values.gridTemplateColumns.trim())) {
+        }
+
+        // Validate rows if provided
+        const rowsValidation = validateGridTemplate(values.gridTemplateRows, "Grid Template Rows", false);
+        if (!rowsValidation.isValid) {
+            errors.push({
+                property: "gridTemplateRows",
+                severity: rowsValidation.severity || "warning",
+                message: rowsValidation.error || "Invalid grid template rows syntax"
+            });
+        }
+    }
+
+    // ============================================================================
+    // Enhanced Validation Warnings for Common CSS Grid Mistakes
+    // ============================================================================
+
+    // 1. auto-fit without minmax() warning
+    if (
+        values.gridTemplateColumns &&
+        values.gridTemplateColumns.includes("auto-fit") &&
+        !values.gridTemplateColumns.includes("minmax")
+    ) {
+        errors.push({
+            property: "gridTemplateColumns",
+            severity: "warning",
+            message:
+                "auto-fit usually requires minmax() for responsive behavior. Example: repeat(auto-fit, minmax(300px, 1fr))"
+        });
+    }
+
+    // 2. Performance warning for too many columns
+    if (values.gridTemplateColumns && !isEmpty(values.gridTemplateColumns)) {
+        const columnCount = values.gridTemplateColumns.trim().split(/\s+/).length;
+        if (columnCount > 12) {
+            errors.push({
+                property: "gridTemplateColumns",
+                severity: "warning",
+                message:
+                    "More than 12 columns may impact performance. Consider using auto-fit/auto-fill for responsive layouts."
+            });
+        }
+    }
+
+    // 3. Fractional units with large gaps warning
+    if (values.gridTemplateColumns && values.gridTemplateColumns.includes("fr") && values.gap && !isEmpty(values.gap)) {
+        const gapValue = parseInt(values.gap, 10);
+        if (!isNaN(gapValue) && gapValue > 40) {
+            errors.push({
+                property: "gap",
+                severity: "warning",
+                message:
+                    "Large gaps with fractional units may cause overflow on small screens. Consider responsive gap values."
+            });
+        }
+    }
+
+    // 4. Accessibility warning for complex grids without ARIA labels
+    if (values.items.length > 1 && !values.ariaLabel && !values.ariaLabelledBy) {
+        errors.push({
+            severity: "warning",
+            message: "Consider adding ARIA label for complex grids to improve accessibility for screen reader users."
+        });
+    }
+
+    // 5. Mixed placement type warnings for items
+    values.items?.forEach((item, index) => {
+        if (item.placementType === "area" && (item.columnStart || item.rowStart || item.columnEnd || item.rowEnd)) {
+            errors.push({
+                property: `items/${index}/placementType`,
+                severity: "warning",
+                message: `Item ${
+                    index + 1
+                }: Using area placement with coordinates. Area placement will take precedence over coordinate properties.`
+            });
+        }
+    });
+
+    // Validate base container dimension properties
+    const baseGapValidation = validateGap(values.gap, false);
+    if (!baseGapValidation.isValid) {
+        errors.push({
+            property: "gap",
+            severity: baseGapValidation.severity || "error",
+            message: baseGapValidation.error || ""
+        });
+    }
+
+    const baseRowGapValidation = validateGap(values.rowGap, false);
+    if (!baseRowGapValidation.isValid) {
+        errors.push({
+            property: "rowGap",
+            severity: baseRowGapValidation.severity || "error",
+            message: baseRowGapValidation.error || ""
+        });
+    }
+
+    const baseColumnGapValidation = validateGap(values.columnGap, false);
+    if (!baseColumnGapValidation.isValid) {
+        errors.push({
+            property: "columnGap",
+            severity: baseColumnGapValidation.severity || "error",
+            message: baseColumnGapValidation.error || ""
+        });
+    }
+
+    // Validate base dimension properties
+    const baseDimensions = [
+        { key: "minWidth", label: "Min Width" },
+        { key: "maxWidth", label: "Max Width" },
+        { key: "minHeight", label: "Min Height" },
+        { key: "maxHeight", label: "Max Height" }
+    ];
+
+    baseDimensions.forEach(dim => {
+        const value = values[dim.key as keyof CSSGridPreviewProps] as string | undefined;
+        if (!isEmpty(value)) {
+            const validation = validateCssDimension(value, dim.label, false);
+            if (!validation.isValid) {
                 errors.push({
-                    property: "gridTemplateColumns",
-                    severity: "warning",
-                    message: "Grid Template Columns may have invalid syntax. Example: '1fr 2fr 1fr' or 'repeat(3, 1fr)'"
+                    property: dim.key,
+                    severity: validation.severity || "error",
+                    message: validation.error || ""
                 });
             }
         }
-    }
-    
+    });
+
     // Validate container responsive settings
     if (containerValues.enableBreakpoints) {
         let hasAnyBreakpoint = false;
-        
-        BREAKPOINT_SIZES.forEach(size => {
-            const enabledKey = `${size}Enabled` as keyof ResponsiveContainerPreview;
-            if (containerValues[enabledKey]) {
-                hasAnyBreakpoint = true;
-                
-                const columnsKey = `${size}Columns` as keyof ResponsiveContainerPreview;
-                const areasKey = `${size}Areas` as keyof ResponsiveContainerPreview;
-                
-                const columns = containerValues[columnsKey] as string | undefined;
-                const areas = containerValues[areasKey] as string | undefined;
-                
-                // Validate columns syntax
-                if (columns && !validateGridTemplateSyntax(columns)) {
+
+        forEachEnabledBreakpoint(containerValues, (config, getProperty) => {
+            hasAnyBreakpoint = true;
+
+            // Only validate properties that have values (responsive overrides)
+            const columns = getProperty("Columns") as string | undefined;
+            const rows = getProperty("Rows") as string | undefined;
+            const areas = getProperty("Areas") as string | undefined;
+            const gap = getProperty("Gap") as string | undefined;
+            const rowGap = getProperty("RowGap") as string | undefined;
+            const columnGap = getProperty("ColumnGap") as string | undefined;
+
+            // Validate columns only if provided
+            if (!isEmpty(columns)) {
+                const validation = validateGridTemplate(columns, `${config.label} Columns`, false);
+                if (!validation.isValid) {
                     errors.push({
-                        property: columnsKey,
-                        severity: "warning",
-                        message: `${BREAKPOINT_LABELS[size]}: Grid columns may have invalid syntax`
-                    });
-                }
-                
-                // Validate areas if using named areas
-                if (values.useNamedAreas && areas) {
-                    const validation = validateGridTemplateAreas(areas);
-                    if (!validation.valid) {
-                        errors.push({
-                            property: areasKey,
-                            severity: "error",
-                            message: `${BREAKPOINT_LABELS[size]}: ${validation.error}`
-                        });
-                    }
-                } else if (!values.useNamedAreas && areas) {
-                    errors.push({
-                        severity: "info",
-                        message: `${BREAKPOINT_LABELS[size]}: Template areas property is ignored when 'Use Named Areas' is disabled`
-                    });
-                }
-                
-                // When using named areas, columns and rows are still recommended
-                if (values.useNamedAreas && !columns) {
-                    errors.push({
-                        property: columnsKey,
-                        severity: "info",
-                        message: `${BREAKPOINT_LABELS[size]}: Consider defining grid columns even when using named areas to control column sizes`
+                        property: `${config.size}Columns` as keyof ResponsiveContainerPreview,
+                        severity: validation.severity || "warning",
+                        message: validation.error || validation.warning || ""
                     });
                 }
             }
+
+            // Validate rows only if provided
+            if (!isEmpty(rows)) {
+                const validation = validateGridTemplate(rows, `${config.label} Rows`, false);
+                if (!validation.isValid) {
+                    errors.push({
+                        property: `${config.size}Rows` as keyof ResponsiveContainerPreview,
+                        severity: validation.severity || "warning",
+                        message: validation.error || validation.warning || ""
+                    });
+                }
+            }
+
+            // Validate areas only if provided and using named areas
+            if (!isEmpty(areas)) {
+                if (values.useNamedAreas) {
+                    const validation = validateGridTemplateAreas(areas, false);
+                    if (!validation.valid) {
+                        errors.push({
+                            property: `${config.size}Areas` as keyof ResponsiveContainerPreview,
+                            severity: "error",
+                            message: `${config.label}: ${validation.error}`
+                        });
+                    }
+                } else {
+                    errors.push({
+                        severity: "warning",
+                        message: `${config.label}: Template areas property is ignored when 'Use Named Areas' is disabled`
+                    });
+                }
+            }
+
+            // Validate gaps only if provided
+            if (!isEmpty(gap)) {
+                const validation = validateGap(gap, false);
+                if (!validation.isValid) {
+                    errors.push({
+                        property: `${config.size}Gap` as keyof ResponsiveContainerPreview,
+                        severity: validation.severity || "error",
+                        message: `${config.label}: ${validation.error}`
+                    });
+                }
+            }
+
+            if (!isEmpty(rowGap)) {
+                const validation = validateGap(rowGap, false);
+                if (!validation.isValid) {
+                    errors.push({
+                        property: `${config.size}RowGap` as keyof ResponsiveContainerPreview,
+                        severity: validation.severity || "error",
+                        message: `${config.label} Row Gap: ${validation.error}`
+                    });
+                }
+            }
+
+            if (!isEmpty(columnGap)) {
+                const validation = validateGap(columnGap, false);
+                if (!validation.isValid) {
+                    errors.push({
+                        property: `${config.size}ColumnGap` as keyof ResponsiveContainerPreview,
+                        severity: validation.severity || "error",
+                        message: `${config.label} Column Gap: ${validation.error}`
+                    });
+                }
+            }
+
+            // Validate dimensions only if provided
+            const dimensionProperties = ["MinWidth", "MaxWidth", "MinHeight", "MaxHeight"];
+
+            dimensionProperties.forEach(dimProperty => {
+                const value = getProperty(dimProperty) as string | undefined;
+                if (!isEmpty(value)) {
+                    const validation = validateCssDimension(value, `${config.label} ${dimProperty}`, false);
+                    if (!validation.isValid) {
+                        errors.push({
+                            property: `${config.size}${dimProperty}` as keyof ResponsiveContainerPreview,
+                            severity: validation.severity || "error",
+                            message: validation.error || ""
+                        });
+                    }
+                }
+            });
         });
-        
+
         if (!hasAnyBreakpoint) {
             errors.push({
-                severity: "info",
-                message: "Responsive grid is enabled but no breakpoints are configured. Enable at least one breakpoint size."
+                severity: "warning",
+                message:
+                    "Responsive grid is enabled but no breakpoints are configured. Enable at least one breakpoint size."
             });
         }
+
+        // Enhanced validation: Check for enabled breakpoints with no meaningful configuration
+        forEachEnabledBreakpoint(containerValues, config => {
+            if (!hasBreakpointConfiguration(containerValues, config.size)) {
+                errors.push({
+                    severity: "warning",
+                    message: `${config.label} breakpoint is enabled but has no configuration. Add responsive overrides or disable this breakpoint.`
+                });
+            }
+        });
     }
-    
+
     // Validate items
     values.items?.forEach((item, index) => {
         const responsiveItem = item as ResponsiveItemPreview;
-        
-        // Validate area placement
-        if (responsiveItem.placementType === "area") {
-            if (!values.useNamedAreas) {
+
+        // Validate item placement
+        const placementResults = validateItemPlacement(
+            responsiveItem.placementType,
+            responsiveItem.gridArea,
+            responsiveItem.columnStart,
+            responsiveItem.columnEnd,
+            responsiveItem.rowStart,
+            responsiveItem.rowEnd,
+            values.useNamedAreas,
+            allDefinedAreas,
+            `Item ${index + 1}`
+        );
+
+        placementResults.forEach(result => {
+            if (result.error) {
+                const basePropKey = result.error.includes("Grid Area")
+                    ? "gridArea"
+                    : result.error.includes("column start")
+                    ? "columnStart"
+                    : result.error.includes("column end")
+                    ? "columnEnd"
+                    : result.error.includes("row start")
+                    ? "rowStart"
+                    : result.error.includes("row end")
+                    ? "rowEnd"
+                    : "placementType";
+
                 errors.push({
-                    property: `items[${index}].placementType`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Cannot use 'Named Area' placement when 'Use Named Areas' is disabled. Enable 'Use Named Areas' or choose a different placement type.`
+                    property: `items/${index}/${basePropKey}`,
+                    severity: result.severity || "error",
+                    message: result.error
                 });
-            } else if (!responsiveItem.gridArea || responsiveItem.gridArea.trim() === "") {
+            } else if (result.warning) {
                 errors.push({
-                    property: `items[${index}].gridArea`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Grid Area is required when placement type is 'Named Area'`
-                });
-            } else if (!isValidAreaName(responsiveItem.gridArea.trim())) {
-                errors.push({
-                    property: `items[${index}].gridArea`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Invalid grid area name "${responsiveItem.gridArea}"`
-                });
-            }
-            
-            // Info about unused properties
-            if (responsiveItem.columnStart !== "auto" || responsiveItem.columnEnd !== "auto" || responsiveItem.rowStart !== "auto" || responsiveItem.rowEnd !== "auto") {
-                errors.push({
-                    severity: "info",
-                    message: `Item ${index + 1}: Column/Row Start/End properties are ignored when using 'Named Area' placement`
-                });
-            }
-        }
-        
-        // Validate coordinate placement
-        if (responsiveItem.placementType === "coordinates") {
-            if (responsiveItem.columnStart && !isValidCoordinate(responsiveItem.columnStart.trim())) {
-                errors.push({
-                    property: `items[${index}].columnStart`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Column Start must be 'auto', a positive number, or a negative number (e.g., 1, -1)`
-                });
-            }
-            if (responsiveItem.columnEnd && !isValidCoordinate(responsiveItem.columnEnd.trim())) {
-                errors.push({
-                    property: `items[${index}].columnEnd`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Column End must be 'auto', a positive number, or a negative number`
-                });
-            }
-            if (responsiveItem.rowStart && !isValidCoordinate(responsiveItem.rowStart.trim())) {
-                errors.push({
-                    property: `items[${index}].rowStart`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Row Start must be 'auto', a positive number, or a negative number`
-                });
-            }
-            if (responsiveItem.rowEnd && !isValidCoordinate(responsiveItem.rowEnd.trim())) {
-                errors.push({
-                    property: `items[${index}].rowEnd`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Row End must be 'auto', a positive number, or a negative number`
-                });
-            }
-            
-            // Info about unused properties
-            if (responsiveItem.gridArea) {
-                errors.push({
-                    severity: "info",
-                    message: `Item ${index + 1}: Grid Area property is ignored when using 'Coordinates' placement`
-                });
-            }
-        }
-        
-        // Validate span placement
-        if (responsiveItem.placementType === "span") {
-            if (responsiveItem.columnStart && !isValidSpanValue(responsiveItem.columnStart.trim())) {
-                errors.push({
-                    property: `items[${index}].columnStart`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Column Start must be 'auto', a number, or 'span N' format (e.g., 'span 2')`
-                });
-            }
-            if (responsiveItem.rowStart && !isValidSpanValue(responsiveItem.rowStart.trim())) {
-                errors.push({
-                    property: `items[${index}].rowStart`,
-                    severity: "error",
-                    message: `Item ${index + 1}: Row Start must be 'auto', a number, or 'span N' format`
-                });
-            }
-            
-            // Info about unused properties
-            if (responsiveItem.columnEnd !== "auto" || responsiveItem.rowEnd !== "auto") {
-                errors.push({
-                    severity: "info",
-                    message: `Item ${index + 1}: Column/Row End properties are ignored when using 'Span' placement`
-                });
-            }
-            if (responsiveItem.gridArea) {
-                errors.push({
-                    severity: "info",
-                    message: `Item ${index + 1}: Grid Area property is ignored when using 'Span' placement`
-                });
-            }
-        }
-        
-        // Validate auto placement
-        if (responsiveItem.placementType === "auto") {
-            // Info about unused properties
-            if (responsiveItem.gridArea || responsiveItem.columnStart !== "auto" || responsiveItem.columnEnd !== "auto" || 
-                responsiveItem.rowStart !== "auto" || responsiveItem.rowEnd !== "auto") {
-                errors.push({
-                    severity: "info",
-                    message: `Item ${index + 1}: All placement properties are ignored when using 'Auto' placement. Items will be placed according to the grid's Auto Flow setting.`
-                });
-            }
-        }
-        
-        // Validate z-index
-        const Z_INDEX_MIN = -999;
-        const Z_INDEX_MAX = 999;
-        if (responsiveItem.zIndex !== null && responsiveItem.zIndex !== undefined) {
-            if (responsiveItem.zIndex < Z_INDEX_MIN || responsiveItem.zIndex > Z_INDEX_MAX) {
-                errors.push({
-                    property: `items[${index}].zIndex`,
+                    property: `items/${index}/gridArea`,
                     severity: "warning",
-                    message: `Item ${index + 1}: Z-index should be between ${Z_INDEX_MIN} and ${Z_INDEX_MAX} for best compatibility`
+                    message: result.warning
+                });
+            } else if (result.info) {
+                errors.push({
+                    severity: "warning",
+                    message: result.info
+                });
+            }
+        });
+
+        // Validate z-index
+        const zIndexValidation = validateZIndex(responsiveItem.zIndex);
+        if (!zIndexValidation.isValid) {
+            errors.push({
+                property: `items/${index}/zIndex`,
+                severity: "error",
+                message: `Item ${index + 1}: ${zIndexValidation.error}`
+            });
+        } else if (!zIndexValidation.isKeyword && zIndexValidation.numericValue !== undefined) {
+            if (
+                zIndexValidation.numericValue < EDITOR.Z_INDEX_MIN ||
+                zIndexValidation.numericValue > EDITOR.Z_INDEX_MAX
+            ) {
+                errors.push({
+                    property: `items/${index}/zIndex`,
+                    severity: "warning",
+                    message: `Item ${index + 1}: Z-index should be between ${EDITOR.Z_INDEX_MIN} and ${
+                        EDITOR.Z_INDEX_MAX
+                    } for best compatibility`
                 });
             }
         }
@@ -1070,125 +1023,143 @@ export const check: CheckFunction = (values) => {
         // Validate responsive settings for items
         if (responsiveItem.enableResponsive) {
             let hasAnyBreakpoint = false;
-            
-            BREAKPOINT_SIZES.forEach(size => {
+
+            BREAKPOINT_SIZES.forEach((size: BreakpointSizeType) => {
                 const enabledKey = `${size}Enabled` as keyof ResponsiveItemPreview;
                 if (responsiveItem[enabledKey]) {
                     hasAnyBreakpoint = true;
-                    
+
                     const placementTypeKey = `${size}PlacementType` as keyof ResponsiveItemPreview;
                     const placementType = responsiveItem[placementTypeKey] as string;
-                    
+
                     // Validate placement for this breakpoint
-                    if (placementType === "area") {
-                        const areaKey = `${size}GridArea` as keyof ResponsiveItemPreview;
-                        if (!values.useNamedAreas) {
+                    const areaKey = `${size}GridArea` as keyof ResponsiveItemPreview;
+                    const colStartKey = `${size}ColumnStart` as keyof ResponsiveItemPreview;
+                    const colEndKey = `${size}ColumnEnd` as keyof ResponsiveItemPreview;
+                    const rowStartKey = `${size}RowStart` as keyof ResponsiveItemPreview;
+                    const rowEndKey = `${size}RowEnd` as keyof ResponsiveItemPreview;
+
+                    // Get responsive values
+                    const gridArea = responsiveItem[areaKey] as string | undefined;
+                    const columnStart = responsiveItem[colStartKey] as string | undefined;
+                    const columnEnd = responsiveItem[colEndKey] as string | undefined;
+                    const rowStart = responsiveItem[rowStartKey] as string | undefined;
+                    const rowEnd = responsiveItem[rowEndKey] as string | undefined;
+
+                    // Validate responsive placement (only if values are provided)
+                    const responsivePlacementResults = validateItemPlacement(
+                        placementType,
+                        gridArea,
+                        columnStart,
+                        columnEnd,
+                        rowStart,
+                        rowEnd,
+                        values.useNamedAreas,
+                        allDefinedAreas,
+                        `Item ${index + 1} ${BREAKPOINT_LABELS[size]}`
+                    );
+
+                    responsivePlacementResults.forEach(result => {
+                        if (result.error) {
+                            const propKey = result.error.includes("Grid Area")
+                                ? areaKey
+                                : result.error.includes("column start")
+                                ? colStartKey
+                                : result.error.includes("column end")
+                                ? colEndKey
+                                : result.error.includes("row start")
+                                ? rowStartKey
+                                : result.error.includes("row end")
+                                ? rowEndKey
+                                : placementTypeKey;
+
                             errors.push({
-                                property: `items[${index}].${placementTypeKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Cannot use 'Named Area' placement when 'Use Named Areas' is disabled`
+                                property: `items/${index}/${propKey}`,
+                                severity: result.severity || "error",
+                                message: result.error
                             });
-                        } else if (!responsiveItem[areaKey] || (responsiveItem[areaKey] as string).trim() === "") {
+                        } else if (result.warning) {
                             errors.push({
-                                property: `items[${index}].${areaKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Grid area is required when using area placement`
+                                property: `items/${index}/${areaKey}`,
+                                severity: "warning",
+                                message: result.warning
                             });
-                        } else {
-                            // Check if the area is defined in ANY breakpoint configuration
-                            const areaName = (responsiveItem[areaKey] as string).trim();
-                            if (!allDefinedAreas.has(areaName)) {
+                        } else if (result.info) {
+                            errors.push({
+                                severity: "warning",
+                                message: result.info
+                            });
+                        }
+                    });
+
+                    // Validate responsive z-index (only if provided)
+                    const zIndexKey = `${size}ZIndex` as keyof ResponsiveItemPreview;
+                    const zIndexValue = responsiveItem[zIndexKey] as string | undefined;
+
+                    if (!isEmpty(zIndexValue)) {
+                        const zIndexValidation = validateZIndex(zIndexValue);
+                        if (!zIndexValidation.isValid) {
+                            errors.push({
+                                property: `items/${index}/${zIndexKey}`,
+                                severity: "error",
+                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: ${zIndexValidation.error}`
+                            });
+                        } else if (!zIndexValidation.isKeyword && zIndexValidation.numericValue !== undefined) {
+                            if (
+                                zIndexValidation.numericValue < EDITOR.Z_INDEX_MIN ||
+                                zIndexValidation.numericValue > EDITOR.Z_INDEX_MAX
+                            ) {
                                 errors.push({
-                                    property: `items[${index}].${areaKey}`,
+                                    property: `items/${index}/${zIndexKey}`,
                                     severity: "warning",
-                                    message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Grid area "${areaName}" is not defined in any Grid Template Areas configuration. Available areas: ${Array.from(allDefinedAreas).join(", ")}`
+                                    message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Z-index should be between ${
+                                        EDITOR.Z_INDEX_MIN
+                                    } and ${EDITOR.Z_INDEX_MAX} for best compatibility`
                                 });
                             }
-                        }
-                    } else if (placementType === "coordinates") {
-                        const colStartKey = `${size}ColumnStart` as keyof ResponsiveItemPreview;
-                        const colEndKey = `${size}ColumnEnd` as keyof ResponsiveItemPreview;
-                        const rowStartKey = `${size}RowStart` as keyof ResponsiveItemPreview;
-                        const rowEndKey = `${size}RowEnd` as keyof ResponsiveItemPreview;
-                        
-                        const colStart = responsiveItem[colStartKey] as string | undefined;
-                        const colEnd = responsiveItem[colEndKey] as string | undefined;
-                        const rowStart = responsiveItem[rowStartKey] as string | undefined;
-                        const rowEnd = responsiveItem[rowEndKey] as string | undefined;
-                        
-                        if (colStart && !isValidCoordinate(colStart.trim())) {
-                            errors.push({
-                                property: `items[${index}].${colStartKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid column start value`
-                            });
-                        }
-                        if (colEnd && !isValidCoordinate(colEnd.trim())) {
-                            errors.push({
-                                property: `items[${index}].${colEndKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid column end value`
-                            });
-                        }
-                        if (rowStart && !isValidCoordinate(rowStart.trim())) {
-                            errors.push({
-                                property: `items[${index}].${rowStartKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid row start value`
-                            });
-                        }
-                        if (rowEnd && !isValidCoordinate(rowEnd.trim())) {
-                            errors.push({
-                                property: `items[${index}].${rowEndKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid row end value`
-                            });
-                        }
-                    } else if (placementType === "span") {
-                        const colStartKey = `${size}ColumnStart` as keyof ResponsiveItemPreview;
-                        const rowStartKey = `${size}RowStart` as keyof ResponsiveItemPreview;
-                        
-                        const colStart = responsiveItem[colStartKey] as string | undefined;
-                        const rowStart = responsiveItem[rowStartKey] as string | undefined;
-                        
-                        if (colStart && !isValidSpanValue(colStart.trim())) {
-                            errors.push({
-                                property: `items[${index}].${colStartKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid column span value`
-                            });
-                        }
-                        if (rowStart && !isValidSpanValue(rowStart.trim())) {
-                            errors.push({
-                                property: `items[${index}].${rowStartKey}`,
-                                severity: "error",
-                                message: `Item ${index + 1} ${BREAKPOINT_LABELS[size]}: Invalid row span value`
-                            });
                         }
                     }
                 }
             });
-            
+
             if (!hasAnyBreakpoint) {
                 errors.push({
-                    severity: "info",
-                    message: `Item ${index + 1}: Responsive placement is enabled but no breakpoints are configured. Enable at least one breakpoint size.`
+                    severity: "warning",
+                    message: `Item ${
+                        index + 1
+                    }: Responsive placement is enabled but no breakpoints are configured. Enable at least one breakpoint size.`
                 });
             }
         }
     });
-    
+
+    // ============================================================================
+    // Enhanced Performance and Virtualization Validation
+    // ============================================================================
+
+    // Check for large grids that should use virtualization
+    if (values.items.length >= 500 && !values.enableVirtualization) {
+        errors.push({
+            property: "enableVirtualization",
+            severity: "warning",
+            message: `Grid has ${values.items.length} items. Consider enabling virtualization for grids with 500+ items to improve performance.`
+        });
+    } else if (values.items.length >= 100 && values.items.length < 500 && !values.enableVirtualization) {
+        errors.push({
+            severity: "warning",
+            message: `Grid has ${values.items.length} items. Virtualization may improve performance for large datasets.`
+        });
+    }
+
     // Validate virtualization threshold
-    const VIRTUALIZATION_MIN_THRESHOLD = 10;
-    const VIRTUALIZATION_MAX_THRESHOLD = 1000;
     if (values.enableVirtualization && values.virtualizeThreshold !== null) {
-        if (values.virtualizeThreshold < VIRTUALIZATION_MIN_THRESHOLD) {
+        if (values.virtualizeThreshold < EDITOR.VIRTUALIZATION_MIN_THRESHOLD) {
             errors.push({
                 property: "virtualizeThreshold",
                 severity: "warning",
-                message: `Virtualization threshold below ${VIRTUALIZATION_MIN_THRESHOLD} items may cause performance issues`
+                message: `Virtualization threshold below ${EDITOR.VIRTUALIZATION_MIN_THRESHOLD} items may cause performance issues`
             });
-        } else if (values.virtualizeThreshold > VIRTUALIZATION_MAX_THRESHOLD) {
+        } else if (values.virtualizeThreshold > EDITOR.VIRTUALIZATION_MAX_THRESHOLD) {
             errors.push({
                 property: "virtualizeThreshold",
                 severity: "warning",
@@ -1197,45 +1168,39 @@ export const check: CheckFunction = (values) => {
         }
     } else if (!values.enableVirtualization && values.virtualizeThreshold && values.virtualizeThreshold !== 100) {
         errors.push({
-            severity: "info",
-            message: "Virtualization threshold is configured but virtualization is not enabled. Enable 'Enable Virtualization' to use it."
+            severity: "warning",
+            message:
+                "Virtualization threshold is configured but virtualization is not enabled. Enable 'Enable Virtualization' to use it."
         });
     }
-    
+
     // General tips based on configuration
     if (values.items.length === 0) {
         errors.push({
-            severity: "info",
+            severity: "warning",
             message: "No grid items configured. Add items to the grid to see your layout."
         });
     }
-    
-    const PERFORMANCE_ITEM_THRESHOLD = 50;
-    if (values.items.length > PERFORMANCE_ITEM_THRESHOLD && !values.enableVirtualization) {
-        errors.push({
-            severity: "info",
-            message: `You have ${values.items.length} items. Consider enabling virtualization for better performance.`
-        });
-    }
-    
+
     return errors;
 };
 
 /**
  * Generates a custom caption for the widget in the page editor
- * 
+ *
  * @param values - Widget property values
  * @returns Custom caption string
  */
-export const getCustomCaption: CaptionFunction = (values) => {
+export const getCustomCaption: CaptionFunction = values => {
     const containerValues = values as ResponsiveContainerPreview;
-    
+
     // Build caption parts
     const parts: string[] = [];
-    
+
     if (values.useNamedAreas) {
-        const areaCount = values.gridTemplateAreas ? 
-            values.gridTemplateAreas.split('\n').filter(line => line.trim()).length : 0;
+        const areaCount = values.gridTemplateAreas
+            ? values.gridTemplateAreas.split("\n").filter(line => line.trim()).length
+            : 0;
         parts.push(`Grid (${areaCount} areas)`);
     } else {
         // Parse grid dimensions without regex
@@ -1243,13 +1208,17 @@ export const getCustomCaption: CaptionFunction = (values) => {
         const columnsStr = values.gridTemplateColumns || "1fr 1fr";
         let current = "";
         let depth = 0;
-        
+
         for (let i = 0; i < columnsStr.length; i++) {
             const char = columnsStr[i];
-            
-            if (char === "(") depth++;
-            if (char === ")") depth--;
-            
+
+            if (char === "(") {
+                depth++;
+            }
+            if (char === ")") {
+                depth--;
+            }
+
             if ((char === " " || char === "\t") && depth === 0) {
                 if (current.trim()) {
                     columnsParts.push(current.trim());
@@ -1259,25 +1228,29 @@ export const getCustomCaption: CaptionFunction = (values) => {
                 current += char;
             }
         }
-        
+
         if (current.trim()) {
             columnsParts.push(current.trim());
         }
-        
+
         const columns = columnsParts.length || 1;
-        
+
         // Parse rows without using split() with regex
         const rowsStr = values.gridTemplateRows || "auto";
         const rowsParts: string[] = [];
         current = "";
         depth = 0;
-        
+
         for (let i = 0; i < rowsStr.length; i++) {
             const char = rowsStr[i];
-            
-            if (char === "(") depth++;
-            if (char === ")") depth--;
-            
+
+            if (char === "(") {
+                depth++;
+            }
+            if (char === ")") {
+                depth--;
+            }
+
             if ((char === " " || char === "\t") && depth === 0) {
                 if (current.trim()) {
                     rowsParts.push(current.trim());
@@ -1287,16 +1260,16 @@ export const getCustomCaption: CaptionFunction = (values) => {
                 current += char;
             }
         }
-        
+
         if (current.trim()) {
             rowsParts.push(current.trim());
         }
-        
+
         const rows = rowsParts.length || 1;
-        
+
         parts.push(`Grid (${columns}×${rows})`);
     }
-    
+
     if (values.items.length > 0) {
         const responsiveItems = values.items.filter(item => item.enableResponsive).length;
         if (responsiveItems > 0) {
@@ -1305,24 +1278,24 @@ export const getCustomCaption: CaptionFunction = (values) => {
             parts.push(`${values.items.length} items`);
         }
     }
-    
+
     if (containerValues.enableBreakpoints) {
         const breakpointCount = BREAKPOINT_SIZES.filter(size => {
             const key = `${size}Enabled` as keyof ResponsiveContainerPreview;
             return containerValues[key];
         }).length;
-        
+
         if (breakpointCount > 0) {
             parts.push(`${breakpointCount} breakpoints`);
         }
     }
-    
+
     return parts.join(" - ");
 };
 
 /**
  * Preview CSS for the widget configuration panel
- * 
+ *
  * @returns CSS string for configuration preview
  */
 export function getPreviewCss(): string {
