@@ -723,7 +723,18 @@ export const check: CheckFunction = values => {
 
     // 2. Performance warning for too many columns
     if (values.gridTemplateColumns && !isEmpty(values.gridTemplateColumns)) {
-        const columnCount = values.gridTemplateColumns.trim().split(/\s+/).length;
+        // Count columns by counting spaces + 1 (avoiding regex)
+        const trimmed = values.gridTemplateColumns.trim();
+        let columnCount = 1;
+        let inParens = 0;
+        for (let i = 0; i < trimmed.length; i++) {
+            const char = trimmed[i];
+            if (char === '(') inParens++;
+            else if (char === ')') inParens--;
+            else if (char === ' ' && inParens === 0 && trimmed[i + 1] !== ' ') {
+                columnCount++;
+            }
+        }
         if (columnCount > 12) {
             errors.push({
                 property: "gridTemplateColumns",
