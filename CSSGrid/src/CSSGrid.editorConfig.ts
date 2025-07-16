@@ -729,9 +729,9 @@ export const check: CheckFunction = values => {
         let inParens = 0;
         for (let i = 0; i < trimmed.length; i++) {
             const char = trimmed[i];
-            if (char === '(') inParens++;
-            else if (char === ')') inParens--;
-            else if (char === ' ' && inParens === 0 && trimmed[i + 1] !== ' ') {
+            if (char === "(") inParens++;
+            else if (char === ")") inParens--;
+            else if (char === " " && inParens === 0 && trimmed[i + 1] !== " ") {
                 columnCount++;
             }
         }
