@@ -65,7 +65,7 @@ import {
  * Responds to container width changes to show accurate responsive behavior
  * Uses inline styles for compatibility with Mendix Studio Pro's Jint rendering
  */
-export const Preview: React.FC<CSSGridPreviewProps> = props => {
+export const preview: React.FC<CSSGridPreviewProps> = props => {
     // Validate and cast to runtime type to handle conditional properties
     const runtimeProps = validateRuntimeGridContainerPreview(props);
 
