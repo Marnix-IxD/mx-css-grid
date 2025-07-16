@@ -723,7 +723,26 @@ export const check: CheckFunction = values => {
 
     // 2. Performance warning for too many columns
     if (values.gridTemplateColumns && !isEmpty(values.gridTemplateColumns)) {
-        const columnCount = values.gridTemplateColumns.trim().split(/\s+/).length;
+        // Count columns by counting spaces + 1 (avoiding regex)
+        const trimmed = values.gridTemplateColumns.trim();
+        let columnCount = 1;
+        let inParens = 0;
+        let lastWasSpace = false;
+        
+        for (let i = 0; i < trimmed.length; i++) {
+            const char = trimmed[i];
+            if (char === '(') inParens++;
+            else if (char === ')') inParens--;
+            else if (char === ' ' && inParens === 0) {
+                if (!lastWasSpace) {
+                    columnCount++;
+                }
+                lastWasSpace = true;
+            } else {
+                lastWasSpace = false;
+            }
+        }
+        
         if (columnCount > 12) {
             errors.push({
                 property: "gridTemplateColumns",
@@ -1198,9 +1217,17 @@ export const getCustomCaption: CaptionFunction = values => {
     const parts: string[] = [];
 
     if (values.useNamedAreas) {
-        const areaCount = values.gridTemplateAreas
-            ? values.gridTemplateAreas.split("\n").filter(line => line.trim()).length
-            : 0;
+        let areaCount = 0;
+        if (values.gridTemplateAreas) {
+            // Count lines manually to avoid split
+            let lineCount = 1;
+            for (let i = 0; i < values.gridTemplateAreas.length; i++) {
+                if (values.gridTemplateAreas[i] === '\n') {
+                    lineCount++;
+                }
+            }
+            areaCount = lineCount;
+        }
         parts.push(`Grid (${areaCount} areas)`);
     } else {
         // Parse grid dimensions without regex
