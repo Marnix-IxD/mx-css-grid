@@ -601,6 +601,36 @@ function getAllDefinedAreas(values: ResponsiveContainerPreview): Set<string> {
  */
 export const check: CheckFunction = values => {
     const errors: Problem[] = [];
+
+    // Override push to log all errors
+    const originalPush = errors.push.bind(errors);
+    errors.push = function (...args: Problem[]) {
+        const problem = args[0];
+        const severity = problem.severity || "error";
+        const property = problem.property || "(no property)";
+        let message = problem.message || "(no message)";
+
+        // If property is for an item, extract the index and adjust the message for consistency
+        const itemMatch = property.match(/^items\/(\d+)\//);
+        if (itemMatch) {
+            const zeroBasedIndex = parseInt(itemMatch[1], 10);
+            const oneBasedIndex = zeroBasedIndex + 1;
+            // Replace "Item X" with the correct one-based index in the message
+            message = message.replace(/Item \d+/, `Item ${oneBasedIndex}`);
+        }
+
+        // Use appropriate console method based on severity
+        if (severity === "error") {
+            console.error(`[CSSGrid Validation] property: ${property} message: ${message}`);
+        } else if (severity === "warning") {
+            console.warn(`[CSSGrid Validation] property: ${property} message: ${message}`);
+        } else {
+            console.log(`[CSSGrid Validation] property: ${property} message: ${message}`);
+        }
+
+        return originalPush(...args);
+    };
+
     const containerValues = values as ResponsiveContainerPreview;
 
     // Get all defined areas across all breakpoints
@@ -626,6 +656,7 @@ export const check: CheckFunction = values => {
 
     if (mainElements.length > 1) {
         errors.push({
+            property: "items",
             severity: "warning",
             message: `Multiple items (${mainElements.length}) are set to render as <main>. Only one <main> element should exist per page for proper accessibility.`
         });
@@ -638,6 +669,7 @@ export const check: CheckFunction = values => {
 
         if (!areasValidation.valid) {
             errors.push({
+                property: "gridTemplateAreas",
                 severity: "error",
                 message: areasValidation.error || "Invalid grid template areas format"
             });
@@ -676,6 +708,7 @@ export const check: CheckFunction = values => {
         // Not using named areas
         if (!isEmpty(values.gridTemplateAreas)) {
             errors.push({
+                property: "useNamedAreas",
                 severity: "warning",
                 message:
                     "Grid Template Areas is only used when 'Use Named Areas' is enabled. Enable it to use area-based placement."
@@ -723,14 +756,33 @@ export const check: CheckFunction = values => {
 
     // 2. Performance warning for too many columns
     if (values.gridTemplateColumns && !isEmpty(values.gridTemplateColumns)) {
-        const columnCount = values.gridTemplateColumns.trim().split(/\s+/).length;
+        // Count columns by counting spaces + 1 (avoiding regex)
+        const trimmed = values.gridTemplateColumns.trim();
+        let columnCount = 1;
+        let inParens = 0;
+        let lastWasSpace = false;
+
+        for (let i = 0; i < trimmed.length; i++) {
+            const char = trimmed[i];
+            if (char === "(") inParens++;
+            else if (char === ")") inParens--;
+            else if (char === " " && inParens === 0) {
+                if (!lastWasSpace) {
+                    columnCount++;
+                }
+                lastWasSpace = true;
+            } else {
+                lastWasSpace = false;
+            }
+        }
+
         if (columnCount > 12) {
-            errors.push({
+            /*errors.push({
                 property: "gridTemplateColumns",
                 severity: "warning",
                 message:
                     "More than 12 columns may impact performance. Consider using auto-fit/auto-fill for responsive layouts."
-            });
+            });*/
         }
     }
 
@@ -750,6 +802,7 @@ export const check: CheckFunction = values => {
     // 4. Accessibility warning for complex grids without ARIA labels
     if (values.items.length > 1 && !values.ariaLabel && !values.ariaLabelledBy) {
         errors.push({
+            property: "ariaLabel",
             severity: "warning",
             message: "Consider adding ARIA label for complex grids to improve accessibility for screen reader users."
         });
@@ -869,10 +922,11 @@ export const check: CheckFunction = values => {
                         });
                     }
                 } else {
-                    errors.push({
-                        severity: "warning",
-                        message: `${config.label}: Template areas property is ignored when 'Use Named Areas' is disabled`
-                    });
+                    // Skip this warning - it's informational and has no specific property
+                    // errors.push({
+                    //     severity: "warning",
+                    //     message: `${config.label}: Template areas property is ignored when 'Use Named Areas' is disabled`
+                    // });
                 }
             }
 
@@ -930,6 +984,7 @@ export const check: CheckFunction = values => {
 
         if (!hasAnyBreakpoint) {
             errors.push({
+                property: "enableBreakpoints",
                 severity: "warning",
                 message:
                     "Responsive grid is enabled but no breakpoints are configured. Enable at least one breakpoint size."
@@ -939,10 +994,11 @@ export const check: CheckFunction = values => {
         // Enhanced validation: Check for enabled breakpoints with no meaningful configuration
         forEachEnabledBreakpoint(containerValues, config => {
             if (!hasBreakpointConfiguration(containerValues, config.size)) {
-                errors.push({
-                    severity: "warning",
-                    message: `${config.label} breakpoint is enabled but has no configuration. Add responsive overrides or disable this breakpoint.`
-                });
+                // Skip this warning - it's informational
+                // errors.push({
+                //     severity: "warning",
+                //     message: `${config.label} breakpoint is enabled but has no configuration. Add responsive overrides or disable this breakpoint.`
+                // });
             }
         });
     }
@@ -966,7 +1022,7 @@ export const check: CheckFunction = values => {
 
         placementResults.forEach(result => {
             if (result.error) {
-                const basePropKey = result.error.includes("Grid Area")
+                /*const basePropKey = result.error.includes("Grid Area")
                     ? "gridArea"
                     : result.error.includes("column start")
                     ? "columnStart"
@@ -977,23 +1033,25 @@ export const check: CheckFunction = values => {
                     : result.error.includes("row end")
                     ? "rowEnd"
                     : "placementType";
-
-                errors.push({
+                */
+                /*errors.push({
                     property: `items/${index}/${basePropKey}`,
                     severity: result.severity || "error",
                     message: result.error
-                });
+                })*/
             } else if (result.warning) {
-                errors.push({
+                /*errors.push({
                     property: `items/${index}/gridArea`,
                     severity: "warning",
                     message: result.warning
-                });
+                })*/
             } else if (result.info) {
-                errors.push({
+                // Info messages don't have a specific property, so we'll attach to the item's placement type
+                /*errors.push({
+                    property: `items/${index}/placementType`,
                     severity: "warning",
                     message: result.info
-                });
+                })*/
             }
         });
 
@@ -1085,7 +1143,9 @@ export const check: CheckFunction = values => {
                                 message: result.warning
                             });
                         } else if (result.info) {
+                            // Info messages don't have a specific property, so we'll attach to the item's responsive placement type
                             errors.push({
+                                property: `items/${index}/${placementTypeKey}`,
                                 severity: "warning",
                                 message: result.info
                             });
@@ -1124,6 +1184,7 @@ export const check: CheckFunction = values => {
 
             if (!hasAnyBreakpoint) {
                 errors.push({
+                    property: `items/${index}/enableResponsive`,
                     severity: "warning",
                     message: `Item ${
                         index + 1
@@ -1146,6 +1207,7 @@ export const check: CheckFunction = values => {
         });
     } else if (values.items.length >= 100 && values.items.length < 500 && !values.enableVirtualization) {
         errors.push({
+            property: "enableVirtualization",
             severity: "warning",
             message: `Grid has ${values.items.length} items. Virtualization may improve performance for large datasets.`
         });
@@ -1168,6 +1230,7 @@ export const check: CheckFunction = values => {
         }
     } else if (!values.enableVirtualization && values.virtualizeThreshold && values.virtualizeThreshold !== 100) {
         errors.push({
+            property: "enableVirtualization",
             severity: "warning",
             message:
                 "Virtualization threshold is configured but virtualization is not enabled. Enable 'Enable Virtualization' to use it."
@@ -1177,6 +1240,7 @@ export const check: CheckFunction = values => {
     // General tips based on configuration
     if (values.items.length === 0) {
         errors.push({
+            property: "items",
             severity: "warning",
             message: "No grid items configured. Add items to the grid to see your layout."
         });
@@ -1198,9 +1262,17 @@ export const getCustomCaption: CaptionFunction = values => {
     const parts: string[] = [];
 
     if (values.useNamedAreas) {
-        const areaCount = values.gridTemplateAreas
-            ? values.gridTemplateAreas.split("\n").filter(line => line.trim()).length
-            : 0;
+        let areaCount = 0;
+        if (values.gridTemplateAreas) {
+            // Count lines manually to avoid split
+            let lineCount = 1;
+            for (let i = 0; i < values.gridTemplateAreas.length; i++) {
+                if (values.gridTemplateAreas[i] === "\n") {
+                    lineCount++;
+                }
+            }
+            areaCount = lineCount;
+        }
         parts.push(`Grid (${areaCount} areas)`);
     } else {
         // Parse grid dimensions without regex
