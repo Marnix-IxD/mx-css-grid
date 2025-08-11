@@ -1,7 +1,19 @@
-import { ReactElement, createElement, CSSProperties, useMemo, useRef, useEffect, useState, useCallback } from "react";
+import {
+    ReactElement,
+    createElement,
+    CSSProperties,
+    useMemo,
+    useRef,
+    useEffect,
+    useState,
+    useCallback,
+    memo,
+    ErrorInfo,
+    Fragment
+} from "react";
 import { CSSGridContainerProps } from "../typings/CSSGridProps";
 import { RuntimeGridItem, RuntimeGridContainer, GridItemPlacement } from "./types/ConditionalTypes";
-import { getGridItemPlacement, parseGridAreas } from "./utils/gridHelpers";
+import { parseGridAreas } from "./utils/gridHelpers";
 import { BreakpointSize, getActiveBreakpoint, BREAKPOINT_CONFIGS } from "./types/BreakpointTypes";
 import {
     validateRuntimeGridContainer,
@@ -33,6 +45,24 @@ import {
     getBreakpointsToProcess,
     ResponsiveMode
 } from "./utils/breakpointHelpers";
+import { GridItem } from "./components/GridItem";
+import { usePerformanceDebugger } from "./utils/performanceDebugger";
+import { CSS_CLASSES } from "./utils/stableConstants";
+import { isDevelopmentEnvironment } from "./utils/mendixEnvironment";
+import {
+    useAreaValidation,
+    useSemanticElementDetection,
+    useItemStyleBuilder,
+    useAriaAttributesBuilder
+} from "./hooks/useOptimizedGridCallbacks";
+import { GridErrorBoundary } from "./components/GridErrorBoundary";
+import {
+    validateGridConfiguration,
+    validateItemPlacement,
+    checkPerformanceThresholds,
+    logGridError,
+    GridError
+} from "./utils/errorHandling";
 import "./ui/CSSGrid.css";
 
 /**
@@ -47,7 +77,7 @@ import "./ui/CSSGrid.css";
  * @param props - Widget properties from Mendix
  * @returns React element representing the CSS Grid
  */
-export function CSSGrid(props: CSSGridContainerProps): ReactElement {
+function CSSGridComponent(props: CSSGridContainerProps): ReactElement {
     const {
         gridTemplateColumns,
         gridTemplateRows,
@@ -77,7 +107,10 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         ariaLabel,
         ariaLabelledBy,
         ariaDescribedBy,
-        role
+        role,
+        debugMode = false,
+        logToConsole = true,
+        trackItemRenders = false
     } = props;
 
     // Validate and cast to runtime type to handle conditional properties
@@ -85,11 +118,15 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
     // Configuration constants are imported from utils/constants.ts
 
-    // Refs for DOM access
+    // Refs for DOM access and performance tracking
     const containerRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<IntersectionObserver | null>(null);
-    const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const resizeTimeoutRef = useRef<number | null>(null);
+    const keyboardNavigationTimeoutRef = useRef<number | null>(null);
     const currentWidthRef = useRef<number>(window.innerWidth);
+
+    // Determine if debug features should be enabled
+    const isDebugEnabled = debugMode && isDevelopmentEnvironment();
 
     // State management
     const [visibleItems, setVisibleItems] = useState<Set<number>>(() => new Set());
@@ -97,9 +134,32 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     const [activeBreakpointSize, setActiveBreakpointSize] = useState<BreakpointSize>("lg");
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // normalizeValue function is now imported from utils/stringHelpers
+    // Performance debugging - always call hook but pass enabled state
+    const { trackBreakpointChange, trackVirtualizationUpdate, trackItemRender } = usePerformanceDebugger(
+        "CSSGrid",
+        isDebugEnabled,
+        logToConsole,
+        trackItemRenders
+    );
 
-    // CSS enum mappings are now imported from utils/cssEnumMappings
+    // Track renders in debug mode - remove this effect as it causes infinite loops
+    // Render tracking should be done differently, not in an effect
+
+    // Validate grid configuration on mount and when key props change
+    useEffect(() => {
+        try {
+            validateGridConfiguration({
+                columns: gridTemplateColumns,
+                rows: gridTemplateRows,
+                areas: useNamedAreas ? gridTemplateAreas : undefined,
+                gap
+            });
+        } catch (error) {
+            if (error instanceof GridError) {
+                logGridError(error, "Grid configuration validation");
+            }
+        }
+    }, [gridTemplateColumns, gridTemplateRows, gridTemplateAreas, gap, useNamedAreas]);
 
     /**
      * Determine if virtualization should be enabled
@@ -107,6 +167,20 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     const shouldVirtualize = useMemo(() => {
         return enableVirtualization && items.length >= (virtualizeThreshold || DEFAULT_VIRTUALIZATION_THRESHOLD);
     }, [enableVirtualization, items.length, virtualizeThreshold]);
+
+    // Check performance thresholds
+    useEffect(() => {
+        if (isDebugEnabled && items.length > 0) {
+            checkPerformanceThresholds({
+                itemCount: items.length,
+                virtualizedItems: shouldVirtualize ? visibleItems.size : undefined
+            });
+        }
+    }, [items.length, shouldVirtualize, visibleItems.size, isDebugEnabled]);
+
+    // normalizeValue function is now imported from utils/stringHelpers
+
+    // CSS enum mappings are now imported from utils/cssEnumMappings
 
     /**
      * Generate accessible label for grid items
@@ -264,8 +338,10 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
      * @returns Object containing CSS custom properties
      */
     /**
-     * Performance-optimized CSS variable generation using cascade-ready architecture
-     * Currently uses exact mode, ready for future cascade mode implementation
+     * Performance-optimized CSS variable generation
+     * Generates variables based on selected mode:
+     * - Exact mode (default): Only active breakpoint variables
+     * - Cascade mode: All breakpoints up to current width
      */
     const buildResponsiveCSSVariables = useMemo((): Record<string, string | undefined> => {
         const cssVars: Record<string, string | undefined> = {};
@@ -713,6 +789,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         const updateBreakpoint = () => {
             const width = window.innerWidth;
             const newBreakpointSize = getActiveBreakpoint(width);
+            const oldBreakpointSize = activeBreakpointSize;
 
             // Update ref immediately to prevent race conditions
             currentWidthRef.current = width;
@@ -720,13 +797,18 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
             // Use React's batching to update both states together
             setCurrentWidth(width);
             setActiveBreakpointSize(newBreakpointSize);
+
+            // Track breakpoint change in debug mode
+            if (isDebugEnabled && oldBreakpointSize !== newBreakpointSize) {
+                trackBreakpointChange();
+            }
         };
 
         const debouncedUpdate = () => {
             if (resizeTimeoutRef.current) {
-                clearTimeout(resizeTimeoutRef.current);
+                window.clearTimeout(resizeTimeoutRef.current);
             }
-            resizeTimeoutRef.current = setTimeout(updateBreakpoint, RESIZE_DEBOUNCE_DELAY);
+            resizeTimeoutRef.current = window.setTimeout(updateBreakpoint, RESIZE_DEBOUNCE_DELAY);
         };
 
         // Initial setup
@@ -752,11 +834,11 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
 
         return () => {
             if (resizeTimeoutRef.current) {
-                clearTimeout(resizeTimeoutRef.current);
+                window.clearTimeout(resizeTimeoutRef.current);
             }
             window.removeEventListener("resize", handleResize);
         };
-    }, []);
+    }, [activeBreakpointSize, isDebugEnabled, trackBreakpointChange]);
 
     /**
      * Get active grid configuration for the current breakpoint
@@ -943,6 +1025,11 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                         }
                     });
 
+                    // Track virtualization update in debug mode
+                    if (changed && isDebugEnabled) {
+                        trackVirtualizationUpdate();
+                    }
+
                     return changed ? newSet : prev;
                 });
             },
@@ -962,19 +1049,19 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 observerRef.current = null;
             }
         };
-    }, [shouldVirtualize, items.length]);
+    }, [shouldVirtualize, items.length, isDebugEnabled, trackVirtualizationUpdate]);
 
     // Initialize virtualization
     useEffect(() => {
         let cleanupVirtualization: (() => void) | undefined;
 
-        const timeoutId = setTimeout(() => {
+        const timeoutId = window.setTimeout(() => {
             setIsInitialized(true);
             cleanupVirtualization = setupVirtualization();
         }, INITIAL_RENDER_DELAY);
 
         return () => {
-            clearTimeout(timeoutId);
+            window.clearTimeout(timeoutId);
             if (cleanupVirtualization) {
                 cleanupVirtualization();
             }
@@ -994,8 +1081,12 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                 observerRef.current = null;
             }
             if (resizeTimeoutRef.current) {
-                clearTimeout(resizeTimeoutRef.current);
+                window.clearTimeout(resizeTimeoutRef.current);
                 resizeTimeoutRef.current = null;
+            }
+            if (keyboardNavigationTimeoutRef.current) {
+                window.clearTimeout(keyboardNavigationTimeoutRef.current);
+                keyboardNavigationTimeoutRef.current = null;
             }
         };
     }, []);
@@ -1011,232 +1102,161 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
         return items.length > LARGE_GRID_THRESHOLD || useNamedAreas ? "grid" : "group";
     }, [role, items.length, useNamedAreas]);
 
+    // Get active grid configuration for the current state
+    const activeGridConfig = getActiveGridConfig();
+
+    // Initialize optimized hooks for better performance
+    const validateAreaPlacement = useAreaValidation(getAllDefinedAreas(), activeGridConfig);
+    const detectSemanticElement = useSemanticElementDetection(validateCSSIdentifier);
+    const buildItemStyles = useItemStyleBuilder(
+        enableBreakpoints,
+        buildItemCSSVariables,
+        getActiveItemPlacement,
+        validateAreaPlacement,
+        useNamedAreas
+    );
+    const buildAriaAttributes = useAriaAttributesBuilder(
+        containerRole,
+        useNamedAreas,
+        enableVirtualization,
+        shouldVirtualize,
+        items.length
+    );
+
     /**
      * Render grid items
-     * Creates grid items with proper placement, styling, and responsive behavior
+     * Each GridItem is memoized internally to prevent unnecessary re-renders
      */
-    const renderGridItems = useCallback(() => {
-        const allDefinedAreas = getAllDefinedAreas();
-        const activeConfig = getActiveGridConfig();
+    const renderGridItems = items.map((item, index) => {
+        const runtimeItem = validateRuntimeGridItem(item);
 
-        return items.map((item, index) => {
-            const isVisible = !shouldVirtualize || visibleItems.has(index) || !isInitialized;
-            const runtimeItem = validateRuntimeGridItem(item);
-            const itemName = getItemVariableName(runtimeItem, index);
+        // Validate item placement (areas exist, span values are valid)
+        try {
+            validateItemPlacement(runtimeItem, index, getAllDefinedAreas());
+        } catch (error) {
+            if (error instanceof GridError) {
+                logGridError(error, `Item ${index} validation`);
+                // Continue rendering with invalid placement - it will be handled by area validation
+            }
+        }
 
-            // Build base styles
-            let itemStyles: CSSProperties = {};
+        const itemName = getItemVariableName(runtimeItem, index);
 
-            // Handle placement based on responsive settings
-            if (runtimeItem.enableResponsive && enableBreakpoints) {
-                // Responsive items use CSS variables
-                const itemCssVars = buildItemCSSVariables(runtimeItem);
-                itemStyles = {
-                    ...itemCssVars
-                } as CSSProperties;
-            } else {
-                // Non-responsive items get direct CSS properties
-                itemStyles = {
-                    justifySelf: runtimeItem.justifySelf !== "auto" ? runtimeItem.justifySelf : undefined,
-                    alignSelf: runtimeItem.alignSelf !== "auto" ? runtimeItem.alignSelf : undefined,
-                    zIndex: runtimeItem.zIndex || undefined
-                };
-                // Non-responsive items get direct CSS properties
-                let placement = getActiveItemPlacement(runtimeItem);
+        // Calculate visibility
+        const isVisible = !shouldVirtualize || visibleItems.has(index) || !isInitialized;
 
-                // Validate area placement
-                if (placement.placementType === "area" && placement.gridArea) {
-                    // Check if area exists in current configuration
-                    const currentAreas = activeConfig.areas ? parseGridAreas(activeConfig.areas) : null;
-                    const currentAreaNames = currentAreas
-                        ? new Set(currentAreas.flat().filter(a => a !== "."))
-                        : new Set<string>();
+        // Check if hidden at current breakpoint
+        const isHidden = (() => {
+            if (!runtimeItem.enableResponsive || !enableBreakpoints) {
+                return false;
+            }
 
-                    if (!currentAreaNames.has(placement.gridArea) && !allDefinedAreas.has(placement.gridArea)) {
-                        // Area doesn't exist, fall back to auto
-                        placement = {
-                            placementType: "auto",
-                            gridArea: undefined,
-                            columnStart: undefined,
-                            columnEnd: undefined,
-                            rowStart: undefined,
-                            rowEnd: undefined
-                        };
-                        console.warn(
-                            `Item ${index + 1}: Grid area "${
-                                runtimeItem.gridArea
-                            }" is not defined in current configuration`
-                        );
+            // Check if hidden at current breakpoint
+            const hiddenKey = `${activeBreakpointSize}Hidden` as keyof RuntimeGridItem;
+            return runtimeItem[hiddenKey] === true;
+        })();
+
+        // Build item styles using optimized hook
+        const itemStyles = buildItemStyles(runtimeItem, index);
+
+        // Build item classes
+        const itemClasses: string[] = [CSS_CLASSES.GRID_ITEM];
+
+        // Add base placement class when responsive
+        if (runtimeItem.enableResponsive && enableBreakpoints) {
+            // Base placement class
+            itemClasses.push(`${CSS_CLASSES.GRID_ITEM}--placement-${runtimeItem.placementType}`);
+
+            // Add responsive placement classes for each enabled breakpoint
+            forEachEnabledItemBreakpoint(runtimeItem, (config, getProperty, _getNormalizedProperty) => {
+                const placementType = (getProperty("PlacementType") as string) || runtimeItem.placementType;
+                itemClasses.push(`${CSS_CLASSES.GRID_ITEM}--${config.size}-placement-${placementType}`);
+            });
+
+            // Check for alignment overrides (including disabled breakpoints for styling purposes)
+            forEachEnabledItemBreakpoint(
+                runtimeItem,
+                (config, getProperty, _getNormalizedProperty) => {
+                    const justifySelf = getProperty("JustifySelf") as string;
+                    const alignSelf = getProperty("AlignSelf") as string;
+                    const zIndex = getProperty("ZIndex") as number | null;
+
+                    if (justifySelf !== "auto" || alignSelf !== "auto" || zIndex !== null) {
+                        itemClasses.push(`${CSS_CLASSES.GRID_ITEM}--has-${config.size}-alignment`);
                     }
-                }
-
-                itemStyles = {
-                    ...itemStyles,
-                    ...getGridItemPlacement(placement, useNamedAreas)
-                };
-            }
-
-            // Build item classes
-            const itemClasses = ["css-grid__item"];
-
-            // Add base placement class when responsive
-            if (runtimeItem.enableResponsive && enableBreakpoints) {
-                // Base placement class
-                itemClasses.push(`css-grid__item--placement-${runtimeItem.placementType}`);
-
-                // Add responsive placement classes for each enabled breakpoint
-                forEachEnabledItemBreakpoint(runtimeItem, (config, getProperty, _getNormalizedProperty) => {
-                    const placementType = (getProperty("PlacementType") as string) || runtimeItem.placementType;
-                    itemClasses.push(`css-grid__item--${config.size}-placement-${placementType}`);
-                });
-
-                // Check for alignment overrides (including disabled breakpoints for styling purposes)
-                forEachEnabledItemBreakpoint(
-                    runtimeItem,
-                    (config, getProperty, _getNormalizedProperty) => {
-                        const justifySelf = getProperty("JustifySelf") as string;
-                        const alignSelf = getProperty("AlignSelf") as string;
-                        const zIndex = getProperty("ZIndex") as number | null;
-
-                        if (justifySelf !== "auto" || alignSelf !== "auto" || zIndex !== null) {
-                            itemClasses.push(`css-grid__item--has-${config.size}-alignment`);
-                        }
-                    },
-                    { includeDisabled: true }
-                );
-            }
-
-            // Add hidden classes for breakpoints
-            if (runtimeItem.enableResponsive && enableBreakpoints) {
-                forEachBreakpoint(runtimeItem, (config, getProperty) => {
-                    const isHidden = getProperty("Hidden");
-                    if (isHidden) {
-                        itemClasses.push(`css-grid__item--hidden-${config.size}`);
-                    }
-                });
-            }
-
-            if (runtimeItem.className) {
-                itemClasses.push(runtimeItem.className);
-            }
-
-            const dynamicClass = runtimeItem.dynamicClass?.value;
-            if (dynamicClass) {
-                itemClasses.push(...dynamicClass.split(" ").filter(Boolean));
-            }
-
-            // Render placeholder for non-visible virtualized items
-            if (shouldVirtualize && !isVisible) {
-                return (
-                    <div
-                        key={`grid-item-${index}`}
-                        data-grid-index={index}
-                        className={`${itemClasses.join(" ")} css-grid__item--placeholder`}
-                        style={itemStyles}
-                        aria-hidden="true"
-                    />
-                );
-            }
-
-            // ARIA attributes
-            const itemAriaAttrs: Record<string, string | number | undefined> = {};
-
-            // Always provide an accessible label
-            const accessibleLabel = getItemAccessibleLabel(runtimeItem, index);
-            itemAriaAttrs["aria-label"] = accessibleLabel;
-
-            // Determine the semantic element first to check implicit roles
-            const semanticElement = (() => {
-                if (runtimeItem.renderAs && runtimeItem.renderAs !== "auto" && runtimeItem.renderAs !== "div") {
-                    return runtimeItem.renderAs;
-                }
-                if (runtimeItem.renderAs === "auto") {
-                    const rawAreaName = runtimeItem.gridArea || runtimeItem.itemName || "";
-                    const areaName = validateCSSIdentifier(rawAreaName.toLowerCase().trim());
-                    const semanticMappings: Record<string, string> = {
-                        header: "header",
-                        nav: "nav",
-                        navigation: "nav",
-                        main: "main",
-                        content: "main",
-                        aside: "aside",
-                        sidebar: "aside",
-                        footer: "footer",
-                        article: "article",
-                        section: "section"
-                    };
-                    return semanticMappings[areaName] || "div";
-                }
-                return runtimeItem.renderAs || "div";
-            })();
-
-            // Elements with implicit ARIA roles that we shouldn't override
-            const elementsWithImplicitRoles = ["main", "nav", "header", "footer", "article", "aside"];
-
-            // Only set role if the semantic element doesn't have an implicit role
-            if (!elementsWithImplicitRoles.includes(semanticElement)) {
-                if (runtimeItem.placementType === "area" && runtimeItem.gridArea && useNamedAreas) {
-                    itemAriaAttrs.role = "region";
-                } else if (containerRole === "grid") {
-                    itemAriaAttrs.role = "gridcell";
-                }
-            }
-
-            // For virtualized grids, add position information
-            if (enableVirtualization && shouldVirtualize && containerRole === "grid") {
-                itemAriaAttrs["aria-setsize"] = items.length;
-                itemAriaAttrs["aria-posinset"] = index + 1;
-            }
-
-            const hasResponsive = runtimeItem.enableResponsive || false;
-
-            return createElement(
-                semanticElement,
-                {
-                    key: `grid-item-${index}`,
-                    "data-grid-index": index,
-                    "data-grid-item": itemName,
-                    "data-placement": getPlacementInfo(runtimeItem),
-                    "data-responsive": hasResponsive,
-                    className: itemClasses.join(" "),
-                    style: itemStyles,
-                    ...itemAriaAttrs
                 },
-                runtimeItem.content
+                { includeDisabled: true }
             );
-        });
-    }, [
-        items,
-        visibleItems,
-        shouldVirtualize,
-        isInitialized,
-        enableBreakpoints,
-        useNamedAreas,
-        getAllDefinedAreas,
-        getActiveGridConfig,
-        getActiveItemPlacement,
-        getItemVariableName,
-        buildItemCSSVariables,
-        getPlacementInfo,
-        getItemAccessibleLabel,
-        enableVirtualization,
-        containerRole
-    ]);
+        }
+
+        // Add hidden classes for breakpoints
+        if (runtimeItem.enableResponsive && enableBreakpoints) {
+            forEachBreakpoint(runtimeItem, (config, getProperty) => {
+                const isHiddenAtBreakpoint = getProperty("Hidden");
+                if (isHiddenAtBreakpoint) {
+                    itemClasses.push(`${CSS_CLASSES.GRID_ITEM}--hidden-${config.size}`);
+                }
+            });
+        }
+
+        if (runtimeItem.className) {
+            itemClasses.push(runtimeItem.className);
+        }
+
+        const dynamicClass = runtimeItem.dynamicClass?.value;
+        if (dynamicClass) {
+            itemClasses.push(...dynamicClass.split(" ").filter(Boolean));
+        }
+
+        // For placeholder items in virtualization
+        if (shouldVirtualize && !isVisible) {
+            itemClasses.push(CSS_CLASSES.GRID_ITEM_PLACEHOLDER);
+        }
+
+        // Always provide an accessible label
+        const accessibleLabel = getItemAccessibleLabel(runtimeItem, index);
+
+        // Determine the semantic element using optimized hook
+        const semanticElement = detectSemanticElement(runtimeItem);
+
+        // Build ARIA attributes using optimized hook
+        const itemAriaAttrs = buildAriaAttributes(runtimeItem, index, semanticElement, accessibleLabel);
+
+        const placementInfo = getPlacementInfo(runtimeItem);
+        const className = itemClasses.join(" ");
+
+        // Use the memoized GridItem component
+        return (
+            <GridItem
+                key={`grid-item-${index}`}
+                item={runtimeItem}
+                index={index}
+                isVisible={isVisible}
+                isHidden={isHidden}
+                itemName={itemName}
+                placementInfo={placementInfo}
+                className={className}
+                styles={itemStyles}
+                ariaAttributes={itemAriaAttrs}
+                onRender={isDebugEnabled ? trackItemRender : undefined}
+            />
+        );
+    });
 
     /**
      * Container class names
      * Builds the complete class list for the grid container
      */
     const containerClassName = useMemo(() => {
-        const classes = ["css-grid", `css-grid--${activeBreakpointSize}`, className];
+        const classes = [CSS_CLASSES.GRID, `${CSS_CLASSES.GRID}--${activeBreakpointSize}`, className];
 
         // Add responsive modifier if enabled
         if (enableBreakpoints) {
-            classes.push("css-grid--responsive");
+            classes.push(`${CSS_CLASSES.GRID}--responsive`);
 
             // Add enabled breakpoint classes using helper
             forEachEnabledBreakpoint(runtimeProps, config => {
-                classes.push(`css-grid--has-${config.size}`);
+                classes.push(`${CSS_CLASSES.GRID}--has-${config.size}`);
             });
         }
 
@@ -1332,8 +1352,13 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                     if (targetIndex !== currentIndex) {
                         ensureItemVisible(targetIndex);
 
+                        // Clear any existing navigation timeout
+                        if (keyboardNavigationTimeoutRef.current) {
+                            window.clearTimeout(keyboardNavigationTimeoutRef.current);
+                        }
+
                         // Focus the first interactive element within the target grid item
-                        setTimeout(() => {
+                        keyboardNavigationTimeoutRef.current = window.setTimeout(() => {
                             const targetItem = containerRef.current?.querySelector(
                                 `[data-grid-index="${targetIndex}"]`
                             );
@@ -1345,6 +1370,7 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
                                     firstFocusable.focus();
                                 }
                             }
+                            keyboardNavigationTimeoutRef.current = null;
                         }, LAYOUT.KEYBOARD_FOCUS_DELAY);
 
                         event.preventDefault();
@@ -1425,20 +1451,41 @@ export function CSSGrid(props: CSSGridContainerProps): ReactElement {
     }, [ariaLabel, useNamedAreas, containerRole, getActiveGridConfig, gridDimensions, items.length]);
 
     return (
-        <div
-            ref={containerRef}
-            className={containerClassName}
-            style={containerStyles}
-            role={containerRole}
-            aria-label={enhancedAriaLabel}
-            aria-labelledby={ariaLabelledBy}
-            aria-describedby={ariaDescribedBy}
-            onKeyDown={handleKeyDown}
-            {...containerDataAttributes}
-        >
-            {renderGridItems()}
-        </div>
+        <Fragment>
+            <div
+                ref={containerRef}
+                className={containerClassName}
+                style={containerStyles}
+                role={containerRole}
+                aria-label={enhancedAriaLabel}
+                aria-labelledby={ariaLabelledBy}
+                aria-describedby={ariaDescribedBy}
+                onKeyDown={handleKeyDown}
+                {...containerDataAttributes}
+            >
+                {renderGridItems}
+            </div>
+        </Fragment>
     );
 }
 
-CSSGrid.displayName = "CSSGrid";
+CSSGridComponent.displayName = "CSSGrid";
+
+// Wrap with error boundary for production safety
+const CSSGridWithErrorBoundary = memo((props: CSSGridContainerProps) => {
+    const handleError = useCallback((error: Error, errorInfo: ErrorInfo) => {
+        logGridError(error, "Grid component error boundary", {
+            componentStack: errorInfo.componentStack
+        });
+    }, []);
+
+    return (
+        <GridErrorBoundary onError={handleError} gridName={props.name || "CSS Grid"}>
+            <CSSGridComponent {...props} />
+        </GridErrorBoundary>
+    );
+});
+
+CSSGridWithErrorBoundary.displayName = "CSSGrid";
+
+export const CSSGrid = CSSGridWithErrorBoundary;

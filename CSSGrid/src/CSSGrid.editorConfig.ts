@@ -764,9 +764,11 @@ export const check: CheckFunction = values => {
 
         for (let i = 0; i < trimmed.length; i++) {
             const char = trimmed[i];
-            if (char === "(") inParens++;
-            else if (char === ")") inParens--;
-            else if (char === " " && inParens === 0) {
+            if (char === "(") {
+                inParens++;
+            } else if (char === ")") {
+                inParens--;
+            } else if (char === " " && inParens === 0) {
                 if (!lastWasSpace) {
                     columnCount++;
                 }
@@ -777,7 +779,7 @@ export const check: CheckFunction = values => {
         }
 
         if (columnCount > 12) {
-            /*errors.push({
+            /* errors.push({
                 property: "gridTemplateColumns",
                 severity: "warning",
                 message:
@@ -1022,7 +1024,7 @@ export const check: CheckFunction = values => {
 
         placementResults.forEach(result => {
             if (result.error) {
-                /*const basePropKey = result.error.includes("Grid Area")
+                /* const basePropKey = result.error.includes("Grid Area")
                     ? "gridArea"
                     : result.error.includes("column start")
                     ? "columnStart"
@@ -1034,20 +1036,20 @@ export const check: CheckFunction = values => {
                     ? "rowEnd"
                     : "placementType";
                 */
-                /*errors.push({
+                /* errors.push({
                     property: `items/${index}/${basePropKey}`,
                     severity: result.severity || "error",
                     message: result.error
                 })*/
             } else if (result.warning) {
-                /*errors.push({
+                /* errors.push({
                     property: `items/${index}/gridArea`,
                     severity: "warning",
                     message: result.warning
                 })*/
             } else if (result.info) {
                 // Info messages don't have a specific property, so we'll attach to the item's placement type
-                /*errors.push({
+                /* errors.push({
                     property: `items/${index}/placementType`,
                     severity: "warning",
                     message: result.info

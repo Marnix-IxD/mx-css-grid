@@ -2170,6 +2170,21 @@ Values: numbers (-999 to 999) or keywords (auto, initial, inherit, unset)
                 Display the responsive information bar showing active breakpoints and hidden items count
             </description>
         </property>
+        <property key="debugMode" type="boolean" defaultValue="false">
+            <caption>Track performance</caption>
+            <category>Debug Runtime</category>
+            <description>Enable performance tracking and debugging features for optimization</description>
+        </property>
+        <property key="logToConsole" type="boolean" defaultValue="true">
+            <caption>Log to Console</caption>
+            <category>Debug Runtime</category>
+            <description>Output performance metrics to browser console</description>
+        </property>
+        <property key="trackItemRenders" type="boolean" defaultValue="false">
+            <caption>Track Individual Item Renders</caption>
+            <category>Debug Runtime</category>
+            <description>Monitor render count for each grid item (may impact performance)</description>
+        </property>
 
         <!-- Accessibility Properties -->
         <property key="ariaLabel" type="string" required="false">
