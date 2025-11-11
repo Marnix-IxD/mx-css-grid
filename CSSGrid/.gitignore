@@ -20,3 +20,7 @@ mendixProject
 **/screenshot-results
 **/tests/testProject
 **/artifacts
+
+# Code review reports
+CSS_GRID_CODE_REVIEW_*.md
+*_CODE_REVIEW.md
